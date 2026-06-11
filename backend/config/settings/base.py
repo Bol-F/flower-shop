@@ -10,6 +10,7 @@ env = environ.Env(
     CORS_ALLOWED_ORIGINS=(list, ['http://localhost:3000']),
     DB_HOST=(str, 'localhost'),
     DB_PORT=(str, '5432'),
+    REDIS_URL=(str, 'redis://127.0.0.1:6379/0'),
 )
 
 environ.Env.read_env(BASE_DIR / '.env')
@@ -17,6 +18,7 @@ environ.Env.read_env(BASE_DIR / '.env')
 SECRET_KEY = env('SECRET_KEY')
 
 INSTALLED_APPS = [
+    'daphne',  # must be before django.contrib.staticfiles
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -28,12 +30,16 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'django_filters',
+    'channels',
+    'django_celery_beat',
+    'django_celery_results',
     # Local apps
     'apps.users',
     'apps.categories',
     'apps.products',
     'apps.cart',
     'apps.orders',
+    'apps.contact',
 ]
 
 MIDDLEWARE = [
@@ -66,6 +72,35 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
+
+# ── Django Channels ────────────────────────────────────────────────────────────
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [env('REDIS_URL')],
+        },
+    },
+}
+
+# ── Celery ─────────────────────────────────────────────────────────────────────
+CELERY_BROKER_URL = env('REDIS_URL')
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_CACHE_BACKEND = 'django-cache'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+# ── Celery Beat ────────────────────────────────────────────────────────────────
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BEAT_SCHEDULE = {
+    'daily-unread-messages-summary': {
+        'task': 'apps.contact.tasks.unread_messages_daily_summary',
+        'schedule': 86400,  # every 24 hours
+    },
+}
 
 DATABASES = {
     'default': {
