@@ -11,6 +11,7 @@ env = environ.Env(
     DB_HOST=(str, 'localhost'),
     DB_PORT=(str, '5432'),
     REDIS_URL=(str, 'redis://127.0.0.1:6379/0'),
+    PEXELS_API_KEY=(str, ''),
 )
 
 environ.Env.read_env(BASE_DIR / '.env')
