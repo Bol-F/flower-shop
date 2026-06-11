@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { updateProfile } from '../api/auth';
 import { extractErrorMessage } from '../utils/helpers';
@@ -6,6 +7,7 @@ import Button from '../components/common/Button';
 import ErrorMessage from '../components/common/ErrorMessage';
 
 function ProfilePage() {
+  const { t } = useTranslation();
   const { user, refreshUser } = useAuth();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -47,7 +49,7 @@ function ProfilePage() {
           fontSize: '2.2rem',
           marginBottom: '32px',
         }}>
-          My Profile
+          {t('profile.title')}
         </h1>
 
         <div style={{
@@ -77,7 +79,7 @@ function ProfilePage() {
               <p style={{ color: '#757575' }}>{user?.email}</p>
               {user?.is_staff && (
                 <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600' }}>
-                  Admin
+                  {t('profile.admin')}
                 </span>
               )}
             </div>
@@ -85,7 +87,7 @@ function ProfilePage() {
 
           {success && (
             <div style={{ background: '#e8f5e9', color: '#2e7d32', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px' }}>
-              ✓ Profile updated successfully!
+              {t('profile.updated')}
             </div>
           )}
           {error && <ErrorMessage message={error} />}
@@ -93,30 +95,30 @@ function ProfilePage() {
           {editing ? (
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Username</label>
+                <label>{t('profile.username')}</label>
                 <input name="username" value={form.username} onChange={handleChange} className="form-control" />
               </div>
               <div className="form-group">
-                <label>Phone</label>
+                <label>{t('profile.phone')}</label>
                 <input name="phone" type="tel" value={form.phone} onChange={handleChange} className="form-control" placeholder="+1 (555) 123-4567" />
               </div>
               <div className="form-group">
-                <label>Address</label>
-                <textarea name="address" value={form.address} onChange={handleChange} className="form-control" rows={3} placeholder="Your delivery address" />
+                <label>{t('profile.address')}</label>
+                <textarea name="address" value={form.address} onChange={handleChange} className="form-control" rows={3} placeholder={t('profile.addressPlaceholder')} />
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
-                <Button type="submit" loading={saving}>Save Changes</Button>
-                <Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
+                <Button type="submit" loading={saving}>{t('profile.save')}</Button>
+                <Button variant="secondary" onClick={() => setEditing(false)}>{t('profile.cancel')}</Button>
               </div>
             </form>
           ) : (
             <div>
-              <InfoRow label="Email" value={user?.email} />
-              <InfoRow label="Phone" value={user?.phone || 'Not set'} />
-              <InfoRow label="Address" value={user?.address || 'Not set'} />
-              <InfoRow label="Member since" value={new Date(user?.date_joined).toLocaleDateString()} />
+              <InfoRow label={t('profile.email')} value={user?.email} />
+              <InfoRow label={t('profile.phone')} value={user?.phone || t('profile.notSet')} />
+              <InfoRow label={t('profile.address')} value={user?.address || t('profile.notSet')} />
+              <InfoRow label={t('profile.memberSince')} value={new Date(user?.date_joined).toLocaleDateString()} />
               <Button onClick={() => setEditing(true)} style={{ marginTop: '16px' }}>
-                Edit Profile
+                {t('profile.edit')}
               </Button>
             </div>
           )}

@@ -1,10 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useCart } from '../../hooks/useCart';
 import { formatPrice } from '../../utils/helpers';
 import Button from '../common/Button';
 
 function CartSummary() {
+  const { t } = useTranslation();
   const { totalPrice, totalItems } = useCart();
   const navigate = useNavigate();
 
@@ -23,24 +25,24 @@ function CartSummary() {
         fontSize: '1.3rem',
         marginBottom: '20px',
       }}>
-        Order Summary
+        {t('summary.title')}
       </h3>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-        <SummaryRow label={`Items (${totalItems})`} value={formatPrice(totalPrice)} />
+        <SummaryRow label={t('summary.items', { count: totalItems })} value={formatPrice(totalPrice)} />
         <SummaryRow
-          label="Shipping"
-          value={shipping === 0 ? 'Free' : formatPrice(shipping)}
+          label={t('summary.shipping')}
+          value={shipping === 0 ? t('summary.free') : formatPrice(shipping)}
           valueStyle={{ color: shipping === 0 ? '#4caf50' : '#2d2d2d' }}
         />
         {shipping === 0 && (
           <p style={{ fontSize: '0.8rem', color: '#4caf50' }}>
-            🎉 You qualify for free shipping!
+            {t('summary.qualifyFree')}
           </p>
         )}
         {shipping > 0 && (
           <p style={{ fontSize: '0.8rem', color: '#757575' }}>
-            Add {formatPrice(50 - parseFloat(totalPrice))} more for free shipping
+            {t('summary.addMore', { amount: formatPrice(50 - parseFloat(totalPrice)) })}
           </p>
         )}
       </div>
@@ -51,7 +53,7 @@ function CartSummary() {
         marginBottom: '20px',
       }}>
         <SummaryRow
-          label="Total"
+          label={t('summary.total')}
           value={formatPrice(total)}
           bold
         />
@@ -61,7 +63,7 @@ function CartSummary() {
         fullWidth
         onClick={() => navigate('/checkout')}
       >
-        Proceed to Checkout →
+        {t('summary.checkout')}
       </Button>
     </div>
   );

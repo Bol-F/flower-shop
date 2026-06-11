@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { register } from '../api/auth';
 import { extractErrorMessage } from '../utils/helpers';
 import Button from '../components/common/Button';
 import ErrorMessage from '../components/common/ErrorMessage';
 
 function RegisterPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     username: '',
@@ -27,14 +29,14 @@ function RegisterPage() {
     setError(null);
 
     if (form.password !== form.password_confirm) {
-      setError('Passwords do not match.');
+      setError(t('register.passwordMismatch'));
       return;
     }
 
     setLoading(true);
     try {
       await register(form);
-      navigate('/login', { state: { message: 'Account created! Please sign in.' } });
+      navigate('/login', { state: { message: t('register.accountCreated') } });
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -66,9 +68,9 @@ function RegisterPage() {
             fontSize: '1.8rem',
             marginBottom: '8px',
           }}>
-            Create Account
+            {t('register.title')}
           </h1>
-          <p style={{ color: '#757575' }}>Join Bloom & Petal today</p>
+          <p style={{ color: '#757575' }}>{t('register.subtitle')}</p>
         </div>
 
         {error && <ErrorMessage message={error} />}
@@ -76,19 +78,19 @@ function RegisterPage() {
         <form onSubmit={handleSubmit} style={{ marginTop: error ? '20px' : 0 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
             <div className="form-group">
-              <label htmlFor="username">Username *</label>
+              <label htmlFor="username">{t('register.username')}</label>
               <input
                 id="username"
                 name="username"
                 value={form.username}
                 onChange={handleChange}
                 required
-                placeholder="flowerLover"
+                placeholder={t('register.usernamePlaceholder')}
                 className="form-control"
               />
             </div>
             <div className="form-group">
-              <label htmlFor="email">Email *</label>
+              <label htmlFor="email">{t('register.email')}</label>
               <input
                 id="email"
                 type="email"
@@ -103,7 +105,7 @@ function RegisterPage() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password *</label>
+            <label htmlFor="password">{t('register.password')}</label>
             <input
               id="password"
               type="password"
@@ -111,13 +113,13 @@ function RegisterPage() {
               value={form.password}
               onChange={handleChange}
               required
-              placeholder="Min. 8 characters"
+              placeholder={t('register.passwordPlaceholder')}
               className="form-control"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="password_confirm">Confirm Password *</label>
+            <label htmlFor="password_confirm">{t('register.confirmPassword')}</label>
             <input
               id="password_confirm"
               type="password"
@@ -125,13 +127,13 @@ function RegisterPage() {
               value={form.password_confirm}
               onChange={handleChange}
               required
-              placeholder="Repeat your password"
+              placeholder={t('register.confirmPlaceholder')}
               className="form-control"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="phone">Phone (Optional)</label>
+            <label htmlFor="phone">{t('register.phone')}</label>
             <input
               id="phone"
               type="tel"
@@ -144,14 +146,14 @@ function RegisterPage() {
           </div>
 
           <Button type="submit" fullWidth loading={loading} size="large" style={{ marginTop: '8px' }}>
-            Create Account
+            {t('register.submit')}
           </Button>
         </form>
 
         <p style={{ textAlign: 'center', marginTop: '24px', color: '#757575' }}>
-          Already have an account?{' '}
+          {t('register.haveAccount')}{' '}
           <Link to="/login" style={{ color: '#e91e8c', fontWeight: '600' }}>
-            Sign In
+            {t('register.signIn')}
           </Link>
         </p>
       </div>

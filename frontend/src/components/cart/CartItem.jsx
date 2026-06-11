@@ -1,8 +1,10 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useCart } from '../../hooks/useCart';
 import { formatPrice, getImageUrl } from '../../utils/helpers';
 
 function CartItem({ item }) {
+  const { t } = useTranslation();
   const { updateItem, removeItem } = useCart();
 
   const handleQuantityChange = async (newQty) => {
@@ -56,7 +58,7 @@ function CartItem({ item }) {
           {item.product.name}
         </h4>
         <p style={{ color: '#e91e8c', fontWeight: '600' }}>
-          {formatPrice(item.product.price)} each
+          {t('cart.each', { price: formatPrice(item.product.price) })}
         </p>
       </div>
 
@@ -97,7 +99,7 @@ function CartItem({ item }) {
           cursor: 'pointer',
           padding: '4px',
         }}
-        title="Remove item"
+        title={t('cart.remove')}
       >
         🗑️
       </button>

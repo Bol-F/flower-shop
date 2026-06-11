@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useCart } from '../hooks/useCart';
 import CartItem from '../components/cart/CartItem';
 import CartSummary from '../components/cart/CartSummary';
@@ -7,9 +8,10 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
 
 function CartPage() {
+  const { t } = useTranslation();
   const { cart, loading, emptyCart } = useCart();
 
-  if (loading) return <LoadingSpinner message="Loading cart..." />;
+  if (loading) return <LoadingSpinner message={t('cart.loading')} />;
 
   const items = cart?.items || [];
 
@@ -21,10 +23,10 @@ function CartPage() {
           fontSize: '2.2rem',
           marginBottom: '32px',
         }}>
-          Your Cart
+          {t('cart.title')}
           {items.length > 0 && (
             <span style={{ fontSize: '1rem', color: '#757575', fontFamily: 'Inter, sans-serif', marginLeft: '12px' }}>
-              ({items.length} {items.length === 1 ? 'item' : 'items'})
+              ({t('common.itemCount', { count: items.length })})
             </span>
           )}
         </h1>
@@ -32,10 +34,10 @@ function CartPage() {
         {items.length === 0 ? (
           <div className="empty-state">
             <div style={{ fontSize: '5rem', marginBottom: '20px' }}>🛒</div>
-            <h3>Your cart is empty</h3>
-            <p style={{ marginBottom: '32px' }}>Add some beautiful flowers to get started!</p>
+            <h3>{t('cart.empty')}</h3>
+            <p style={{ marginBottom: '32px' }}>{t('cart.emptyHint')}</p>
             <Link to="/products">
-              <Button>Browse Flowers</Button>
+              <Button>{t('cart.browse')}</Button>
             </Link>
           </div>
         ) : (
@@ -57,7 +59,7 @@ function CartPage() {
                   onClick={emptyCart}
                   style={{ color: '#f44336', fontSize: '0.875rem' }}
                 >
-                  Clear Cart
+                  {t('cart.clear')}
                 </Button>
               </div>
             </div>

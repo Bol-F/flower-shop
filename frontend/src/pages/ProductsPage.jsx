@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useProducts } from '../hooks/useProducts';
 import ProductGrid from '../components/products/ProductGrid';
 import ProductFilter from '../components/products/ProductFilter';
 
 function ProductsPage() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState({
     category: searchParams.get('category') || '',
@@ -29,10 +31,10 @@ function ProductsPage() {
             fontSize: '2.5rem',
             color: '#2d2d2d',
           }}>
-            Our Flowers
+            {t('products.title')}
           </h1>
           <p style={{ color: '#757575' }}>
-            {loading ? 'Loading...' : `${count} arrangements available`}
+            {loading ? t('common.loading') : t('products.available', { count })}
           </p>
         </div>
 

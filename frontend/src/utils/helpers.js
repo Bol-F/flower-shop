@@ -1,8 +1,10 @@
+import i18n from '../i18n';
+
 export const formatPrice = (price) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price);
 
 export const formatDate = (dateString) =>
-  new Date(dateString).toLocaleDateString('en-US', {
+  new Date(dateString).toLocaleDateString(i18n.language || 'en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -28,7 +30,7 @@ export const getStatusColor = (status) => {
 
 export const extractErrorMessage = (error) => {
   const data = error?.response?.data;
-  if (!data) return 'Something went wrong. Please try again.';
+  if (!data) return i18n.t('common.genericError');
   if (typeof data === 'string') return data;
   if (data.detail) return data.detail;
   const firstKey = Object.keys(data)[0];
@@ -36,5 +38,5 @@ export const extractErrorMessage = (error) => {
     const msg = data[firstKey];
     return Array.isArray(msg) ? msg[0] : msg;
   }
-  return 'Something went wrong.';
+  return i18n.t('common.genericError');
 };

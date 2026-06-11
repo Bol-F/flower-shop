@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { extractErrorMessage } from '../utils/helpers';
 import Button from '../components/common/Button';
 import ErrorMessage from '../components/common/ErrorMessage';
 
 function LoginPage() {
+  const { t } = useTranslation();
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -57,16 +59,16 @@ function LoginPage() {
             fontSize: '1.8rem',
             marginBottom: '8px',
           }}>
-            Welcome Back
+            {t('login.welcome')}
           </h1>
-          <p style={{ color: '#757575' }}>Sign in to your Bloom & Petal account</p>
+          <p style={{ color: '#757575' }}>{t('login.subtitle')}</p>
         </div>
 
         {error && <ErrorMessage message={error} />}
 
         <form onSubmit={handleSubmit} style={{ marginTop: error ? '20px' : 0 }}>
           <div className="form-group">
-            <label htmlFor="email">Email Address</label>
+            <label htmlFor="email">{t('login.email')}</label>
             <input
               id="email"
               type="email"
@@ -81,7 +83,7 @@ function LoginPage() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">{t('login.password')}</label>
             <input
               id="password"
               type="password"
@@ -96,14 +98,14 @@ function LoginPage() {
           </div>
 
           <Button type="submit" fullWidth loading={loading} size="large" style={{ marginTop: '8px' }}>
-            Sign In
+            {t('login.signIn')}
           </Button>
         </form>
 
         <p style={{ textAlign: 'center', marginTop: '24px', color: '#757575' }}>
-          Don't have an account?{' '}
+          {t('login.noAccount')}{' '}
           <Link to="/register" style={{ color: '#e91e8c', fontWeight: '600' }}>
-            Sign Up
+            {t('login.signUp')}
           </Link>
         </p>
       </div>

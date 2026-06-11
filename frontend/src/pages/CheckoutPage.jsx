@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { createOrder } from '../api/orders';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
@@ -8,6 +9,7 @@ import Button from '../components/common/Button';
 import ErrorMessage from '../components/common/ErrorMessage';
 
 function CheckoutPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { cart, refreshCart } = useCart();
   const { user } = useAuth();
@@ -51,7 +53,7 @@ function CheckoutPage() {
           fontSize: '2.2rem',
           marginBottom: '32px',
         }}>
-          Checkout
+          {t('checkout.title')}
         </h1>
 
         <div style={{
@@ -68,14 +70,14 @@ function CheckoutPage() {
             boxShadow: '0 2px 12px rgba(233,30,140,0.06)',
           }}>
             <h2 style={{ fontFamily: "'Playfair Display', serif", marginBottom: '24px' }}>
-              Delivery Details
+              {t('checkout.deliveryDetails')}
             </h2>
 
             {error && <ErrorMessage message={error} />}
 
             <form onSubmit={handleSubmit} style={{ marginTop: '20px' }}>
               <div className="form-group">
-                <label htmlFor="shipping_address">Delivery Address *</label>
+                <label htmlFor="shipping_address">{t('checkout.address')}</label>
                 <textarea
                   id="shipping_address"
                   name="shipping_address"
@@ -83,13 +85,13 @@ function CheckoutPage() {
                   onChange={handleChange}
                   required
                   rows={3}
-                  placeholder="Enter your full delivery address"
+                  placeholder={t('checkout.addressPlaceholder')}
                   className="form-control"
                 />
               </div>
 
               <div className="form-group">
-                <label htmlFor="phone">Phone Number *</label>
+                <label htmlFor="phone">{t('checkout.phone')}</label>
                 <input
                   id="phone"
                   type="tel"
@@ -103,20 +105,20 @@ function CheckoutPage() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="notes">Delivery Notes (Optional)</label>
+                <label htmlFor="notes">{t('checkout.notes')}</label>
                 <textarea
                   id="notes"
                   name="notes"
                   value={form.notes}
                   onChange={handleChange}
                   rows={2}
-                  placeholder="Any special instructions for delivery..."
+                  placeholder={t('checkout.notesPlaceholder')}
                   className="form-control"
                 />
               </div>
 
               <Button type="submit" fullWidth loading={submitting} size="large">
-                Place Order — {formatPrice(total)}
+                {t('checkout.placeOrder', { total: formatPrice(total) })}
               </Button>
             </form>
           </div>
@@ -131,7 +133,7 @@ function CheckoutPage() {
             top: '90px',
           }}>
             <h2 style={{ fontFamily: "'Playfair Display', serif", marginBottom: '20px' }}>
-              Your Order
+              {t('checkout.yourOrder')}
             </h2>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
@@ -145,17 +147,17 @@ function CheckoutPage() {
 
             <div style={{ borderTop: '1px solid #f0e0e6', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                <span>Subtotal</span>
+                <span>{t('checkout.subtotal')}</span>
                 <span>{formatPrice(cart?.total_price || 0)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                <span>Shipping</span>
+                <span>{t('checkout.shipping')}</span>
                 <span style={{ color: shipping === 0 ? '#4caf50' : '#2d2d2d' }}>
-                  {shipping === 0 ? 'Free' : formatPrice(shipping)}
+                  {shipping === 0 ? t('checkout.free') : formatPrice(shipping)}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1.1rem', marginTop: '8px' }}>
-                <span>Total</span>
+                <span>{t('checkout.total')}</span>
                 <span style={{ color: '#e91e8c' }}>{formatPrice(total)}</span>
               </div>
             </div>

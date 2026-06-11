@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getProducts } from '../api/products';
 import { getCategories } from '../api/categories';
 import ProductGrid from '../components/products/ProductGrid';
 
 function HomePage() {
+  const { t } = useTranslation();
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +31,7 @@ function HomePage() {
       }}>
         <div className="container">
           <p style={{ color: '#e91e8c', fontWeight: '600', letterSpacing: '2px', fontSize: '0.85rem', marginBottom: '16px' }}>
-            FRESH DAILY • HANDCRAFTED • DELIVERED WITH LOVE
+            {t('home.kicker')}
           </p>
           <h1 style={{
             fontFamily: "'Playfair Display', serif",
@@ -38,11 +40,11 @@ function HomePage() {
             marginBottom: '24px',
             lineHeight: '1.1',
           }}>
-            Beautiful Flowers<br />
-            <span style={{ color: '#e91e8c' }}>For Every Moment</span>
+            {t('home.titleLine1')}<br />
+            <span style={{ color: '#e91e8c' }}>{t('home.titleLine2')}</span>
           </h1>
           <p style={{ fontSize: '1.1rem', color: '#757575', marginBottom: '40px', maxWidth: '500px', margin: '0 auto 40px' }}>
-            From romantic roses to cheerful sunflowers — we deliver fresh bouquets straight to your door.
+            {t('home.subtitle')}
           </p>
           <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link to="/products" style={{
@@ -54,7 +56,7 @@ function HomePage() {
               fontSize: '1rem',
               boxShadow: '0 4px 20px rgba(233,30,140,0.3)',
             }}>
-              Shop Now
+              {t('home.shopNow')}
             </Link>
             <Link to="/products" style={{
               background: '#fff',
@@ -65,7 +67,7 @@ function HomePage() {
               fontSize: '1rem',
               border: '2px solid #e91e8c',
             }}>
-              View Collections
+              {t('home.viewCollections')}
             </Link>
           </div>
         </div>
@@ -81,15 +83,15 @@ function HomePage() {
             textAlign: 'center',
           }}>
             {[
-              { icon: '🌹', title: 'Fresh Flowers', desc: 'Hand-selected daily from local growers' },
-              { icon: '🚚', title: 'Same Day Delivery', desc: 'Order by 2pm for same-day arrival' },
-              { icon: '💐', title: 'Custom Bouquets', desc: 'Tell us your vision, we make it happen' },
-              { icon: '♻️', title: 'Eco Friendly', desc: 'Sustainable packaging, zero waste' },
+              { icon: '🌹', key: 'fresh' },
+              { icon: '🚚', key: 'delivery' },
+              { icon: '💐', key: 'custom' },
+              { icon: '♻️', key: 'eco' },
             ].map((feat) => (
-              <div key={feat.title} style={{ padding: '20px' }}>
+              <div key={feat.key} style={{ padding: '20px' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>{feat.icon}</div>
-                <h3 style={{ fontFamily: "'Playfair Display', serif", marginBottom: '8px' }}>{feat.title}</h3>
-                <p style={{ color: '#757575', fontSize: '0.9rem' }}>{feat.desc}</p>
+                <h3 style={{ fontFamily: "'Playfair Display', serif", marginBottom: '8px' }}>{t(`home.features.${feat.key}.title`)}</h3>
+                <p style={{ color: '#757575', fontSize: '0.9rem' }}>{t(`home.features.${feat.key}.desc`)}</p>
               </div>
             ))}
           </div>
@@ -100,8 +102,8 @@ function HomePage() {
       {categories.length > 0 && (
         <section style={{ padding: '60px 0' }}>
           <div className="container">
-            <h2 className="section-title" style={{ textAlign: 'center' }}>Shop by Category</h2>
-            <p className="section-subtitle" style={{ textAlign: 'center' }}>Find the perfect flowers for any occasion</p>
+            <h2 className="section-title" style={{ textAlign: 'center' }}>{t('home.shopByCategory')}</h2>
+            <p className="section-subtitle" style={{ textAlign: 'center' }}>{t('home.categorySubtitle')}</p>
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -122,7 +124,7 @@ function HomePage() {
                 >
                   <div style={{ fontSize: '3rem', marginBottom: '12px' }}>🌷</div>
                   <h3 style={{ fontFamily: "'Playfair Display', serif", marginBottom: '4px' }}>{cat.name}</h3>
-                  <p style={{ color: '#e91e8c', fontSize: '0.85rem' }}>{cat.product_count} items</p>
+                  <p style={{ color: '#e91e8c', fontSize: '0.85rem' }}>{t('common.itemCount', { count: cat.product_count })}</p>
                 </Link>
               ))}
             </div>
@@ -134,10 +136,10 @@ function HomePage() {
       <section style={{ background: '#fff', padding: '60px 0' }}>
         <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <h2 className="section-title">Featured Bouquets</h2>
-            <Link to="/products" style={{ color: '#e91e8c', fontWeight: '600' }}>View All →</Link>
+            <h2 className="section-title">{t('home.featuredBouquets')}</h2>
+            <Link to="/products" style={{ color: '#e91e8c', fontWeight: '600' }}>{t('home.viewAll')}</Link>
           </div>
-          <p className="section-subtitle">Our most loved arrangements, freshly made</p>
+          <p className="section-subtitle">{t('home.featuredSubtitle')}</p>
           <ProductGrid products={featuredProducts} loading={loading} />
         </div>
       </section>
@@ -151,10 +153,10 @@ function HomePage() {
       }}>
         <div className="container">
           <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '2.2rem', marginBottom: '16px' }}>
-            Ready to Brighten Someone's Day?
+            {t('home.ctaTitle')}
           </h2>
           <p style={{ marginBottom: '32px', opacity: 0.9, fontSize: '1.05rem' }}>
-            Free delivery on orders over $50
+            {t('home.ctaSubtitle')}
           </p>
           <Link to="/products" style={{
             background: '#fff',
@@ -164,7 +166,7 @@ function HomePage() {
             fontWeight: '700',
             fontSize: '1rem',
           }}>
-            Order Now
+            {t('home.orderNow')}
           </Link>
         </div>
       </section>

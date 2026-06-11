@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getOrders } from '../api/orders';
 import { formatPrice, formatDate, getStatusColor } from '../utils/helpers';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 function OrderHistoryPage() {
+  const { t } = useTranslation();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
@@ -16,7 +18,7 @@ function OrderHistoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <LoadingSpinner message="Loading orders..." />;
+  if (loading) return <LoadingSpinner message={t('orders.loading')} />;
 
   return (
     <div className="page-wrapper">
@@ -26,7 +28,7 @@ function OrderHistoryPage() {
           fontSize: '2.2rem',
           marginBottom: '32px',
         }}>
-          Order History
+          {t('orders.title')}
         </h1>
 
         {justOrdered && (
@@ -38,15 +40,15 @@ function OrderHistoryPage() {
             marginBottom: '24px',
             fontSize: '1rem',
           }}>
-            🎉 Order placed successfully! We'll start preparing your flowers right away.
+            {t('orders.placedSuccess')}
           </div>
         )}
 
         {orders.length === 0 ? (
           <div className="empty-state">
             <div style={{ fontSize: '4rem', marginBottom: '16px' }}>📦</div>
-            <h3>No orders yet</h3>
-            <p style={{ marginBottom: '24px' }}>Your order history will appear here.</p>
+            <h3>{t('orders.noOrders')}</h3>
+            <p style={{ marginBottom: '24px' }}>{t('orders.willAppear')}</p>
             <Link to="/products" style={{
               background: 'linear-gradient(135deg, #e91e8c, #c2185b)',
               color: '#fff',
@@ -54,7 +56,7 @@ function OrderHistoryPage() {
               borderRadius: '8px',
               fontWeight: '600',
             }}>
-              Start Shopping
+              {t('orders.startShopping')}
             </Link>
           </div>
         ) : (
@@ -70,6 +72,7 @@ function OrderHistoryPage() {
 }
 
 function OrderCard({ order }) {
+  const { t } = useTranslation();
   const statusColor = getStatusColor(order.status);
   const badgeColors = {
     success: { bg: '#e8f5e9', text: '#2e7d32' },
@@ -95,10 +98,10 @@ function OrderCard({ order }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <p style={{ color: '#757575', fontSize: '0.85rem', marginBottom: '4px' }}>
-              Order #{order.id} • {formatDate(order.created_at)}
+              {t('orders.orderMeta', { id: order.id, date: formatDate(order.created_at) })}
             </p>
             <p style={{ fontWeight: '600', fontSize: '1.1rem' }}>
-              {order.items?.length} {order.items?.length === 1 ? 'item' : 'items'}
+              {t('common.itemCount', { count: order.items?.length || 0 })}
             </p>
             <p style={{ color: '#757575', fontSize: '0.9rem', marginTop: '4px' }}>
               {order.shipping_address}

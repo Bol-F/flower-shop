@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getProducts, deleteProduct } from '../api/products';
 import { getOrders, updateOrderStatus } from '../api/orders';
 import { formatPrice, formatDate } from '../utils/helpers';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
-const TABS = ['Products', 'Orders'];
+const TABS = [
+  { key: 'Products', labelKey: 'admin.tabProducts' },
+  { key: 'Orders', labelKey: 'admin.tabOrders' },
+];
 
 function AdminDashboard() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('Products');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -26,7 +31,7 @@ function AdminDashboard() {
   }, []);
 
   const handleDeleteProduct = async (slug) => {
-    if (!window.confirm('Delete this product?')) return;
+    if (!window.confirm(t('admin.confirmDelete'))) return;
     await deleteProduct(slug);
     setProducts((prev) => prev.filter((p) => p.slug !== slug));
   };
@@ -38,7 +43,7 @@ function AdminDashboard() {
     );
   };
 
-  if (loading) return <LoadingSpinner message="Loading admin data..." />;
+  if (loading) return <LoadingSpinner message={t('admin.loading')} />;
 
   return (
     <div className="page-wrapper">
@@ -48,10 +53,10 @@ function AdminDashboard() {
           fontSize: '2.2rem',
           marginBottom: '8px',
         }}>
-          Admin Dashboard
+          {t('admin.title')}
         </h1>
         <p style={{ color: '#757575', marginBottom: '32px' }}>
-          Manage your products and orders
+          {t('admin.subtitle')}
         </p>
 
         {/* Stats */}
@@ -62,10 +67,10 @@ function AdminDashboard() {
           marginBottom: '36px',
         }}>
           {[
-            { label: 'Total Products', value: products.length, icon: '🌸' },
-            { label: 'Total Orders', value: orders.length, icon: '📦' },
-            { label: 'Pending Orders', value: orders.filter((o) => o.status === 'pending').length, icon: '⏳' },
-            { label: 'Revenue', value: formatPrice(orders.reduce((sum, o) => sum + parseFloat(o.total_price), 0)), icon: '💰' },
+            { label: t('admin.totalProducts'), value: products.length, icon: '🌸' },
+            { label: t('admin.totalOrders'), value: orders.length, icon: '📦' },
+            { label: t('admin.pendingOrders'), value: orders.filter((o) => o.status === 'pending').length, icon: '⏳' },
+            { label: t('admin.revenue'), value: formatPrice(orders.reduce((sum, o) => sum + parseFloat(o.total_price), 0)), icon: '💰' },
           ].map((stat) => (
             <div key={stat.label} style={{
               background: '#fff',
@@ -83,18 +88,18 @@ function AdminDashboard() {
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', background: '#f0e0e6', borderRadius: '10px', padding: '4px', width: 'fit-content' }}>
           {TABS.map((tab) => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
               padding: '10px 24px',
               borderRadius: '8px',
               border: 'none',
               fontFamily: 'inherit',
               fontWeight: '600',
               cursor: 'pointer',
-              background: activeTab === tab ? '#e91e8c' : 'transparent',
-              color: activeTab === tab ? '#fff' : '#e91e8c',
+              background: activeTab === tab.key ? '#e91e8c' : 'transparent',
+              color: activeTab === tab.key ? '#fff' : '#e91e8c',
               transition: 'all 0.2s',
             }}>
-              {tab}
+              {t(tab.labelKey)}
             </button>
           ))}
         </div>
@@ -105,7 +110,7 @@ function AdminDashboard() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead style={{ background: '#fff8f9' }}>
                 <tr>
-                  {['Product', 'Category', 'Price', 'Stock', 'Status', 'Actions'].map((h) => (
+                  {[t('admin.thProduct'), t('admin.thCategory'), t('admin.thPrice'), t('admin.thStock'), t('admin.thStatus'), t('admin.thActions')].map((h) => (
                     <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '0.85rem', color: '#757575', fontWeight: '600' }}>{h}</th>
                   ))}
                 </tr>
@@ -126,7 +131,7 @@ function AdminDashboard() {
                         fontSize: '0.78rem',
                         fontWeight: '600',
                       }}>
-                        {product.is_available ? 'Active' : 'Hidden'}
+                        {product.is_available ? t('admin.active') : t('admin.hidden')}
                       </span>
                     </td>
                     <td style={{ padding: '14px 16px' }}>
@@ -143,7 +148,7 @@ function AdminDashboard() {
                           fontFamily: 'inherit',
                         }}
                       >
-                        Delete
+                        {t('admin.delete')}
                       </button>
                     </td>
                   </tr>
@@ -159,7 +164,7 @@ function AdminDashboard() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead style={{ background: '#fff8f9' }}>
                 <tr>
-                  {['Order', 'Customer', 'Total', 'Date', 'Status', 'Update'].map((h) => (
+                  {[t('admin.thOrder'), t('admin.thCustomer'), t('admin.thTotal'), t('admin.thDate'), t('admin.thStatus'), t('admin.thUpdate')].map((h) => (
                     <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '0.85rem', color: '#757575', fontWeight: '600' }}>{h}</th>
                   ))}
                 </tr>
@@ -188,7 +193,7 @@ function AdminDashboard() {
                         }}
                       >
                         {['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map((s) => (
-                          <option key={s} value={s}>{s}</option>
+                          <option key={s} value={s}>{t(`status.${s}`)}</option>
                         ))}
                       </select>
                     </td>

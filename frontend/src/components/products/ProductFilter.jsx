@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getCategories } from '../../api/categories';
 
 function ProductFilter({ filters, onChange }) {
+  const { t } = useTranslation();
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
@@ -37,15 +39,15 @@ function ProductFilter({ filters, onChange }) {
         marginBottom: '20px',
         color: '#2d2d2d',
       }}>
-        Filter
+        {t('filter.title')}
       </h3>
 
       {/* Search */}
       <div style={{ marginBottom: '20px' }}>
-        <label style={labelStyle}>Search</label>
+        <label style={labelStyle}>{t('filter.search')}</label>
         <input
           type="text"
-          placeholder="Search flowers..."
+          placeholder={t('filter.searchPlaceholder')}
           value={filters.search || ''}
           onChange={(e) => handleChange('search', e.target.value)}
           style={inputStyle}
@@ -54,13 +56,13 @@ function ProductFilter({ filters, onChange }) {
 
       {/* Category */}
       <div style={{ marginBottom: '20px' }}>
-        <label style={labelStyle}>Category</label>
+        <label style={labelStyle}>{t('filter.category')}</label>
         <select
           value={filters.category || ''}
           onChange={(e) => handleChange('category', e.target.value)}
           style={inputStyle}
         >
-          <option value="">All Categories</option>
+          <option value="">{t('filter.allCategories')}</option>
           {categories.map((cat) => (
             <option key={cat.id} value={cat.slug}>{cat.name}</option>
           ))}
@@ -69,7 +71,7 @@ function ProductFilter({ filters, onChange }) {
 
       {/* Price Range */}
       <div style={{ marginBottom: '20px' }}>
-        <label style={labelStyle}>Min Price ($)</label>
+        <label style={labelStyle}>{t('filter.minPrice')}</label>
         <input
           type="number"
           placeholder="0"
@@ -81,10 +83,10 @@ function ProductFilter({ filters, onChange }) {
       </div>
 
       <div style={{ marginBottom: '20px' }}>
-        <label style={labelStyle}>Max Price ($)</label>
+        <label style={labelStyle}>{t('filter.maxPrice')}</label>
         <input
           type="number"
-          placeholder="Any"
+          placeholder={t('filter.any')}
           value={filters.max_price || ''}
           onChange={(e) => handleChange('max_price', e.target.value)}
           style={inputStyle}
@@ -94,16 +96,16 @@ function ProductFilter({ filters, onChange }) {
 
       {/* Sort */}
       <div style={{ marginBottom: '20px' }}>
-        <label style={labelStyle}>Sort By</label>
+        <label style={labelStyle}>{t('filter.sortBy')}</label>
         <select
           value={filters.ordering || ''}
           onChange={(e) => handleChange('ordering', e.target.value)}
           style={inputStyle}
         >
-          <option value="-created_at">Newest First</option>
-          <option value="price">Price: Low to High</option>
-          <option value="-price">Price: High to Low</option>
-          <option value="name">Name A-Z</option>
+          <option value="-created_at">{t('filter.newestFirst')}</option>
+          <option value="price">{t('filter.priceLowHigh')}</option>
+          <option value="-price">{t('filter.priceHighLow')}</option>
+          <option value="name">{t('filter.nameAZ')}</option>
         </select>
       </div>
 
@@ -122,7 +124,7 @@ function ProductFilter({ filters, onChange }) {
           fontFamily: 'inherit',
         }}
       >
-        Clear Filters
+        {t('filter.clear')}
       </button>
     </div>
   );

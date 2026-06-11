@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getProduct } from '../api/products';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
@@ -8,6 +9,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
 
 function ProductDetailPage() {
+  const { t } = useTranslation();
   const { slug } = useParams();
   const { addItem } = useCart();
   const { isAuthenticated } = useAuth();
@@ -32,22 +34,22 @@ function ProductDetailPage() {
     setAdding(true);
     try {
       await addItem(product.id, quantity);
-      setMessage({ type: 'success', text: `${product.name} added to cart!` });
+      setMessage({ type: 'success', text: t('product.addedToCart', { name: product.name }) });
     } catch {
-      setMessage({ type: 'error', text: 'Could not add to cart. Try again.' });
+      setMessage({ type: 'error', text: t('product.addError') });
     } finally {
       setAdding(false);
       setTimeout(() => setMessage(null), 3000);
     }
   };
 
-  if (loading) return <LoadingSpinner message="Loading product..." />;
+  if (loading) return <LoadingSpinner message={t('product.loading')} />;
   if (!product) return (
     <div className="page-wrapper">
       <div className="container empty-state">
         <div style={{ fontSize: '4rem', marginBottom: '16px' }}>🔍</div>
-        <h3>Product Not Found</h3>
-        <Link to="/products" style={{ color: '#e91e8c', fontWeight: '600' }}>← Back to Shop</Link>
+        <h3>{t('product.notFound')}</h3>
+        <Link to="/products" style={{ color: '#e91e8c', fontWeight: '600' }}>{t('product.backToShop')}</Link>
       </div>
     </div>
   );
@@ -57,9 +59,9 @@ function ProductDetailPage() {
       <div className="container">
         {/* Breadcrumb */}
         <div style={{ marginBottom: '32px', color: '#757575', fontSize: '0.9rem' }}>
-          <Link to="/" style={{ color: '#757575' }}>Home</Link>
+          <Link to="/" style={{ color: '#757575' }}>{t('product.home')}</Link>
           {' / '}
-          <Link to="/products" style={{ color: '#757575' }}>Shop</Link>
+          <Link to="/products" style={{ color: '#757575' }}>{t('nav.shop')}</Link>
           {' / '}
           <span style={{ color: '#2d2d2d' }}>{product.name}</span>
         </div>
@@ -120,11 +122,11 @@ function ProductDetailPage() {
             <div style={{ marginBottom: '24px' }}>
               {product.is_in_stock ? (
                 <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '6px 14px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600' }}>
-                  ✓ In Stock ({product.stock} left)
+                  {t('product.inStock', { count: product.stock })}
                 </span>
               ) : (
                 <span style={{ background: '#ffebee', color: '#c62828', padding: '6px 14px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600' }}>
-                  Out of Stock
+                  {t('product.outOfStock')}
                 </span>
               )}
             </div>
@@ -144,7 +146,7 @@ function ProductDetailPage() {
                   <button onClick={() => setQuantity(Math.min(product.stock, quantity + 1))} style={qtyBtnStyle}>+</button>
                 </div>
                 <Button onClick={handleAddToCart} loading={adding} style={{ flex: 1 }}>
-                  🛒 Add to Cart
+                  {t('product.addToCart')}
                 </Button>
               </div>
             )}
@@ -164,8 +166,8 @@ function ProductDetailPage() {
 
             {/* Perks */}
             <div style={{ borderTop: '1px solid #f0e0e6', paddingTop: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {['🚚 Free delivery on orders over $50', '🌿 Fresh, locally sourced flowers', '💝 Gift wrapping available'].map((perk) => (
-                <p key={perk} style={{ color: '#4a4a4a', fontSize: '0.9rem' }}>{perk}</p>
+              {['product.perkDelivery', 'product.perkFresh', 'product.perkGift'].map((perk) => (
+                <p key={perk} style={{ color: '#4a4a4a', fontSize: '0.9rem' }}>{t(perk)}</p>
               ))}
             </div>
           </div>

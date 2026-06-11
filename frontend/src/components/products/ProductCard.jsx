@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useCart } from '../../hooks/useCart';
 import { useAuth } from '../../hooks/useAuth';
 import { formatPrice, getImageUrl } from '../../utils/helpers';
 
 function ProductCard({ product }) {
+  const { t } = useTranslation();
   const { addItem } = useCart();
   const { isAuthenticated } = useAuth();
   const [adding, setAdding] = useState(false);
@@ -123,7 +125,7 @@ function ProductCard({ product }) {
                 fontFamily: 'inherit',
               }}
             >
-              {added ? '✓ Added' : adding ? '...' : !product.is_in_stock ? 'Out of Stock' : 'Add to Cart'}
+              {added ? t('card.added') : adding ? '...' : !product.is_in_stock ? t('card.outOfStock') : t('card.addToCart')}
             </button>
           </div>
         </div>

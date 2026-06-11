@@ -1,6 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
-function LoadingSpinner({ message = 'Loading...' }) {
+function LoadingSpinner({ message }) {
+  const { t } = useTranslation();
   return (
     <div style={{
       display: 'flex',
@@ -18,7 +20,7 @@ function LoadingSpinner({ message = 'Loading...' }) {
         borderRadius: '50%',
         animation: 'spin 0.8s linear infinite',
       }} />
-      <p style={{ color: '#757575', fontSize: '0.95rem' }}>{message}</p>
+      <p style={{ color: '#757575', fontSize: '0.95rem' }}>{message || t('common.loading')}</p>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
