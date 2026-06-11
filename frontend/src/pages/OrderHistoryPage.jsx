@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useParams, useLocation } from 'react-router-dom';
-import { getOrders, getOrder } from '../api/orders';
+import { Link, useLocation } from 'react-router-dom';
+import { getOrders } from '../api/orders';
 import { formatPrice, formatDate, getStatusColor } from '../utils/helpers';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 

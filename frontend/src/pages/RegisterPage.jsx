@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register } from '../api/auth';
-import { useAuth } from '../hooks/useAuth';
-import { setTokens } from '../utils/storage';
 import { extractErrorMessage } from '../utils/helpers';
 import Button from '../components/common/Button';
 import ErrorMessage from '../components/common/ErrorMessage';
 
 function RegisterPage() {
-  const { refreshUser } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     username: '',

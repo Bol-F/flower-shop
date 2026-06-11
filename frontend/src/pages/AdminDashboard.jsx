@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { getProducts, deleteProduct } from '../api/products';
-import { getCategories } from '../api/categories';
 import { getOrders, updateOrderStatus } from '../api/orders';
 import { formatPrice, formatDate } from '../utils/helpers';
 import LoadingSpinner from '../components/common/LoadingSpinner';
