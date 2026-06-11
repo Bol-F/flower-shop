@@ -14,6 +14,9 @@ channels==4.0.0
 channels-redis==4.1.0
 daphne==4.0.0
 
+# HTTP client (used by download_flower_images command)
+requests==2.31.0
+
 # Task queue
 celery==5.3.6
 redis==5.0.1

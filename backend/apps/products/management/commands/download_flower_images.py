@@ -1,14 +1,8 @@
 """
 Management command: python manage.py download_flower_images
 
-Downloads real, high-quality flower photos from Pexels and saves them
-to media/products/<slug>.jpg, then links each to its Product record.
-
-Setup (one-time, free):
-  1. Go to https://www.pexels.com/api/
-  2. Click "Get Started" — sign up, it's free
-  3. Copy your API key
-  4. Add  PEXELS_API_KEY=your_key_here  to backend/.env
+Downloads real flower photos from Wikimedia Commons (public domain, free, no API key).
+Searches the Commons API for each product, picks the best image, downloads at 900 px.
 """
 import os
 import time
@@ -16,151 +10,220 @@ import requests
 from django.core.management.base import BaseCommand
 from django.conf import settings
 
-PEXELS_SEARCH = 'https://api.pexels.com/v1/search'
+COMMONS_API = 'https://commons.wikimedia.org/w/api.php'
+USER_AGENT  = 'FlowerShopProject/1.0 (educational; non-commercial)'
 
-# ── Carefully chosen queries for natural, sharp photos ───────────────────────
-FLOWER_QUERIES = {
-    # Roses
-    'crimson-velvet-rose':       'deep red rose closeup',
-    'champagne-garden-rose':     'champagne blush garden rose',
-    'midnight-blue-rose':        'dark purple blue rose',
-    'pink-whisper-spray-rose':   'pink spray rose bunch',
-    'eternal-white-rose':        'white rose glass dome preserved',
-    # Tulips
-    'parrot-tulip-fiesta':       'parrot tulip colorful',
-    'double-dutch-peach-tulip':  'peach tulip double bloom',
-    'queen-of-night-tulip':      'dark maroon black tulip',
-    'rainbow-spring-mix':        'colorful tulip field mixed',
-    # Sunflowers
-    'giant-helianthus':          'giant sunflower closeup',
-    'teddy-bear-sunflower':      'fluffy double sunflower',
-    'autumn-rust-sunflower':     'rust orange sunflower autumn',
-    # Exotic
-    'bird-of-paradise':          'bird of paradise tropical flower',
-    'purple-vanda-orchid':       'purple vanda orchid',
-    'king-protea':               'king protea south africa flower',
-    'red-anthurium':             'red anthurium tropical flower',
-    'heliconia-lobster-claw':    'heliconia lobster claw tropical',
-    # Seasonal
-    'cherry-blossom-branch':     'cherry blossom branch sakura',
-    'lavender-dreams-bundle':    'lavender bundle purple field',
-    'blush-peony-cloud':         'pink peony closeup bloom',
-    'ranunculus-sunrise':        'ranunculus coral peach flower',
-    # Bouquets
-    'romance-in-red':            'red roses romantic bouquet',
-    'garden-sunshine-bouquet':   'sunflower mixed bouquet bright',
-    'pastel-paradise':           'pastel flowers bouquet spring',
-    'eternal-love-premium':      'luxury flower arrangement roses lilies',
-    # Wildflowers
-    'blue-cornflower-bundle':    'blue cornflower wildflower',
-    'dried-pampas-plume':        'pampas grass dried plume',
-    'meadow-magic-mix':          'wildflower meadow mixed bouquet',
+# ── Per-product: preferred known filename  +  fallback search query ───────────
+FLOWER_MAP = {
+    'crimson-velvet-rose': (
+        'Red_rose.jpg',
+        'red rose flower closeup macro'),
+    'champagne-garden-rose': (
+        'Rose_Amber_Flush_20070601.jpg',
+        'rose cultivar cream'),
+    'midnight-blue-rose': (
+        'Blue_Rose_(3931263892).jpg',
+        'purple blue rose flower'),
+    'pink-whisper-spray-rose': (
+        'Pink_roses_-_Flickr_-_maticsteve.jpg',
+        'pink spray rose cluster'),
+    'eternal-white-rose': (
+        'White_rose.jpg',
+        'white rose single closeup'),
+    'parrot-tulip-fiesta': (
+        'Tulipa_Estella_Rijnveld_2.jpg',
+        'parrot tulip'),
+    'double-dutch-peach-tulip': (
+        'Tulipa_-_double_pink_(aka).jpg',
+        'peach double tulip bloom'),
+    'queen-of-night-tulip': (
+        'Tulipa_-_Queen_of_Night.jpg',
+        'Queen of Night dark tulip'),
+    'rainbow-spring-mix': (
+        'Keukenhof_tulips.jpg',
+        'Keukenhof tulips'),
+    'giant-helianthus': (
+        'Sunflower_from_Silesia2.jpg',
+        'sunflower closeup large bloom'),
+    'teddy-bear-sunflower': (
+        'Helianthus_annuus_3.jpg',
+        'sunflower fluffy double bloom'),
+    'autumn-rust-sunflower': (
+        'Sunflower_Helianthus_annuus_Prado_Red.jpg',
+        'sunflower red'),
+    'bird-of-paradise': (
+        'Bird_of_Paradise_(Strelitzia_Reginae).jpg',
+        'strelitzia bird of paradise orange tropical'),
+    'purple-vanda-orchid': (
+        'Vanda_coerulea.jpg',
+        'Vanda coerulea'),
+    'king-protea': (
+        'Protea_cynaroides_2.jpg',
+        'Protea cynaroides'),
+    'red-anthurium': (
+        'Anthurium_andraeanum.jpg',
+        'Anthurium andraeanum'),
+    'heliconia-lobster-claw': (
+        'Heliconia_rostrata_1.jpg',
+        'heliconia lobster claw tropical red yellow'),
+    'cherry-blossom-branch': (
+        'Cherry_blossoms_in_Vancouver_3_crop.jpg',
+        'cherry blossom sakura branch pink'),
+    'lavender-dreams-bundle': (
+        'Lavandula_angustifolia_Blütenstand.jpg',
+        'lavender purple flower field'),
+    'blush-peony-cloud': (
+        'Pink_Peony_Flower_and_unopened_bud.jpg',
+        'pink peony full bloom closeup'),
+    'ranunculus-sunrise': (
+        'Ranunculus_asiaticus_1.jpg',
+        'Ranunculus asiaticus'),
+    'romance-in-red': (
+        'Bouquet_de_roses_roses.jpg',
+        'red roses bouquet'),
+    'garden-sunshine-bouquet': (
+        'Sunflowers_in_a_vase.jpg',
+        'sunflower bouquet bright yellow vase'),
+    'pastel-paradise': (
+        'Pink_flower_bouquet.jpg',
+        'pink flower bouquet'),
+    'eternal-love-premium': (
+        'Flower_arrangement_-_geograph.org.uk.jpg',
+        'flower arrangement'),
+    'blue-cornflower-bundle': (
+        'Centaurea_cyanus_-_Cornflower_-_Bleuet.jpg',
+        'blue cornflower wildflower bouquet'),
+    'dried-pampas-plume': (
+        'Cortaderia_selloana_Pampas_grass.jpg',
+        'pampas grass dried feathery plume'),
+    'meadow-magic-mix': (
+        'Wildflower_meadow.jpg',
+        'wildflower meadow mixed colourful'),
 }
 
 
-def fetch_photo_url(query, api_key):
-    """Return the best square-ish photo URL from Pexels for a given query."""
-    headers = {'Authorization': api_key}
-    params = {
-        'query': query,
-        'per_page': 3,
-        'orientation': 'square',
-    }
-    resp = requests.get(PEXELS_SEARCH, headers=headers, params=params, timeout=15)
-    resp.raise_for_status()
-    photos = resp.json().get('photos', [])
-    if not photos:
-        return None
-    # Prefer the largest square crop available
-    return photos[0]['src'].get('large2x') or photos[0]['src']['large']
+def search_commons(query, limit=8):
+    """Return the first JPEG/PNG filename found for a query."""
+    r = requests.get(COMMONS_API, timeout=15, headers={'User-Agent': USER_AGENT},
+                     params={
+                         'action': 'query',
+                         'list': 'search',
+                         'srsearch': query,
+                         'srnamespace': 6,
+                         'srlimit': limit,
+                         'format': 'json',
+                     })
+    r.raise_for_status()
+    for item in r.json().get('query', {}).get('search', []):
+        title = item['title']
+        if any(title.lower().endswith(ext) for ext in ('.jpg', '.jpeg', '.png')):
+            return title.replace('File:', '', 1)
+    return None
 
 
-def download_image(url, dest_path):
-    resp = requests.get(url, timeout=30, stream=True)
-    resp.raise_for_status()
-    with open(dest_path, 'wb') as f:
-        for chunk in resp.iter_content(chunk_size=8192):
-            f.write(chunk)
+def get_thumb_url(filename, width=900):
+    """Resolve a Commons filename to a resized thumbnail URL."""
+    r = requests.get(COMMONS_API, timeout=15, headers={'User-Agent': USER_AGENT},
+                     params={
+                         'action': 'query',
+                         'titles': f'File:{filename}',
+                         'prop': 'imageinfo',
+                         'iiprop': 'url',
+                         'iiurlwidth': width,
+                         'format': 'json',
+                     })
+    r.raise_for_status()
+    for page in r.json().get('query', {}).get('pages', {}).values():
+        infos = page.get('imageinfo', [])
+        if infos:
+            return infos[0].get('thumburl') or infos[0].get('url')
+    return None
+
+
+def save_image(url, path, retries=4):
+    for attempt in range(retries):
+        try:
+            r = requests.get(url, timeout=45, stream=True,
+                             headers={'User-Agent': USER_AGENT})
+            if r.status_code == 429:
+                retry_after = int(r.headers.get('Retry-After', 0) or 0)
+                time.sleep(max(retry_after, 15 * (attempt + 1)))
+                continue
+            r.raise_for_status()
+            with open(path, 'wb') as f:
+                for chunk in r.iter_content(8192):
+                    f.write(chunk)
+            return
+        except requests.RequestException:
+            if attempt == retries - 1:
+                raise
+            time.sleep(5 * (attempt + 1))
+    raise RuntimeError(f'still rate-limited after {retries} attempts: {url}')
 
 
 class Command(BaseCommand):
-    help = 'Download real flower photos from Pexels and attach them to products'
+    help = 'Download real flower photos from Wikimedia Commons (no API key needed)'
 
     def handle(self, *args, **options):
         from apps.products.models import Product
 
-        api_key = env_value('PEXELS_API_KEY')
-        if not api_key:
-            self.stderr.write(self.style.ERROR(
-                '\nPEXELS_API_KEY is not set.\n'
-                '\nGet a free key in 2 minutes:\n'
-                '  1. Go to  https://www.pexels.com/api/\n'
-                '  2. Sign up (free, no card)\n'
-                '  3. Copy your API key\n'
-                '  4. Add  PEXELS_API_KEY=your_key  to backend/.env\n'
-                '  5. Run this command again\n'
-            ))
-            return
-
-        dest_dir = os.path.join(settings.MEDIA_ROOT, 'products')
-        os.makedirs(dest_dir, exist_ok=True)
+        dest = os.path.join(settings.MEDIA_ROOT, 'products')
+        os.makedirs(dest, exist_ok=True)
 
         self.stdout.write(self.style.MIGRATE_HEADING(
-            f'Downloading {len(FLOWER_QUERIES)} flower photos from Pexels…\n'
+            f'\nDownloading {len(FLOWER_MAP)} flower photos from Wikimedia Commons…\n'
         ))
 
-        ok = skipped = failed = 0
+        ok = failed = 0
 
-        for slug, query in FLOWER_QUERIES.items():
+        for slug, (preferred_file, fallback_query) in FLOWER_MAP.items():
             try:
                 product = Product.objects.get(slug=slug)
             except Product.DoesNotExist:
-                self.stdout.write(f'  [{slug}] product not found — skip')
-                skipped += 1
+                self.stdout.write(f'  [{slug}] not found in DB — skip')
+                continue
+
+            dest_filename = f'{slug}.jpg'
+            dest_path = os.path.join(dest, dest_filename)
+
+            # Resume support: keep good files from a previous run
+            if os.path.exists(dest_path) and os.path.getsize(dest_path) > 10_000:
+                product.image = f'products/{dest_filename}'
+                product.save(update_fields=['image'])
+                ok += 1
+                self.stdout.write(f'  {product.name:<38} already on disk ✓')
                 continue
 
             try:
-                photo_url = fetch_photo_url(query, api_key)
-                if not photo_url:
+                thumb_url = get_thumb_url(preferred_file)
+
+                # Preferred file not found → search dynamically
+                if not thumb_url:
+                    filename = search_commons(fallback_query)
+                    if filename:
+                        thumb_url = get_thumb_url(filename)
+
+                if not thumb_url:
                     self.stdout.write(self.style.WARNING(
-                        f'  {product.name} — no photo found for "{query}"'
+                        f'  {product.name:<38} no image found'
                     ))
-                    skipped += 1
+                    failed += 1
                     continue
 
-                filename = f'{slug}.jpg'
-                filepath = os.path.join(dest_dir, filename)
-                download_image(photo_url, filepath)
-
-                product.image = f'products/{filename}'
+                save_image(thumb_url, dest_path)
+                product.image = f'products/{dest_filename}'
                 product.save(update_fields=['image'])
-
                 ok += 1
-                self.stdout.write(
-                    f'  {product.name:<35} {self.style.SUCCESS("✓")}'
-                )
+                self.stdout.write(f'  {product.name:<38} {self.style.SUCCESS("✓")}')
 
             except Exception as exc:
                 self.stdout.write(self.style.ERROR(
-                    f'  {product.name} — ERROR: {exc}'
+                    f'  {product.name:<38} ERROR: {exc}'
                 ))
                 failed += 1
 
-            # Pexels free tier: 200 req/hour — stay well within limits
-            time.sleep(0.4)
+            time.sleep(3)   # be polite to the API — avoid 429 rate limits
 
         self.stdout.write('\n' + self.style.SUCCESS(
-            f'Done — {ok} downloaded, {skipped} skipped, {failed} failed.'
+            f'Done — {ok} downloaded,  {failed} failed.'
         ))
-
-
-def env_value(key):
-    """Read a key from os.environ or django settings, returning None if absent."""
-    import environ
-    val = os.environ.get(key)
-    if val:
-        return val
-    try:
-        return getattr(settings, key)
-    except AttributeError:
-        return None
