@@ -12,7 +12,7 @@ A trilingual Django admin & REST API (products, cart, orders, support chat) pair
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-45_passing-success)
+[![CI](https://github.com/Bol-F/flower-shop/actions/workflows/ci.yml/badge.svg)](https://github.com/Bol-F/flower-shop/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 </div>
@@ -242,11 +242,23 @@ python manage.py download_flower_images
 
 For the Gulora frontend (Vercel / Netlify): it's a standard Next.js app on mock data — no env vars needed; Vercel auto-detects the framework from `frontend/package.json`.
 
+### 🔄 CI/CD
+
+Every push and pull request runs the GitHub Actions pipeline ([.github/workflows/ci.yml](.github/workflows/ci.yml)):
+
+- **Backend** — Python 3.12 (from `.python-version`) + PostgreSQL 15 + Redis 7: missing-migrations check, then the full pytest suite
+- **Frontend** — Node 22: ESLint, then a production `next build`
+
+Deploys are gated on CI by the platforms themselves:
+
+- **Backend** — Render's *Settings → Build & Deploy → Auto-Deploy* is set to **After CI Checks Pass**, so a push to `main` only deploys once every GitHub Actions job is green.
+- **Frontend** — Vercel's Git integration deploys `main` to production and gives every PR its own preview URL.
+
 ---
 
 ## 🧪 Tests
 
-45 tests across users, products, categories, cart, orders, contact, and admin i18n.
+53 tests across users, products, categories, cart, orders, contact, and admin i18n.
 
 ```bash
 cd backend
