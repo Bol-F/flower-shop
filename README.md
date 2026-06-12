@@ -202,6 +202,8 @@ English is the default everywhere. Russian and Uzbek are fully supported:
 
 The backend runs on any PaaS (Render, Railway, Fly) with a managed PostgreSQL (e.g. Supabase). Static files are served by WhiteNoise — no nginx needed.
 
+> 🐍 The repo pins **Python 3.12** via `.python-version` (Render reads it automatically; or set `PYTHON_VERSION=3.12.10` in the dashboard). The pinned dependencies are not compatible with Python 3.13/3.14.
+
 **Environment variables to set on the platform:**
 
 ```
