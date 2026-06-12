@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
+import SupportChat from './components/common/SupportChat';
 import AppRoutes from './routes/AppRoutes';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
               <AppRoutes />
             </main>
             <Footer />
+            <SupportChat />
           </div>
         </CartProvider>
       </AuthProvider>

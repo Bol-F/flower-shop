@@ -208,6 +208,18 @@
     "hidden": "Скрыт",
     "delete": "Удалить"
   },
+  "chat": {
+    "title": "Поддержка",
+    "subtitle": "Обычно отвечаем в течение пары часов",
+    "placeholder": "Напишите сообщение...",
+    "send": "Отправить",
+    "empty": "Сообщений пока нет. Чем можем помочь? 🌸",
+    "supportName": "Bloom & Petal",
+    "loginPrompt": "Войдите, чтобы написать в поддержку.",
+    "loginCta": "Войти",
+    "orTelegram": "или напишите нам в Telegram:",
+    "telegramTitle": "Напишите нам в Telegram"
+  },
   "status": {
     "pending": "В ожидании",
     "confirmed": "Подтверждён",

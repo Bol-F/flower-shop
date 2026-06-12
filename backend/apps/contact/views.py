@@ -1,7 +1,11 @@
 from django.utils import timezone
 from rest_framework import generics, permissions
 from .models import UserMessage
-from .serializers import UserMessageCreateSerializer, UserMessageAdminSerializer
+from .serializers import (
+    UserMessageCreateSerializer,
+    UserMessageOwnSerializer,
+    UserMessageAdminSerializer,
+)
 from .tasks import notify_admin_new_message
 
 
@@ -16,6 +20,15 @@ class SendMessageView(generics.CreateAPIView):
             notify_admin_new_message.delay(msg.id, self.request.user.email, msg.subject)
         except Exception:
             pass  # Don't break the request if Redis / Celery is down
+
+
+class MyMessagesView(generics.ListAPIView):
+    """Authenticated users see their own messages and any admin replies."""
+    serializer_class = UserMessageOwnSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return UserMessage.objects.filter(user=self.request.user)
 
 
 class AdminMessageListView(generics.ListAPIView):

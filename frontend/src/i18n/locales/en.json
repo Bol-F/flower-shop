@@ -206,6 +206,18 @@
     "hidden": "Hidden",
     "delete": "Delete"
   },
+  "chat": {
+    "title": "Support",
+    "subtitle": "We usually reply within a few hours",
+    "placeholder": "Type your message...",
+    "send": "Send",
+    "empty": "No messages yet. How can we help? 🌸",
+    "supportName": "Bloom & Petal",
+    "loginPrompt": "Sign in to chat with our support team.",
+    "loginCta": "Sign In",
+    "orTelegram": "or write to us on Telegram:",
+    "telegramTitle": "Write to us on Telegram"
+  },
   "status": {
     "pending": "Pending",
     "confirmed": "Confirmed",

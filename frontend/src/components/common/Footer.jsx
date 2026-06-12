@@ -55,7 +55,8 @@ function Footer() {
             <p style={{ fontSize: '0.9rem', lineHeight: '1.7' }}>
               📍 123 Flower Street<br />
               📞 +1 (555) 123-4567<br />
-              ✉️ hello@bloomandpetal.com
+              ✉️ hello@bloomandpetal.com<br />
+              ✈️ <a href="https://t.me/Bol_F" target="_blank" rel="noopener noreferrer" style={linkStyle}>@Bol_F</a>
             </p>
           </div>
         </div>

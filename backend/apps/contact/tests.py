@@ -64,6 +64,32 @@ class TestSendMessage:
 
 
 @pytest.mark.django_db
+class TestMyMessages:
+    def test_requires_auth(self, api_client):
+        response = api_client.get(reverse('contact-my-list'))
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_user_sees_only_own_messages(self, api_client, user, message):
+        other = User.objects.create_user(
+            username='other', email='other@example.com', password='pass123')
+        UserMessage.objects.create(user=other, subject='Not yours', body='Private')
+
+        api_client.force_authenticate(user=user)
+        response = api_client.get(reverse('contact-my-list'))
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['subject'] == message.subject
+
+    def test_includes_admin_reply(self, api_client, user, message):
+        message.admin_reply = 'We are sending a fresh bouquet.'
+        message.save(update_fields=['admin_reply'])
+
+        api_client.force_authenticate(user=user)
+        response = api_client.get(reverse('contact-my-list'))
+        assert response.data['results'][0]['admin_reply'] == message.admin_reply
+
+
+@pytest.mark.django_db
 class TestAdminMessages:
     def test_list_requires_admin(self, api_client, user, message):
         api_client.force_authenticate(user=user)
