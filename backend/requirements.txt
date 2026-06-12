@@ -1,10 +1,10 @@
-# setuptools provides pkg_resources, imported by simplejwt 5.3
-# (not bundled with Python 3.12+ environments)
-setuptools>=69
+# setuptools <81 still ships pkg_resources (removed in newer releases)
+setuptools>=69,<81
 Django==4.2.7
 whitenoise==6.6.0
 djangorestframework==3.14.0
-djangorestframework-simplejwt==5.3.0
+# 5.3.1 drops the pkg_resources import (Python 3.12+ compatibility)
+djangorestframework-simplejwt==5.3.1
 django-cors-headers==4.3.1
 django-filter==23.3
 psycopg2-binary==2.9.9
