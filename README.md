@@ -198,6 +198,51 @@ English is the default everywhere. Russian and Uzbek are fully supported:
 
 ---
 
+## 🚀 Deployment
+
+The backend runs on any PaaS (Render, Railway, Fly) with a managed PostgreSQL (e.g. Supabase). Static files are served by WhiteNoise — no nginx needed.
+
+**Environment variables to set on the platform:**
+
+```
+DJANGO_SETTINGS_MODULE=config.settings.production
+SECRET_KEY=<a long random string>
+DEBUG=False
+ALLOWED_HOSTS=your-backend.example.com
+DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DBNAME
+CORS_ALLOWED_ORIGINS=https://your-frontend.example.com
+CSRF_TRUSTED_ORIGINS=https://your-backend.example.com
+REDIS_URL=<only if you run Celery / Channels>
+```
+
+> ⚠️ `DJANGO_SETTINGS_MODULE` must be a real environment variable on the platform — putting it in `.env` has no effect, because Django chooses the settings module before `.env` is read.
+
+**Build command:**
+
+```bash
+pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+```
+
+**Start command** (Daphne serves both HTTP and WebSockets):
+
+```bash
+daphne -b 0.0.0.0 -p $PORT config.asgi:application
+```
+
+**First deploy:** seed the production database once —
+
+```bash
+python manage.py createsuperuser
+python manage.py seed_flowers
+python manage.py download_flower_images
+```
+
+> ⚠️ On most PaaS free tiers the filesystem is ephemeral — uploaded media (product photos) disappears on redeploy. Re-run `download_flower_images` after deploys, or move media to S3/Cloudinary for permanence.
+
+For the React frontend (Vercel / Netlify): set `REACT_APP_API_URL=https://your-backend.example.com/api` and build with `npm run build`.
+
+---
+
 ## 🧪 Tests
 
 45 tests across users, products, categories, cart, orders, contact, and admin i18n.
