@@ -1,5 +1,7 @@
 from django.utils import timezone
 from rest_framework import generics, permissions
+
+from apps.common.permissions import IsCustomer
 from .models import UserMessage
 from .serializers import (
     UserMessageCreateSerializer,
@@ -10,9 +12,9 @@ from .tasks import notify_admin_new_message
 
 
 class SendMessageView(generics.CreateAPIView):
-    """Authenticated users send a message to admin."""
+    """Customers send a message to support; staff answer from the dashboard."""
     serializer_class = UserMessageCreateSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsCustomer]
 
     def perform_create(self, serializer):
         msg = serializer.save(user=self.request.user)

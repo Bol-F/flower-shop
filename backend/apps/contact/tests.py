@@ -62,6 +62,14 @@ class TestSendMessage:
         response = api_client.post(url, {'subject': ''}, format='json')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_staff_cannot_write_to_support(self, api_client, admin_user):
+        api_client.force_authenticate(user=admin_user)
+        url = reverse('contact-send')
+        response = api_client.post(
+            url, {'subject': 'Hi', 'body': 'I am support myself'}, format='json')
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert UserMessage.objects.count() == 0
+
 
 @pytest.mark.django_db
 class TestMyMessages:

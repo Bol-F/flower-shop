@@ -17,3 +17,16 @@ class IsOwnerOrAdmin(BasePermission):
         if request.user and request.user.is_staff:
             return True
         return obj.user == request.user
+
+
+class IsCustomer(BasePermission):
+    """Authenticated non-staff users only — staff are support, not customers."""
+
+    message = 'Staff accounts reply from the admin dashboard, not the support chat.'
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and not request.user.is_staff
+        )

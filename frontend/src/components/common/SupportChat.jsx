@@ -9,7 +9,7 @@ const POLL_MS = 20000;
 
 function SupportChat() {
   const { t, i18n } = useTranslation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
@@ -61,6 +61,10 @@ function SupportChat() {
 
   const formatTime = (iso) =>
     new Date(iso).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
+
+  // Admins answer from the dashboard's Messages tab — they ARE support,
+  // so don't show them the customer chat.
+  if (isAdmin) return null;
 
   return (
     <>

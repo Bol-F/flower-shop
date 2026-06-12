@@ -8,6 +8,8 @@ env = environ.Env(
     DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, ['localhost', '127.0.0.1']),
     CORS_ALLOWED_ORIGINS=(list, ['http://localhost:3000']),
+    CSRF_TRUSTED_ORIGINS=(list, []),
+    DATABASE_URL=(str, ''),
     DB_HOST=(str, 'localhost'),
     DB_PORT=(str, '5432'),
     REDIS_URL=(str, 'redis://127.0.0.1:6379/0'),
@@ -104,16 +106,21 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME'),
-        'USER': env('DB_USER'),
-        'PASSWORD': env('DB_PASSWORD'),
-        'HOST': env('DB_HOST'),
-        'PORT': env('DB_PORT'),
+# Either a single DATABASE_URL (postgres://user:pass@host:port/name)
+# or the individual DB_* variables.
+if env('DATABASE_URL'):
+    DATABASES = {'default': env.db('DATABASE_URL')}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('DB_NAME'),
+            'USER': env('DB_USER'),
+            'PASSWORD': env('DB_PASSWORD'),
+            'HOST': env('DB_HOST'),
+            'PORT': env('DB_PORT'),
+        }
     }
-}
 
 AUTH_USER_MODEL = 'users.User'
 
@@ -171,3 +178,4 @@ SIMPLE_JWT = {
 }
 
 CORS_ALLOWED_ORIGINS = env('CORS_ALLOWED_ORIGINS')
+CSRF_TRUSTED_ORIGINS = env('CSRF_TRUSTED_ORIGINS')
