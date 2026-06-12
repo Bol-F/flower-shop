@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+/* ── Gulora design tokens ─────────────────────────────────────── */
+@theme {
+  /* palette: cream / rose / deep green / beige / coral / lavender */
+  --color-cream: #faf6ef;
+  --color-ivory: #fffdf9;
+  --color-blush: #f7e8e3;
+  --color-petal: #efcdc6;
+  --color-rose: #c96f7e;
+  --color-rosedeep: #a84d60;
+  --color-coral: #e2725b;
+  --color-coraldeep: #c75a45;
+  --color-pine: #2e4639;
+  --color-pinedeep: #22352b;
+  --color-moss: #57755f;
+  --color-sage: #a7bca1;
+  --color-beige: #eae0ce;
+  --color-sand: #d9cbb2;
+  --color-lavender: #b9a8d8;
+  --color-lilac: #e9e2f4;
+  --color-ink: #312f2a;
+  --color-fawn: #8c8273;
+
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-manrope);
+
+  --shadow-petal: 0 10px 40px -12px rgb(201 111 126 / 0.25);
+  --shadow-card: 0 4px 24px -8px rgb(49 47 42 / 0.10);
+
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-float-slow: float 11s ease-in-out infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-14px) rotate(6deg); }
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--color-petal);
+  color: var(--color-pinedeep);
+}
+
+/* hide horizontal scrollbars on chip rows while keeping them scrollable */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
