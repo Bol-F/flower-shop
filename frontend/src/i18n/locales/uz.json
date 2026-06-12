@@ -190,6 +190,7 @@
     "revenue": "Daromad",
     "tabProducts": "Mahsulotlar",
     "tabOrders": "Buyurtmalar",
+    "tabMessages": "Xabarlar",
     "confirmDelete": "Bu mahsulot o'chirilsinmi?",
     "thProduct": "Mahsulot",
     "thCategory": "Toifa",
@@ -205,6 +206,12 @@
     "active": "Faol",
     "hidden": "Yashirin",
     "delete": "O'chirish"
+  },
+  "adminChat": {
+    "empty": "Hozircha mijozlardan xabarlar yo'q",
+    "select": "Suhbatni tanlang",
+    "replyPlaceholder": "Javob yozing...",
+    "waitHint": "Javob yuborildi — mijoz yana yozganda javob bera olasiz"
   },
   "chat": {
     "title": "Yordam xizmati",

@@ -4,10 +4,12 @@ import { getProducts, deleteProduct } from '../api/products';
 import { getOrders, updateOrderStatus } from '../api/orders';
 import { formatPrice, formatDate } from '../utils/helpers';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import AdminMessages from '../components/admin/AdminMessages';
 
 const TABS = [
   { key: 'Products', labelKey: 'admin.tabProducts' },
   { key: 'Orders', labelKey: 'admin.tabOrders' },
+  { key: 'Messages', labelKey: 'admin.tabMessages' },
 ];
 
 function AdminDashboard() {
@@ -157,6 +159,9 @@ function AdminDashboard() {
             </table>
           </div>
         )}
+
+        {/* Support Messages */}
+        {activeTab === 'Messages' && <AdminMessages />}
 
         {/* Orders Table */}
         {activeTab === 'Orders' && (

@@ -190,6 +190,7 @@
     "revenue": "Revenue",
     "tabProducts": "Products",
     "tabOrders": "Orders",
+    "tabMessages": "Messages",
     "confirmDelete": "Delete this product?",
     "thProduct": "Product",
     "thCategory": "Category",
@@ -205,6 +206,12 @@
     "active": "Active",
     "hidden": "Hidden",
     "delete": "Delete"
+  },
+  "adminChat": {
+    "empty": "No messages from customers yet",
+    "select": "Select a conversation",
+    "replyPlaceholder": "Type a reply...",
+    "waitHint": "Replied — you can answer again when the customer writes back"
   },
   "chat": {
     "title": "Support",
