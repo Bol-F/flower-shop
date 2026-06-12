@@ -1,0 +1,221 @@
+# Uzbek translations for the Bloom & Petal admin.
+msgid ""
+msgstr ""
+"Project-Id-Version: flower-shop\n"
+"Language: uz\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: site branding
+msgid "Bloom & Petal administration"
+msgstr "Bloom & Petal boshqaruvi"
+
+msgid "Bloom & Petal admin"
+msgstr "Bloom & Petal admin"
+
+msgid "Dashboard"
+msgstr "Boshqaruv paneli"
+
+#: app names
+msgid "Users"
+msgstr "Foydalanuvchilar"
+
+msgid "Categories"
+msgstr "Toifalar"
+
+msgid "Products"
+msgstr "Mahsulotlar"
+
+msgid "Cart"
+msgstr "Savat"
+
+msgid "Orders"
+msgstr "Buyurtmalar"
+
+msgid "Contact"
+msgstr "Aloqa"
+
+#: shared field names
+msgid "name"
+msgstr "nomi"
+
+msgid "slug"
+msgstr "slug"
+
+msgid "description"
+msgstr "tavsif"
+
+msgid "price"
+msgstr "narx"
+
+msgid "category"
+msgstr "toifa"
+
+msgid "image"
+msgstr "rasm"
+
+msgid "stock"
+msgstr "zaxira"
+
+msgid "is available"
+msgstr "mavjud"
+
+msgid "created at"
+msgstr "yaratilgan vaqti"
+
+msgid "updated at"
+msgstr "yangilangan vaqti"
+
+msgid "user"
+msgstr "foydalanuvchi"
+
+msgid "status"
+msgstr "holat"
+
+msgid "total price"
+msgstr "umumiy narx"
+
+msgid "shipping address"
+msgstr "yetkazib berish manzili"
+
+msgid "phone"
+msgstr "telefon"
+
+msgid "notes"
+msgstr "izohlar"
+
+msgid "order"
+msgstr "buyurtma"
+
+msgid "product"
+msgstr "mahsulot"
+
+msgid "product name"
+msgstr "mahsulot nomi"
+
+msgid "product price"
+msgstr "mahsulot narxi"
+
+msgid "quantity"
+msgstr "miqdor"
+
+msgid "cart"
+msgstr "savat"
+
+msgid "email address"
+msgstr "elektron pochta manzili"
+
+msgid "address"
+msgstr "manzil"
+
+msgid "subject"
+msgstr "mavzu"
+
+msgid "message body"
+msgstr "xabar matni"
+
+msgid "is read"
+msgstr "o'qilgan"
+
+msgid "admin reply"
+msgstr "admin javobi"
+
+msgid "replied at"
+msgstr "javob vaqti"
+
+#: model verbose names
+msgid "Product"
+msgstr "Mahsulot"
+
+msgid "Category"
+msgstr "Toifa"
+
+msgid "Order"
+msgstr "Buyurtma"
+
+msgid "Order item"
+msgstr "Buyurtma elementi"
+
+msgid "Order items"
+msgstr "Buyurtma elementlari"
+
+msgid "Carts"
+msgstr "Savatlar"
+
+msgid "Cart item"
+msgstr "Savat elementi"
+
+msgid "Cart items"
+msgstr "Savat elementlari"
+
+msgid "User"
+msgstr "Foydalanuvchi"
+
+msgid "User message"
+msgstr "Foydalanuvchi xabari"
+
+msgid "User messages"
+msgstr "Foydalanuvchi xabarlari"
+
+#: order statuses
+msgid "Pending"
+msgstr "Kutilmoqda"
+
+msgid "Confirmed"
+msgstr "Tasdiqlangan"
+
+msgid "Processing"
+msgstr "Tayyorlanmoqda"
+
+msgid "Shipped"
+msgstr "Jo'natilgan"
+
+msgid "Delivered"
+msgstr "Yetkazilgan"
+
+msgid "Cancelled"
+msgstr "Bekor qilingan"
+
+#: admin labels
+msgid "Pricing & stock"
+msgstr "Narx va zaxira"
+
+msgid "Image"
+msgstr "Rasm"
+
+msgid "Preview"
+msgstr "Ko'rib chiqish"
+
+msgid "Timestamps"
+msgstr "Vaqt belgilari"
+
+msgid "Subtotal"
+msgstr "Oraliq jami"
+
+msgid "Delivery"
+msgstr "Yetkazib berish"
+
+msgid "Items"
+msgstr "Elementlar"
+
+msgid "Total items"
+msgstr "Jami mahsulotlar"
+
+msgid "Total price"
+msgstr "Jami narx"
+
+msgid "Extra info"
+msgstr "Qo'shimcha ma'lumot"
+
+msgid "Incoming message"
+msgstr "Kelgan xabar"
+
+msgid "Admin reply"
+msgstr "Admin javobi"
+
+msgid "From"
+msgstr "Kimdan"
+
+msgid "Replied"
+msgstr "Javob berilgan"

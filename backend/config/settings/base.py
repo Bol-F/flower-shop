@@ -47,6 +47,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -59,7 +60,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -123,10 +124,19 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'en-us'  # English is the default everywhere
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
+
+# Admin is served in these languages: /admin/ (English, default),
+# /ru/admin/ and /uz/admin/ via i18n_patterns in config.urls.
+LANGUAGES = [
+    ('en', 'English'),
+    ('ru', 'Русский'),
+    ('uz', 'Oʻzbekcha'),
+]
+LOCALE_PATHS = [BASE_DIR / 'locale']
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'

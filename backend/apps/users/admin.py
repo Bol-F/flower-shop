@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.utils.translation import gettext_lazy as _
 
 from .models import User
 
@@ -10,5 +11,5 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ('email', 'username')
     ordering = ('-date_joined',)
     fieldsets = BaseUserAdmin.fieldsets + (
-        ('Extra Info', {'fields': ('phone', 'address')}),
+        (_('Extra info'), {'fields': ('phone', 'address')}),
     )

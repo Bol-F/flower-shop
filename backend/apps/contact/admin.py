@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
+
 from .models import UserMessage
 
 
@@ -9,23 +11,22 @@ class UserMessageAdmin(admin.ModelAdmin):
     search_fields = ('user__email', 'user__username', 'subject', 'body')
     readonly_fields = ('user', 'subject', 'body', 'created_at', 'replied_at')
     ordering = ('-created_at',)
+    date_hierarchy = 'created_at'
     list_per_page = 25
 
     fieldsets = (
-        ('Incoming Message', {
+        (_('Incoming message'), {
             'fields': ('user', 'subject', 'body', 'created_at', 'is_read'),
         }),
-        ('Admin Reply', {
+        (_('Admin reply'), {
             'fields': ('admin_reply', 'replied_at'),
         }),
     )
 
+    @admin.display(description=_('From'), ordering='user__email')
     def user_email(self, obj):
         return obj.user.email
-    user_email.short_description = 'From'
-    user_email.admin_order_field = 'user__email'
 
+    @admin.display(description=_('Replied'), boolean=True)
     def has_reply(self, obj):
         return bool(obj.admin_reply)
-    has_reply.boolean = True
-    has_reply.short_description = 'Replied'
