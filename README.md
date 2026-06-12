@@ -1,311 +1,310 @@
-# Bloom & Petal — Flower Shop E-Commerce
+<div align="center">
 
-A full-stack flower delivery e-commerce application built with **Django REST Framework** and **React.js**.
+# 🌸 Bloom & Petal
+
+**Full-stack flower shop e-commerce — Django REST Framework + React**
+
+Fresh flowers, real product photos, JWT auth, server-synced cart, and a trilingual UI & admin (EN / RU / UZ).
+
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-4.2-092E20?logo=django&logoColor=white)
+![DRF](https://img.shields.io/badge/DRF-3.14-A30000?logo=django&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-45_passing-success)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
+</div>
 
 ---
 
-## Tech Stack
+## ✨ Features
+
+### 🛍️ Customer
+- Browse 28 flower products across 7 categories — **real photos** from Wikimedia Commons
+- Search, filter by category / price / availability, sort, pagination
+- **Three languages — English (default), Русский, Oʻzbekcha** — switchable from the navbar, remembered in localStorage
+- Registration & JWT login with automatic token refresh
+- Server-synced shopping cart: add, update quantity, remove, clear
+- Checkout with delivery details, free shipping over $50
+- Order history with live status badges
+- Profile editing, contact-the-shop messaging
+
+### 🛠️ Admin
+- **Trilingual Django admin**: `/admin/` (English), `/ru/admin/`, `/uz/admin/` + a language switcher in the header
+- Product list with photo thumbnails, inline price/stock editing, image preview
+- Orders with read-only item inlines, subtotals, and one-click status updates
+- Category product counts, customer messages with reply workflow
+- React admin dashboard at `/admin` (frontend) with revenue & order stats
+
+### ⚙️ Infrastructure
+- Celery + Celery Beat for background tasks (admin notifications, daily summaries)
+- Django Channels (ASGI via Daphne) ready for real-time features
+- Docker Compose for one-command startup
+- 45 pytest tests covering auth, products, cart, orders, categories, contact, and admin i18n
+
+---
+
+## 🧰 Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Backend | Python 3.12, Django 4.2, Django REST Framework 3.14 |
-| Frontend | React 18, React Router v6, Axios |
+| Backend | Python 3.12 · Django 4.2 · DRF 3.14 · SimpleJWT · django-filter |
+| Frontend | React 18 · React Router v6 · Axios · react-i18next |
 | Database | PostgreSQL 15 |
-| Authentication | JWT via `djangorestframework-simplejwt` |
-| Environment | `django-environ` |
-| Containerization | Docker + Docker Compose |
+| Queue / Realtime | Redis · Celery 5 · Celery Beat · Django Channels (Daphne) |
+| i18n | react-i18next (frontend) · Django locale + gettext catalogs (admin) |
+| Testing | pytest + pytest-django |
+| Deployment | Docker + Docker Compose |
 
 ---
 
-## Features
-
-### Customer
-- Browse flower products with pagination
-- Search by name or description
-- Filter by category, price range, and availability
-- Sort by price or newest
-- Product detail pages
-- User registration and JWT login
-- Shopping cart — add, update, remove items
-- Checkout and order placement
-- Order history and order detail
-- Profile management
-
-### Admin
-- Create, update, delete products via API or Django Admin
-- Manage categories
-- View all orders
-- Update order status (pending → confirmed → shipped → delivered)
-- All admin routes protected by `IsAdminOrReadOnly` / `IsAdminUser` permissions
-
----
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 flower-shop/
 ├── backend/
 │   ├── config/
-│   │   ├── settings/
-│   │   │   ├── base.py          # Shared settings (django-environ)
-│   │   │   ├── development.py   # Debug=True, CORS allow all
-│   │   │   └── production.py    # Debug=False, security headers
-│   │   ├── urls.py              # Root URL router
-│   │   ├── wsgi.py
-│   │   └── asgi.py
+│   │   ├── settings/            # base / development / production (django-environ)
+│   │   ├── urls.py              # API routes + i18n_patterns for the admin
+│   │   ├── celery.py            # Celery app & beat schedule
+│   │   └── asgi.py / wsgi.py
 │   ├── apps/
-│   │   ├── common/
-│   │   │   ├── pagination.py    # StandardResultsPagination (12/page)
-│   │   │   └── permissions.py   # IsAdminOrReadOnly, IsOwnerOrAdmin
-│   │   ├── users/               # Custom User model, register, login, profile
+│   │   ├── common/              # Shared permissions & pagination
+│   │   ├── users/               # Custom User (email login), register/login/profile
 │   │   ├── categories/          # Category ViewSet (slug lookup)
 │   │   ├── products/            # Product ViewSet + filters + search
+│   │   │   └── management/commands/
+│   │   │       ├── seed_flowers.py            # 7 categories, 28 products
+│   │   │       └── download_flower_images.py  # real photos, no API key needed
 │   │   ├── cart/                # Cart + CartItem + service layer
-│   │   └── orders/              # Order + OrderItem + service layer
-│   ├── manage.py
-│   ├── requirements.txt
-│   ├── pytest.ini
-│   ├── .env.example
-│   └── Dockerfile
+│   │   ├── orders/              # Order + OrderItem + service layer
+│   │   └── contact/             # Customer → admin messages + Celery notifications
+│   ├── locale/                  # ru / uz translation catalogs for the admin
+│   ├── scripts/
+│   │   └── compile_messages.py  # pure-Python .po → .mo (no GNU gettext needed)
+│   ├── templates/admin/         # base_site override: branding + language switcher
+│   ├── tests/                   # cross-app tests (admin i18n)
+│   └── manage.py · requirements.txt · pytest.ini · Dockerfile
 │
 ├── frontend/
 │   └── src/
-│       ├── api/                 # One file per resource (axios instance + interceptors)
-│       ├── components/
-│       │   ├── common/          # Navbar, Footer, Button, LoadingSpinner, ErrorMessage
-│       │   ├── products/        # ProductCard, ProductGrid, ProductFilter
-│       │   └── cart/            # CartItem, CartSummary
-│       ├── context/             # AuthContext (JWT), CartContext (server-synced)
+│       ├── api/                 # Axios instance + JWT refresh interceptor
+│       ├── components/          # common / products / cart
+│       ├── context/             # AuthContext, CartContext
 │       ├── hooks/               # useAuth, useCart, useProducts
-│       ├── pages/               # HomePage, ProductsPage, ProductDetailPage,
-│       │                        # CartPage, CheckoutPage, LoginPage, RegisterPage,
-│       │                        # ProfilePage, OrderHistoryPage, AdminDashboard
-│       ├── routes/              # AppRoutes, ProtectedRoute (auth + admin guard)
-│       ├── utils/               # storage.js (JWT), helpers.js (format, errors)
-│       └── styles/              # global.css
+│       ├── i18n/                # en.json · ru.json · uz.json + i18next setup
+│       ├── pages/               # Home, Products, Detail, Cart, Checkout, Auth,
+│       │                        # Profile, Orders, AdminDashboard
+│       ├── routes/              # AppRoutes + ProtectedRoute (auth/admin guards)
+│       └── utils/               # JWT storage, formatting helpers
 │
-├── docker-compose.yml
-├── .gitignore
+├── docker-compose.yml           # db + backend + frontend
 └── README.md
 ```
 
 ---
 
-## Prerequisites
+## 🚀 Quick Start
 
-- Python **3.12** (not 3.13/3.14 — packages lack wheels for those yet)
-- Node.js 18+
-- PostgreSQL 15+
-- Git
-
----
-
-## Installation
-
-### Option A — Docker (Recommended)
+### Option A — Docker (recommended)
 
 ```bash
-# 1. Clone
-git clone https://github.com/your-username/flower-shop.git
+git clone https://github.com/Bol-F/flower-shop.git
 cd flower-shop
 
-# 2. Set up env
-cp backend/.env.example backend/.env
-# Edit backend/.env — set SECRET_KEY and DB_PASSWORD
+cp backend/.env.example backend/.env   # set SECRET_KEY and DB_PASSWORD
 
-# 3. Build and run
 docker-compose up --build
 ```
 
 | Service | URL |
 |---|---|
-| Frontend | http://localhost:3000 |
-| Backend API | http://localhost:8000/api/ |
-| Django Admin | http://localhost:8000/admin/ |
+| 🌸 Storefront | http://localhost:3000 |
+| 🔌 API | http://localhost:8000/api/ |
+| 🛠️ Django Admin | http://localhost:8000/admin/ |
 
----
+### Option B — Manual setup
 
-### Option B — Manual Setup
+**Prerequisites:** Python 3.12, Node.js 18+, PostgreSQL 15+. Redis 7 is optional — only needed for Celery tasks and Channels.
 
-#### Backend
+<details>
+<summary><b>Backend</b></summary>
 
 ```bash
 cd backend
 
-# Create venv with Python 3.12
 py -3.12 -m venv .venv
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # Mac/Linux
 
-# Activate (Windows)
-.venv\Scripts\activate
-# Activate (Mac/Linux)
-source .venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
-cp .env.example .env
-# Open .env and fill in your values
+cp .env.example .env            # fill in SECRET_KEY, DB_* values
 
-# Run migrations
 python manage.py migrate
-
-# Create admin user
 python manage.py createsuperuser
-
-# Start server
-python manage.py runserver
+python manage.py runserver      # http://localhost:8000
 ```
+</details>
 
-Backend runs at: **http://localhost:8000**
-
-#### Frontend
-
-Open a second terminal:
+<details>
+<summary><b>Frontend</b></summary>
 
 ```bash
 cd frontend
 
-cp .env.example .env
-# REACT_APP_API_URL=http://localhost:8000/api  (already correct)
+cp .env.example .env            # REACT_APP_API_URL=http://localhost:8000/api
 
 npm install
-npm start
+npm start                       # http://localhost:3000
 ```
+</details>
 
-Frontend runs at: **http://localhost:3000**
-
----
-
-## Environment Variables
-
-### `backend/.env`
-
-| Variable | Description | Example |
-|---|---|---|
-| `SECRET_KEY` | Django secret key | `django-insecure-...` |
-| `DEBUG` | Enable debug mode | `True` |
-| `ALLOWED_HOSTS` | Comma-separated hosts | `localhost,127.0.0.1` |
-| `DB_NAME` | PostgreSQL database name | `flower_shop_db` |
-| `DB_USER` | PostgreSQL user | `postgres` |
-| `DB_PASSWORD` | PostgreSQL password | `yourpassword` |
-| `DB_HOST` | Database host | `localhost` |
-| `DB_PORT` | Database port | `5432` |
-| `CORS_ALLOWED_ORIGINS` | Frontend origin(s) | `http://localhost:3000` |
-
-### `frontend/.env`
-
-| Variable | Description | Example |
-|---|---|---|
-| `REACT_APP_API_URL` | Backend API base URL | `http://localhost:8000/api` |
-
----
-
-## Running Tests
+### 🌷 Seed demo data
 
 ```bash
 cd backend
 
-# All tests
-pytest
+# 7 categories + 28 products
+python manage.py seed_flowers
 
-# Verbose
-pytest -v
+# Download a real photo for every product (Wikimedia Commons, no API key).
+# Resumable — if some downloads hit a rate limit, wait a minute and re-run.
+python manage.py download_flower_images
+```
 
-# Single app
-pytest apps/users/tests.py -v
-pytest apps/products/tests.py -v
-pytest apps/cart/tests.py -v
-pytest apps/orders/tests.py -v
+---
 
-# With coverage report
+## 🌍 Languages
+
+English is the default everywhere. Russian and Uzbek are fully supported:
+
+| Where | How to switch |
+|---|---|
+| Storefront | **EN / РУ / OʻZ** buttons in the navbar — persisted in localStorage, auto-detected from the browser on first visit |
+| Django admin | URL prefix — `/admin/` (EN), `/ru/admin/`, `/uz/admin/` — or the **EN / RU / UZ** switcher next to the logout link |
+
+**Editing translations:**
+
+- *Frontend:* edit `frontend/src/i18n/locales/{en,ru,uz}.json` — hot-reloads in dev.
+- *Admin:* edit `backend/locale/{ru,uz}/LC_MESSAGES/django.po`, then compile and restart:
+
+  ```bash
+  cd backend
+  python scripts/compile_messages.py   # pure Python, GNU gettext not required
+  ```
+
+---
+
+## 🧪 Tests
+
+45 tests across users, products, categories, cart, orders, contact, and admin i18n.
+
+```bash
+cd backend
+
+pytest                               # whole suite
+pytest -v                            # verbose
+pytest apps/orders                   # one app
+pytest tests/test_admin_i18n.py      # admin language tests
+pytest -k "permission"               # by keyword
+pytest -x                            # stop at first failure
+
+# coverage report
 pip install pytest-cov
 pytest --cov=apps --cov-report=term-missing
 ```
 
-**Test coverage includes:**
-- User registration — success, duplicate email, password mismatch
-- Login — success, wrong password, unauthenticated profile access
-- Products — list, search, category filter, price filter, admin create
-- Cart — get empty cart, add item, update quantity, remove item, auth required
-- Orders — create from cart, empty cart error, list orders, auth required
+> PostgreSQL must be running — pytest creates and destroys its own test database.
 
 ---
 
-## API Reference
+## 📡 API Reference
+
+All responses are paginated (`count` / `next` / `previous` / `results`, 12 per page) unless noted.
 
 ### Auth
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| POST | `/api/auth/register/` | Create account | No |
-| POST | `/api/auth/login/` | Get JWT access + refresh tokens | No |
-| POST | `/api/auth/token/refresh/` | Refresh access token | No |
-| GET | `/api/auth/profile/` | Get current user | Yes |
-| PATCH | `/api/auth/profile/` | Update profile | Yes |
+| POST | `/api/auth/register/` | Create account | — |
+| POST | `/api/auth/login/` | Get JWT access + refresh | — |
+| POST | `/api/auth/token/refresh/` | Refresh access token | — |
+| GET / PATCH | `/api/auth/profile/` | Get / update current user | ✅ |
 
 ### Categories
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| GET | `/api/categories/` | List all | No |
-| POST | `/api/categories/` | Create | Admin |
-| GET | `/api/categories/{slug}/` | Detail | No |
-| PATCH | `/api/categories/{slug}/` | Update | Admin |
-| DELETE | `/api/categories/{slug}/` | Delete | Admin |
+| GET | `/api/categories/` | List | — |
+| GET | `/api/categories/{slug}/` | Detail | — |
+| POST / PATCH / DELETE | `/api/categories/…` | Manage | 👑 Admin |
 
 ### Products
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| GET | `/api/products/` | List with search & filter | No |
-| POST | `/api/products/` | Create | Admin |
-| GET | `/api/products/{slug}/` | Detail | No |
-| PATCH | `/api/products/{slug}/` | Update | Admin |
-| DELETE | `/api/products/{slug}/` | Delete | Admin |
+| GET | `/api/products/` | List with search & filters | — |
+| GET | `/api/products/{slug}/` | Detail | — |
+| POST / PATCH / DELETE | `/api/products/…` | Manage | 👑 Admin |
 
-**Query params:** `search`, `category`, `min_price`, `max_price`, `is_available`, `ordering`, `page`, `page_size`
+**Query params:** `search` · `category` · `min_price` · `max_price` · `is_available` · `ordering` · `page` · `page_size`
 
 ### Cart
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| GET | `/api/cart/` | Get cart with all items | Yes |
-| DELETE | `/api/cart/` | Clear entire cart | Yes |
-| POST | `/api/cart/items/` | Add item `{product_id, quantity}` | Yes |
-| PATCH | `/api/cart/items/{productId}/` | Update quantity `{quantity}` | Yes |
-| DELETE | `/api/cart/items/{productId}/` | Remove item | Yes |
+| GET | `/api/cart/` | Cart with items & totals | ✅ |
+| DELETE | `/api/cart/` | Clear cart | ✅ |
+| POST | `/api/cart/items/` | Add `{product_id, quantity}` | ✅ |
+| PATCH | `/api/cart/items/{productId}/` | Update `{quantity}` | ✅ |
+| DELETE | `/api/cart/items/{productId}/` | Remove item | ✅ |
 
 ### Orders
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| GET | `/api/orders/` | List user's orders (admin sees all) | Yes |
-| POST | `/api/orders/create/` | Place order from cart | Yes |
-| GET | `/api/orders/{id}/` | Order detail | Yes (owner) |
-| PATCH | `/api/orders/{id}/status/` | Update status | Admin |
+| GET | `/api/orders/` | Own orders (admin sees all) | ✅ |
+| POST | `/api/orders/create/` | Place order from cart | ✅ |
+| GET | `/api/orders/{id}/` | Detail | ✅ owner |
+| PATCH | `/api/orders/{id}/status/` | Update status | 👑 Admin |
+
+### Contact
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/api/contact/send/` | Send a message to the shop | ✅ |
+| GET | `/api/contact/admin/messages/` | List incoming messages | 👑 Admin |
+| GET / PATCH | `/api/contact/admin/messages/{id}/` | Read (auto-marks read) / reply | 👑 Admin |
 
 ---
 
-## Architecture Notes
+## 🏗️ Architecture Notes
 
 **Backend**
-- `services.py` in `cart/` and `orders/` holds all business logic — views only validate input and call services
-- `apps/common/permissions.py` — `IsAdminOrReadOnly` and `IsOwnerOrAdmin` are reused across apps
-- Products and categories use `slug` as the URL identifier instead of `pk`
-- Orders snapshot `product_name` and `product_price` at creation — price changes don't affect past orders
-- `@transaction.atomic` on `create_order_from_cart` ensures cart is only cleared if the order succeeds
+- Business logic lives in `services.py` (cart, orders) — views validate input and delegate
+- `IsAdminOrReadOnly` / `IsOwnerOrAdmin` permissions shared via `apps/common`
+- Slug-based URLs for products and categories
+- Orders snapshot `product_name` / `product_price` at purchase time — later price changes never rewrite history
+- `@transaction.atomic` order creation: the cart is cleared only if the order commits
+- Contact notifications go through Celery, wrapped so a down Redis never breaks the request
 
 **Frontend**
-- Axios interceptor in `api/axios.js` automatically attaches the JWT and retries on 401 with refresh token
-- `AuthContext` and `CartContext` are kept separate — cart re-fetches from server on auth change
-- `ProtectedRoute` supports both auth-required and admin-only guards
-- `useProducts` cancels the fetch on component unmount to prevent state updates on unmounted components
+- Axios interceptor attaches the JWT and transparently retries once on 401 with the refresh token
+- `AuthContext` and `CartContext` are independent — the cart re-syncs from the server on every auth change
+- `ProtectedRoute` guards both authenticated-only and admin-only pages
+- All UI strings flow through i18next — adding a 4th language is one JSON file + one entry in `LANGUAGES`
+
+**Admin i18n**
+- `i18n_patterns(prefix_default_language=False)` keeps `/admin/` English while `/ru/` and `/uz/` prefixes switch language
+- Django supplies its own admin chrome translations; project strings (models, fields, statuses) are marked with `gettext_lazy` and translated in `backend/locale/`
+- `scripts/compile_messages.py` is a minimal pure-Python msgfmt, so Windows machines without GNU gettext can still compile catalogs
 
 ---
 
-## Creating an Admin User
+## 👑 Creating an Admin User
 
 ```bash
-# Option 1 — during setup
+# during setup
 python manage.py createsuperuser
 
-# Option 2 — promote an existing user
+# or promote an existing account
 python manage.py shell
 >>> from apps.users.models import User
 >>> u = User.objects.get(email='you@example.com')
@@ -314,6 +313,6 @@ python manage.py shell
 
 ---
 
-## License
+## 📄 License
 
 MIT
