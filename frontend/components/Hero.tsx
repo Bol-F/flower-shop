@@ -1,101 +1,48 @@
-import BouquetArt from "./BouquetArt";
-import { palettes } from "@/lib/data";
+"use client";
 
-function Petal({ className, color }: { className?: string; color: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
-      <path
-        d="M12 2 C18 6 20 13 12 22 C4 13 6 6 12 2 Z"
-        fill={color}
-        opacity="0.55"
-      />
-    </svg>
-  );
-}
+import { copy } from "@/lib/i18n";
+import { useStore } from "@/lib/store";
 
 export default function Hero() {
+  const { language } = useStore();
+  const t = copy[language].hero;
+
   return (
-    <section className="relative overflow-hidden">
-      {/* drifting decorative petals */}
-      <Petal className="absolute left-[6%] top-12 size-8 animate-float" color="#efcdc6" />
-      <Petal className="absolute left-[42%] top-6 size-5 animate-float-slow" color="#b9a8d8" />
-      <Petal className="absolute right-[8%] bottom-10 size-7 animate-float" color="#e8a2ae" />
+    <section className="relative overflow-hidden bg-gradient-to-br from-[#ffeaf4] via-[#fff2f8] to-white">
+      <div className="mx-auto flex min-h-[calc(100vh-66px)] max-w-[1180px] flex-col items-center justify-center px-5 py-16 text-center">
+        <p className="w-full max-w-[330px] text-[11px] font-extrabold uppercase leading-6 tracking-[0.2em] text-blossomdeep sm:max-w-none sm:text-base sm:tracking-[0.34em]">
+          {t.eyebrow}
+        </p>
 
-      <div className="mx-auto max-w-7xl px-4 py-14 lg:py-20 grid lg:grid-cols-2 items-center gap-12">
-        {/* copy */}
-        <div>
-          <p className="inline-flex items-center gap-2 rounded-full bg-blush px-4 py-1.5 text-xs font-semibold tracking-wide text-rosedeep uppercase">
-            🌷 Tashkent flower marketplace
-          </p>
-          <h1 className="mt-5 font-display text-5xl sm:text-6xl lg:text-7xl font-semibold leading-[1.04] text-pine">
-            Fresh flowers,{" "}
-            <em className="text-rose not-italic font-light italic">delivered</em>{" "}
-            beautifully
-          </h1>
-          <p className="mt-6 max-w-md text-lg text-fawn leading-relaxed">
-            Same-day bouquets, gift boxes and plants from the city&apos;s best
-            local florists — with a photo of your order before it leaves the
-            studio.
-          </p>
+        <h1 className="mt-9 w-full max-w-full font-display text-[2.35rem] font-extrabold leading-[1.08] tracking-normal text-ink sm:text-7xl sm:leading-[1.05] lg:text-[5.9rem]">
+          <span className="block sm:inline">{t.titleTop[0]}</span>{" "}
+          <span className="block sm:inline">{t.titleTop[1]}</span>
+          <span className="mt-2 block text-blossomdeep">
+            <span className="block sm:inline">{t.titleAccent[0]}</span>{" "}
+            <span className="block sm:inline">{t.titleAccent[1]}</span>
+          </span>
+        </h1>
 
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a
-              href="#catalog"
-              className="rounded-full bg-coral px-7 py-3.5 text-sm font-semibold text-white shadow-petal hover:bg-coraldeep hover:-translate-y-0.5 transition"
-            >
-              Shop bouquets
-            </a>
-            <a
-              href="#builder"
-              className="rounded-full border-2 border-pine/15 bg-ivory px-7 py-3.5 text-sm font-semibold text-pine hover:border-pine/40 hover:-translate-y-0.5 transition"
-            >
-              Create custom bouquet
-            </a>
-          </div>
+        <p className="mt-8 w-full max-w-[330px] text-base leading-7 text-stone sm:max-w-[640px] sm:text-2xl sm:leading-9">
+          {t.text}
+        </p>
 
-          <dl className="mt-10 flex gap-8 text-sm">
-            {[
-              ["4.9★", "average rating"],
-              ["30 min", "fastest delivery"],
-              ["120+", "local florists"],
-            ].map(([value, label]) => (
-              <div key={label}>
-                <dt className="font-display text-2xl font-semibold text-pine">{value}</dt>
-                <dd className="text-fawn">{label}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-
-        {/* visual */}
-        <div className="relative mx-auto w-full max-w-md lg:max-w-none">
-          <div
-            className="relative mx-auto aspect-[4/5] max-w-sm rounded-[44%_56%_52%_48%/55%_44%_56%_45%] shadow-petal"
-            style={{ background: "linear-gradient(150deg,#f7e8e3 0%,#efcdc6 55%,#e9e2f4 100%)" }}
+        <div className="mt-11 flex w-[calc(100vw-2.5rem)] max-w-[560px] flex-col justify-center gap-5 sm:w-full sm:flex-row">
+          <a
+            href="#catalog"
+            className="rounded-full bg-blossomdeep px-8 py-3.5 text-base font-extrabold text-white shadow-glow transition hover:-translate-y-1 hover:bg-raspberry active:translate-y-0"
           >
-            <BouquetArt
-              palette={palettes.peony}
-              className="absolute inset-x-0 bottom-6 mx-auto h-[88%]"
-            />
-
-            {/* floating proof cards */}
-            <div className="absolute -left-6 top-10 hidden sm:flex items-center gap-2.5 rounded-2xl bg-ivory/95 px-4 py-3 shadow-card backdrop-blur animate-float-slow">
-              <span className="grid size-9 place-items-center rounded-full bg-blush text-base">📷</span>
-              <div className="text-xs">
-                <p className="font-semibold text-pine">Photo before delivery</p>
-                <p className="text-fawn">approve or adjust</p>
-              </div>
-            </div>
-            <div className="absolute -right-4 bottom-16 hidden sm:flex items-center gap-2.5 rounded-2xl bg-ivory/95 px-4 py-3 shadow-card backdrop-blur animate-float">
-              <span className="grid size-9 place-items-center rounded-full bg-lilac text-base">🚚</span>
-              <div className="text-xs">
-                <p className="font-semibold text-pine">Delivered in 28 min</p>
-                <p className="text-fawn">Yunusabad → Chilanzar</p>
-              </div>
-            </div>
-          </div>
+            {t.primary}
+          </a>
+          <a
+            href="#catalog"
+            className="rounded-full border-2 border-blossomdeep bg-white/70 px-8 py-3.5 text-base font-extrabold text-blossomdeep transition hover:-translate-y-1 hover:bg-white hover:shadow-soft active:translate-y-0"
+          >
+            {t.secondary}
+          </a>
         </div>
       </div>
+
     </section>
   );
 }

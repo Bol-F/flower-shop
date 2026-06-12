@@ -5,16 +5,36 @@ from .models import UserMessage
 class UserMessageCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserMessage
-        fields = ['id', 'subject', 'body', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = [
+            'id',
+            'subject',
+            'body',
+            'is_from_admin',
+            'admin_reply',
+            'replied_at',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'is_from_admin', 'admin_reply', 'replied_at', 'created_at']
 
 
 class UserMessageOwnSerializer(serializers.ModelSerializer):
     """What a customer sees in the support chat: own message + admin reply."""
     class Meta:
         model = UserMessage
-        fields = ['id', 'subject', 'body', 'admin_reply', 'replied_at', 'created_at']
+        fields = [
+            'id',
+            'subject',
+            'body',
+            'is_from_admin',
+            'admin_reply',
+            'replied_at',
+            'created_at',
+        ]
         read_only_fields = fields
+
+
+class AdminReplyCreateSerializer(serializers.Serializer):
+    body = serializers.CharField(trim_whitespace=True)
 
 
 class UserMessageAdminSerializer(serializers.ModelSerializer):
@@ -26,10 +46,10 @@ class UserMessageAdminSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user_email', 'user_username',
             'subject', 'body',
-            'is_read', 'admin_reply', 'replied_at',
+            'is_from_admin', 'is_read', 'admin_reply', 'replied_at',
             'created_at',
         ]
         read_only_fields = [
             'id', 'user_email', 'user_username',
-            'subject', 'body', 'created_at', 'replied_at',
+            'subject', 'body', 'is_from_admin', 'created_at', 'replied_at',
         ]

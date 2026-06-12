@@ -3,6 +3,8 @@ import type { BouquetPalette } from "@/lib/types";
 /**
  * Original illustrated bouquet, drawn in SVG and recolored per product.
  * Keeps the whole catalog self-contained — no external image assets.
+ * `variant` swaps the bloom arrangement so product galleries get
+ * several distinct "shots" of the same bouquet.
  */
 
 interface BloomProps {
@@ -35,24 +37,50 @@ function Bloom({ cx, cy, r, petal, center }: BloomProps) {
   );
 }
 
-const BLOOMS: Array<[number, number, number]> = [
-  // [cx, cy, r] — composed once so every bouquet shares one silhouette
-  [50, 34, 12.5],
-  [30, 44, 11],
-  [70, 44, 11],
-  [38, 58, 10],
-  [62, 58, 10],
-  [50, 50, 9],
+/** bloom layouts: [cx, cy, r] — each variant is a different composition */
+const LAYOUTS: Array<Array<[number, number, number]>> = [
+  // 0 — classic dome
+  [
+    [50, 34, 12.5],
+    [30, 44, 11],
+    [70, 44, 11],
+    [38, 58, 10],
+    [62, 58, 10],
+    [50, 50, 9],
+  ],
+  // 1 — loose asymmetric, garden style
+  [
+    [40, 32, 13],
+    [63, 38, 11.5],
+    [28, 48, 10],
+    [52, 52, 11],
+    [71, 56, 8.5],
+    [40, 62, 8],
+  ],
+  // 2 — tight close-up with extra buds
+  [
+    [50, 38, 14],
+    [31, 46, 11.5],
+    [69, 46, 11.5],
+    [40, 60, 10.5],
+    [60, 60, 10.5],
+    [50, 54, 8],
+    [24, 58, 6.5],
+    [76, 58, 6.5],
+  ],
 ];
 
 export default function BouquetArt({
   palette,
+  variant = 0,
   className,
 }: {
   palette: BouquetPalette;
+  variant?: number;
   className?: string;
 }) {
   const { petals, center } = palette;
+  const blooms = LAYOUTS[variant % LAYOUTS.length];
   return (
     <svg viewBox="0 0 100 126" className={className} aria-hidden="true">
       {/* stems */}
@@ -71,7 +99,7 @@ export default function BouquetArt({
         <ellipse cx="65" cy="76" rx="6" ry="2.8" transform="rotate(30 65 76)" />
       </g>
       {/* blooms — colors cycle through the product palette */}
-      {BLOOMS.map(([cx, cy, r], i) => (
+      {blooms.map(([cx, cy, r], i) => (
         <Bloom
           key={i}
           cx={cx}
@@ -84,14 +112,14 @@ export default function BouquetArt({
       {/* kraft wrap */}
       <path
         d="M30 78 L50 122 L70 78 L62 86 L50 80 L38 86 Z"
-        fill="#eadfcb"
-        stroke="#d9cbb2"
+        fill="#f3e3cd"
+        stroke="#e3cfae"
         strokeWidth="1"
         strokeLinejoin="round"
       />
-      <path d="M30 78 L50 122 L42 84 Z" fill="#e0d2b8" opacity={0.8} />
+      <path d="M30 78 L50 122 L42 84 Z" fill="#ead7b6" opacity={0.8} />
       {/* ribbon */}
-      <rect x="42" y="88" width="16" height="4.5" rx="2.2" fill="#c96f7e" />
+      <rect x="42" y="88" width="16" height="4.5" rx="2.2" fill="#ff9d68" />
     </svg>
   );
 }

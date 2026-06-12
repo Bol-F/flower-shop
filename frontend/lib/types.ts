@@ -7,30 +7,44 @@ export interface BouquetPalette {
   backdrop: string;
 }
 
+export type CategoryId =
+  | "roses"
+  | "mono"
+  | "box"
+  | "baskets"
+  | "birthday"
+  | "romantic"
+  | "wedding"
+  | "plants"
+  | "gifts"
+  | "balloons";
+
 export interface Product {
   id: string;
   name: string;
   shop: string;
+  /** base price in USD — converted to UZS client-side */
   price: number;
   oldPrice?: number;
   rating: number;
   reviews: number;
-  badges: ProductBadge[];
+  category: CategoryId;
+  /** courier estimate when ordering now */
+  deliveryMins: number;
   deliveryToday: boolean;
   isNew: boolean;
   popularity: number;
+  description: string;
+  composition: string[];
+  /** bouquets come in S/M/L; plants & gifts are one size */
+  hasSizes: boolean;
   palette: BouquetPalette;
 }
 
-export type ProductBadge =
-  | { kind: "discount"; label: string }
-  | { kind: "today"; label: string }
-  | { kind: "lastone"; label: string };
-
 export interface Category {
-  id: string;
+  id: CategoryId;
   name: string;
-  emoji: string;
+  /** soft circle background behind the icon */
   tint: string;
 }
 
@@ -44,10 +58,12 @@ export interface Review {
   palette: BouquetPalette;
 }
 
-export interface Occasion {
-  id: string;
-  title: string;
-  subtitle: string;
-  tint: string;
-  petalColor: string;
+export type Currency = "USD" | "UZS";
+
+export type Language = "EN" | "RU" | "UZ";
+
+export interface BouquetSize {
+  id: "S" | "M" | "L";
+  label: string;
+  multiplier: number;
 }

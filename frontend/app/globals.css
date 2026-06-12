@@ -1,39 +1,64 @@
 @import "tailwindcss";
 
-/* ── Gulora design tokens ─────────────────────────────────────── */
+/* Bloom & Petal tokens: screenshot-inspired blush, hot pink and warm ink. */
 @theme {
-  /* palette: cream / rose / deep green / beige / coral / lavender */
-  --color-cream: #faf6ef;
-  --color-ivory: #fffdf9;
-  --color-blush: #f7e8e3;
-  --color-petal: #efcdc6;
+  --color-paper: #fff8fb;
+  --color-card: #ffffff;
+  --color-blossom: #f6a0c6;
+  --color-blossomdeep: #ec1682;
+  --color-raspberry: #d41472;
+  --color-blush: #fff0f6;
+  --color-blushdeep: #ffd8e9;
+  --color-petal: #ffd3e4;
+  --color-berry: #db1476;
+  --color-berrysoft: #fff0f6;
   --color-rose: #c96f7e;
-  --color-rosedeep: #a84d60;
-  --color-coral: #e2725b;
-  --color-coraldeep: #c75a45;
+  --color-rosesoft: #f7e8e3;
   --color-pine: #2e4639;
   --color-pinedeep: #22352b;
-  --color-moss: #57755f;
-  --color-sage: #a7bca1;
-  --color-beige: #eae0ce;
-  --color-sand: #d9cbb2;
-  --color-lavender: #b9a8d8;
-  --color-lilac: #e9e2f4;
-  --color-ink: #312f2a;
-  --color-fawn: #8c8273;
+  --color-leaf: #4e8a63;
+  --color-mint: #e6f3ea;
+  --color-iris: #8d77c9;
+  --color-lilac: #f0ebfa;
+  --color-skywash: #e9f2fb;
+  --color-ink: #302b2d;
+  --color-stone: #736d75;
+  --color-line: #f7dce8;
 
-  --font-display: var(--font-fraunces);
+  --font-display: var(--font-playfair);
   --font-sans: var(--font-manrope);
 
-  --shadow-petal: 0 10px 40px -12px rgb(201 111 126 / 0.25);
-  --shadow-card: 0 4px 24px -8px rgb(49 47 42 / 0.10);
+  --shadow-soft: 0 12px 34px -26px rgb(48 43 45 / 0.26);
+  --shadow-lift: 0 20px 48px -18px rgb(236 22 130 / 0.36);
+  --shadow-glow: 0 18px 42px -20px rgb(219 20 118 / 0.44);
 
   --animate-float: float 7s ease-in-out infinite;
   --animate-float-slow: float 11s ease-in-out infinite;
+  --animate-marquee: marquee 48s linear infinite;
+  --animate-fade-up: fade-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pop: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-sway: sway 5s ease-in-out infinite;
 
   @keyframes float {
     0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-14px) rotate(6deg); }
+    50% { transform: translateY(-14px) rotate(8deg); }
+  }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translate(var(--fade-up-x, 0), 14px); }
+    to { opacity: 1; transform: translate(var(--fade-up-x, 0), 0); }
+  }
+  @keyframes pop {
+    0% { transform: scale(0.4); }
+    70% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+  @keyframes sway {
+    0%, 100% { transform: rotate(-4deg); }
+    50% { transform: rotate(5deg); }
   }
 }
 
@@ -42,7 +67,7 @@ html {
 }
 
 body {
-  background: var(--color-cream);
+  background: #ffffff;
   color: var(--color-ink);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
@@ -59,4 +84,9 @@ body {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* reviews marquee pauses while the user reads */
+.marquee-track:hover {
+  animation-play-state: paused;
 }

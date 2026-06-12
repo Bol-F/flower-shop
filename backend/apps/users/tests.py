@@ -85,3 +85,55 @@ class TestLogin:
         response = api_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data['email'] == created_user.email
+
+    def test_profile_update_preferences(self, api_client, created_user):
+        api_client.force_authenticate(user=created_user)
+        url = reverse('profile')
+        response = api_client.patch(
+            url,
+            {
+                'username': 'Flower Lover',
+                'phone': '+998 90 123 45 67',
+                'bio': 'I like pink roses and morning delivery.',
+                'city': 'Samarkand',
+                'language': 'UZ',
+                'currency': 'UZS',
+            },
+            format='json',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['username'] == 'Flower Lover'
+        assert response.data['language'] == 'UZ'
+        assert response.data['currency'] == 'UZS'
+        assert response.data['city'] == 'Samarkand'
+        assert response.data['bio'] == 'I like pink roses and morning delivery.'
+
+    def test_change_password_success(self, api_client, created_user, user_data):
+        api_client.force_authenticate(user=created_user)
+        url = reverse('profile-password')
+        response = api_client.post(
+            url,
+            {
+                'old_password': user_data['password'],
+                'new_password': 'NewStrongPass123!',
+                'new_password_confirm': 'NewStrongPass123!',
+            },
+            format='json',
+        )
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        created_user.refresh_from_db()
+        assert created_user.check_password('NewStrongPass123!')
+
+    def test_change_password_wrong_current_password(self, api_client, created_user):
+        api_client.force_authenticate(user=created_user)
+        url = reverse('profile-password')
+        response = api_client.post(
+            url,
+            {
+                'old_password': 'wrong',
+                'new_password': 'NewStrongPass123!',
+                'new_password_confirm': 'NewStrongPass123!',
+            },
+            format='json',
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST

@@ -1,9 +1,11 @@
 from django.utils import timezone
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
 
 from apps.common.permissions import IsCustomer
 from .models import UserMessage
 from .serializers import (
+    AdminReplyCreateSerializer,
     UserMessageCreateSerializer,
     UserMessageOwnSerializer,
     UserMessageAdminSerializer,
@@ -59,3 +61,31 @@ class AdminMessageDetailView(generics.RetrieveUpdateAPIView):
             extra['replied_at'] = timezone.now()
             extra['is_read'] = True
         serializer.save(**extra)
+
+
+class AdminReplyView(generics.GenericAPIView):
+    """Admin: send another message into the selected customer's conversation."""
+    serializer_class = AdminReplyCreateSerializer
+    permission_classes = [permissions.IsAdminUser]
+    queryset = UserMessage.objects.select_related('user').all()
+
+    def post(self, request, *args, **kwargs):
+        target = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if not target.is_from_admin and not target.is_read:
+            target.is_read = True
+            target.save(update_fields=['is_read'])
+
+        reply = UserMessage.objects.create(
+            user=target.user,
+            subject=target.subject,
+            body=serializer.validated_data['body'],
+            is_from_admin=True,
+            is_read=True,
+        )
+        return Response(
+            UserMessageAdminSerializer(reply).data,
+            status=status.HTTP_201_CREATED,
+        )

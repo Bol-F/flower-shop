@@ -1,40 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import type { Product } from "@/lib/types";
+import { formatPrice } from "@/lib/currency";
+import { copy } from "@/lib/i18n";
+import { useStore } from "@/lib/store";
 import BouquetArt from "./BouquetArt";
-
-const badgeStyles: Record<string, string> = {
-  discount: "bg-coral text-white",
-  today: "bg-pine text-cream",
-  lastone: "bg-lavender text-pinedeep",
-};
+import { BoltIcon, HeartIcon, PlusIcon, StarIcon } from "./icons";
 
 export default function ProductCard({ product }: { product: Product }) {
-  const [liked, setLiked] = useState(false);
+  const { currency, language, favorites, toggleFavorite, addToCart, showToast } =
+    useStore();
+  const t = copy[language].product;
+  const liked = favorites.includes(product.id);
+  const discount = product.oldPrice
+    ? Math.round((1 - product.price / product.oldPrice) * 100)
+    : 0;
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-3xl bg-ivory shadow-card transition duration-300 hover:-translate-y-1.5 hover:shadow-petal">
+    <article className="group relative flex flex-col rounded-3xl bg-card p-2 shadow-soft transition duration-300 hover:-translate-y-1 hover:shadow-lift">
       {/* image area */}
       <div
-        className="relative aspect-[5/6] overflow-hidden"
+        className="relative aspect-[4/5] overflow-hidden rounded-2xl"
         style={{ background: product.palette.backdrop }}
       >
         <BouquetArt
           palette={product.palette}
-          className="absolute inset-x-0 bottom-0 mx-auto h-[92%] transition duration-500 group-hover:scale-[1.06]"
+          className="absolute inset-x-0 bottom-0 mx-auto h-[94%] transition duration-500 group-hover:scale-[1.07] group-hover:-rotate-1"
         />
 
         {/* badges */}
-        <div className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
-          {product.badges.map((badge) => (
-            <span
-              key={badge.label}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide ${badgeStyles[badge.kind]}`}
-            >
-              {badge.label}
+        <div className="absolute left-2.5 top-2.5 z-20 flex flex-col items-start gap-1.5">
+          {discount > 0 && (
+            <span className="rounded-full bg-berry px-2.5 py-1 text-[11px] font-bold text-white">
+              −{discount}%
             </span>
-          ))}
+          )}
+          {product.isNew && (
+            <span className="rounded-full bg-mint px-2.5 py-1 text-[11px] font-bold text-leaf">
+              {t.new}
+            </span>
+          )}
         </div>
 
         {/* favorite */}
@@ -42,50 +48,68 @@ export default function ProductCard({ product }: { product: Product }) {
           type="button"
           aria-label={liked ? "Remove from favorites" : "Add to favorites"}
           aria-pressed={liked}
-          onClick={() => setLiked(!liked)}
-          className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-ivory/90 shadow-card backdrop-blur transition hover:scale-110 active:scale-95"
+          onClick={() => toggleFavorite(product.id)}
+          className="absolute right-2.5 top-2.5 z-20 grid size-9 place-items-center rounded-full bg-card/90 shadow-soft backdrop-blur transition hover:scale-110 active:scale-90"
         >
-          <svg
-            viewBox="0 0 20 20"
-            className={`size-4.5 transition ${liked ? "text-coral" : "text-fawn"}`}
-            fill={liked ? "currentColor" : "none"}
-            stroke="currentColor"
-            strokeWidth="1.7"
-          >
-            <path d="M10 17 C4 12.5 2 9.5 2 6.8 C2 4.6 3.7 3 5.8 3 C7.3 3 8.9 3.8 10 5.6 C11.1 3.8 12.7 3 14.2 3 C16.3 3 18 4.6 18 6.8 C18 9.5 16 12.5 10 17 Z" strokeLinejoin="round" />
-          </svg>
+          <HeartIcon
+            filled={liked}
+            className={`size-4.5 transition ${liked ? "animate-pop text-berry" : "text-stone"}`}
+          />
         </button>
 
-        {/* quick buy — slides up on hover, always visible on touch layouts */}
+        {/* quick add */}
         <button
           type="button"
-          className="absolute inset-x-3 bottom-3 rounded-full bg-pine py-2.5 text-sm font-semibold text-cream opacity-100 transition duration-300 hover:bg-pinedeep lg:translate-y-14 lg:opacity-0 lg:group-hover:translate-y-0 lg:group-hover:opacity-100"
+          aria-label={`Add ${product.name} to cart`}
+          onClick={() => {
+            addToCart(product.id);
+            showToast(`${product.name} added to cart`);
+          }}
+          className="absolute bottom-2.5 right-2.5 z-20 grid size-10 place-items-center rounded-full bg-card text-blossomdeep shadow-soft transition hover:bg-blossomdeep hover:text-white hover:shadow-lift active:scale-90"
         >
-          Buy now
+          <PlusIcon className="size-5" />
         </button>
       </div>
 
-      {/* info */}
-      <div className="flex flex-1 flex-col gap-1 p-4">
-        <div className="flex items-center gap-1 text-xs">
-          <span className="text-coral">★</span>
-          <span className="font-semibold">{product.rating.toFixed(1)}</span>
-          <span className="text-fawn">({product.reviews})</span>
-          <span className="mx-1 text-beige">•</span>
-          <span className="truncate text-fawn">{product.shop}</span>
-        </div>
+      {/* info — price first, marketplace style */}
+      <div className="flex flex-1 flex-col gap-0.5 px-2 pb-2 pt-2.5">
+        <p className="flex items-baseline gap-2">
+          <span className="text-lg font-extrabold tracking-tight">
+            {formatPrice(product.price, currency)}
+          </span>
+          {product.oldPrice && (
+            <span className="text-xs font-semibold text-stone line-through">
+              {formatPrice(product.oldPrice, currency)}
+            </span>
+          )}
+        </p>
 
-        <h3 className="font-display text-lg font-semibold leading-snug text-pine">
+        <h3 className="line-clamp-2 text-sm font-medium leading-snug text-ink/90">
           {product.name}
         </h3>
 
-        <p className="mt-auto flex items-baseline gap-2 pt-1">
-          <span className="text-xl font-bold text-ink">${product.price}</span>
-          {product.oldPrice && (
-            <span className="text-sm text-fawn line-through">${product.oldPrice}</span>
+        <div className="mt-1.5 flex items-center gap-1 text-xs text-stone">
+          <StarIcon className="size-3.5 text-blossom" />
+          <span className="font-bold text-ink/80">{product.rating.toFixed(1)}</span>
+          <span>({product.reviews})</span>
+          <span className="mx-0.5">·</span>
+          {product.deliveryToday ? (
+            <span className="flex items-center gap-0.5 font-semibold text-leaf">
+              <BoltIcon className="size-3" />
+              {product.deliveryMins} min
+            </span>
+          ) : (
+            <span className="font-semibold">{t.tomorrow}</span>
           )}
-        </p>
+        </div>
       </div>
+
+      {/* stretched link below the action buttons */}
+      <Link
+        href={`/product/${product.id}`}
+        aria-label={`View ${product.name}`}
+        className="absolute inset-0 z-10 rounded-3xl"
+      />
     </article>
   );
 }

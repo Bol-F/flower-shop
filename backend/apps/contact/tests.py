@@ -131,3 +131,22 @@ class TestAdminMessages:
         assert message.admin_reply
         assert message.replied_at is not None
         assert message.is_read is True
+
+    def test_admin_can_send_multiple_chat_messages(self, api_client, admin_user, message):
+        api_client.force_authenticate(user=admin_user)
+        url = reverse('contact-admin-reply', kwargs={'pk': message.pk})
+
+        first = api_client.post(url, {'body': 'First reply'}, format='json')
+        second = api_client.post(url, {'body': 'Second reply'}, format='json')
+
+        assert first.status_code == status.HTTP_201_CREATED
+        assert second.status_code == status.HTTP_201_CREATED
+        admin_messages = UserMessage.objects.filter(
+            user=message.user,
+            is_from_admin=True,
+        ).order_by('created_at')
+        assert list(admin_messages.values_list('body', flat=True)) == [
+            'First reply',
+            'Second reply',
+        ]
+        assert second.data['is_from_admin'] is True

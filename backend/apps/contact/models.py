@@ -12,6 +12,7 @@ class UserMessage(models.Model):
     )
     subject = models.CharField(_('subject'), max_length=200)
     body = models.TextField(_('message body'))
+    is_from_admin = models.BooleanField(_('is from admin'), default=False)
     is_read = models.BooleanField(_('is read'), default=False)
     admin_reply = models.TextField(_('admin reply'), blank=True)
     replied_at = models.DateTimeField(_('replied at'), null=True, blank=True)

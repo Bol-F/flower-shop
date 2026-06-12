@@ -1,133 +1,369 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { products } from "@/lib/data";
+import { formatPrice } from "@/lib/currency";
+import { copy, languages } from "@/lib/i18n";
+import { fetchAdminSupportMessages } from "@/lib/api";
+import { useStore } from "@/lib/store";
+import BouquetArt from "./BouquetArt";
+import {
+  CartIcon,
+  MenuIcon,
+  MinusIcon,
+  PlusIcon,
+  TrashIcon,
+  UserIcon,
+} from "./icons";
 
-/** Stylized tulip mark — the Gulora logo */
-function LogoMark({ className }: { className?: string }) {
+function CartDropdown({ onClose }: { onClose: () => void }) {
+  const { cart, currency, language, setCartQty, removeFromCart } = useStore();
+  const t = copy[language].cart;
+  const items = Object.entries(cart).flatMap(([id, qty]) => {
+    const product = products.find((p) => p.id === id);
+    return product ? [{ product, qty }] : [];
+  });
+  const total = items.reduce((sum, i) => sum + i.product.price * i.qty, 0);
+
   return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
-      <path
-        d="M16 28 C16 20 16 16 16 13"
-        stroke="#2e4639"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path
-        d="M9 6 C9 12 12 15 16 15 C20 15 23 12 23 6 C20.5 8.5 18.5 8.5 16 6 C13.5 8.5 11.5 8.5 9 6 Z"
-        fill="#c96f7e"
-      />
-      <ellipse cx="11" cy="22" rx="4.5" ry="2" fill="#57755f" transform="rotate(-32 11 22)" />
-      <ellipse cx="21" cy="24" rx="4.5" ry="2" fill="#57755f" transform="rotate(32 21 24)" />
-    </svg>
+    <div className="absolute right-0 top-[calc(100%+14px)] z-50 w-[min(20rem,calc(100vw-2rem))] animate-fade-up rounded-[1.75rem] border border-line bg-card p-4 shadow-lift">
+      <p className="font-display text-lg font-bold">{t.title}</p>
+
+      {items.length === 0 ? (
+        <div className="py-6 text-center">
+          <p className="text-3xl">🌷</p>
+          <p className="mt-2 text-sm text-stone">{t.empty}</p>
+        </div>
+      ) : (
+        <>
+          <ul className="mt-3 flex max-h-72 flex-col gap-3 overflow-y-auto pr-1">
+            {items.map(({ product, qty }) => (
+              <li key={product.id} className="flex items-center gap-3">
+                <Link
+                  href={`/product/${product.id}`}
+                  onClick={onClose}
+                  className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-2xl"
+                  style={{ background: product.palette.backdrop }}
+                >
+                  <BouquetArt palette={product.palette} className="h-12" />
+                </Link>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{product.name}</p>
+                  <p className="text-sm font-bold text-blossomdeep">
+                    {formatPrice(product.price * qty, currency)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    aria-label={`Decrease ${product.name} quantity`}
+                    onClick={() => setCartQty(product.id, qty - 1)}
+                    className="grid size-7 place-items-center rounded-full bg-blush text-raspberry transition hover:bg-blushdeep active:scale-90"
+                  >
+                    <MinusIcon className="size-3.5" />
+                  </button>
+                  <span className="w-5 text-center text-sm font-bold">{qty}</span>
+                  <button
+                    type="button"
+                    aria-label={`Increase ${product.name} quantity`}
+                    onClick={() => setCartQty(product.id, qty + 1)}
+                    className="grid size-7 place-items-center rounded-full bg-blush text-raspberry transition hover:bg-blushdeep active:scale-90"
+                  >
+                    <PlusIcon className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Remove ${product.name} from cart`}
+                    onClick={() => removeFromCart(product.id)}
+                    className="ml-1 grid size-7 place-items-center rounded-full text-stone transition hover:bg-berrysoft hover:text-berry active:scale-90"
+                  >
+                    <TrashIcon className="size-3.5" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
+            <span className="text-sm text-stone">{t.total}</span>
+            <span className="font-display text-lg font-bold">
+              {formatPrice(total, currency)}
+            </span>
+          </div>
+          <button
+            type="button"
+            disabled
+            className="mt-3 w-full cursor-not-allowed rounded-full bg-ink/10 py-3 text-sm font-semibold text-stone"
+            title="Checkout is coming soon"
+          >
+            {t.checkout}
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 
-function SearchInput({ className }: { className?: string }) {
-  return (
-    <label className={`relative block ${className ?? ""}`}>
-      <svg
-        viewBox="0 0 20 20"
-        className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-fawn"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        aria-hidden="true"
-      >
-        <circle cx="9" cy="9" r="6" />
-        <path d="m14 14 4 4" strokeLinecap="round" />
-      </svg>
-      <input
-        type="search"
-        placeholder="Search bouquets, roses, gifts…"
-        className="w-full rounded-full border border-beige bg-ivory py-2.5 pl-11 pr-4 text-sm outline-none placeholder:text-fawn focus:border-rose focus:ring-2 focus:ring-rose/20 transition"
-      />
-    </label>
-  );
-}
+function LanguageSwitch() {
+  const { language, setLanguage } = useStore();
 
-function PillSelect({ icon, label }: { icon: string; label: string }) {
   return (
-    <button
-      type="button"
-      className="flex items-center gap-1.5 rounded-full border border-beige bg-ivory px-3.5 py-2 text-sm font-medium hover:border-rose hover:text-rosedeep transition whitespace-nowrap"
-    >
-      <span aria-hidden="true">{icon}</span>
-      {label}
-      <svg viewBox="0 0 10 6" className="size-2.5 text-fawn" fill="currentColor" aria-hidden="true">
-        <path d="M0 0h10L5 6z" />
-      </svg>
-    </button>
+    <div className="flex items-center gap-1 rounded-full bg-blush px-2 py-1.5 text-sm font-extrabold text-blossomdeep">
+      {languages.map((item) => {
+        const active = language === item.id;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            aria-pressed={active}
+            onClick={() => setLanguage(item.id)}
+            className={`rounded-full px-3 py-1 transition active:scale-95 ${
+              active ? "bg-blossomdeep text-white shadow-glow" : "hover:bg-white/70"
+            }`}
+          >
+            {item.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
 export default function Header() {
+  const { user, name, cartCount, hydrated, language, signOut } = useStore();
+  const t = copy[language].nav;
+  const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [adminUnreadCount, setAdminUnreadCount] = useState(0);
+  const cartRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!cartOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (cartRef.current && !cartRef.current.contains(e.target as Node)) {
+        setCartOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [cartOpen]);
+
+  const badgeCount = hydrated ? cartCount : 0;
+  const displayName = user?.username || name || t.profile;
+  const isSignedIn = hydrated && Boolean(user);
+  const isStaff = Boolean(user?.is_staff);
+  const visibleAdminUnreadCount = isStaff ? adminUnreadCount : 0;
+
+  useEffect(() => {
+    if (!hydrated || !isStaff) {
+      return;
+    }
+
+    let active = true;
+    async function loadUnread() {
+      try {
+        const data = await fetchAdminSupportMessages();
+        if (!active) return;
+        setAdminUnreadCount(
+          data.filter((message) => !message.is_from_admin && !message.is_read)
+            .length,
+        );
+      } catch {
+        if (active) setAdminUnreadCount(0);
+      }
+    }
+
+    void loadUnread();
+    const timer = window.setInterval(() => {
+      void loadUnread();
+    }, 10000);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [hydrated, isStaff]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-beige/70 bg-ivory/85 backdrop-blur-md">
-      <div className="mx-auto max-w-7xl px-4 py-3 flex items-center gap-4">
-        {/* brand */}
-        <a href="#" className="flex items-center gap-2 shrink-0">
-          <LogoMark className="size-8" />
-          <span className="font-display text-2xl font-semibold tracking-tight text-pine">
-            Gulora
+    <header className="sticky top-0 z-40 bg-white shadow-[0_1px_0_rgb(247_220_232)]">
+      <div className="mx-auto flex h-[66px] max-w-[1250px] items-center gap-5 px-5 sm:px-8 lg:px-0">
+        <Link href="/" className="group flex shrink-0 items-center gap-3">
+          <span className="text-2xl leading-none transition duration-300 group-hover:rotate-12 sm:text-3xl">
+            🌸
           </span>
-        </a>
-
-        <SearchInput className="hidden md:block flex-1 max-w-xl" />
-
-        {/* desktop controls */}
-        <div className="hidden lg:flex items-center gap-2 ml-auto">
-          <PillSelect icon="📍" label="Tashkent" />
-          <PillSelect icon="🕐" label="Today" />
-          <PillSelect icon="💵" label="USD" />
-        </div>
-
-        {/* cart */}
-        <button
-          type="button"
-          className="relative ml-auto lg:ml-2 flex items-center gap-2 rounded-full bg-pine px-4 py-2.5 text-sm font-semibold text-cream hover:bg-pinedeep transition shadow-card"
-        >
-          <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-            <path d="M3 4h2l2 10h8l2-7H6" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="8.5" cy="17" r="1.3" fill="currentColor" stroke="none" />
-            <circle cx="14.5" cy="17" r="1.3" fill="currentColor" stroke="none" />
-          </svg>
-          <span className="hidden sm:inline">Cart</span>
-          <span className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-coral text-[10px] font-bold text-white">
-            2
+          <span className="font-display text-2xl font-extrabold tracking-normal text-blossomdeep sm:text-3xl">
+            Bloom &amp; Petal
           </span>
-        </button>
+        </Link>
 
-        {/* mobile hamburger */}
-        <button
-          type="button"
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Open menu"
-          className="md:hidden grid size-10 place-items-center rounded-full border border-beige bg-ivory"
-        >
-          {menuOpen ? (
-            <svg viewBox="0 0 16 16" className="size-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M3 3l10 10M13 3L3 13" />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 16 16" className="size-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M2 4h12M2 8h12M2 12h12" />
-            </svg>
+        <nav className="ml-auto hidden items-center gap-8 text-base font-bold text-ink/80 lg:flex">
+          {!isStaff && (
+            <a href="#catalog" className="transition hover:text-blossomdeep">
+              {t.shop}
+            </a>
           )}
-        </button>
+          {isSignedIn ? (
+            <>
+              {isStaff && (
+                <Link
+                  href="/admin"
+                  className="relative inline-flex items-center gap-2 rounded-full bg-blush px-4 py-2 text-blossomdeep transition hover:bg-blushdeep"
+                >
+                  Messages
+                  {visibleAdminUnreadCount > 0 && (
+                    <span className="grid min-w-5 place-items-center rounded-full bg-blossomdeep px-1.5 text-[11px] font-extrabold leading-5 text-white">
+                      {visibleAdminUnreadCount}
+                    </span>
+                  )}
+                </Link>
+              )}
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 rounded-full bg-blush px-2.5 py-1.5 pr-4 text-blossomdeep transition hover:bg-blushdeep"
+              >
+                <span className="grid size-8 place-items-center rounded-full bg-blossomdeep text-sm font-extrabold text-white shadow-glow">
+                  {displayName.trim().charAt(0).toUpperCase() || (
+                    <UserIcon className="size-4" />
+                  )}
+                </span>
+                <span className="max-w-32 truncate">{displayName}</span>
+              </Link>
+              <button
+                type="button"
+                onClick={signOut}
+                className="rounded-full border border-line px-4 py-2 text-sm font-extrabold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
+              >
+                Sign out
+              </button>
+            </>
+          ) : hydrated ? (
+            <>
+              <Link href="/profile?mode=login" className="transition hover:text-blossomdeep">
+                {t.login}
+              </Link>
+              <Link
+                href="/profile"
+                className="rounded-full bg-blossomdeep px-4 py-2 text-base font-extrabold text-white shadow-glow transition hover:-translate-y-0.5 hover:bg-raspberry active:translate-y-0"
+              >
+                {t.signUp}
+              </Link>
+            </>
+          ) : null}
+          <LanguageSwitch />
+        </nav>
+
+        <div className="ml-auto flex items-center gap-1.5 lg:ml-0">
+          {!isStaff && (
+            <div ref={cartRef} className="relative">
+              <button
+                type="button"
+                aria-label={`Cart (${badgeCount} items)`}
+                aria-expanded={cartOpen}
+                onClick={() => setCartOpen(!cartOpen)}
+                className={`relative grid size-10 place-items-center rounded-full text-ink/65 transition hover:bg-blush hover:text-blossomdeep ${
+                  cartOpen ? "bg-blush text-blossomdeep" : ""
+                }`}
+              >
+                <CartIcon className="size-5.5" />
+                {badgeCount > 0 && (
+                  <span
+                    key={badgeCount}
+                    className="absolute right-0 top-0 grid min-w-5 animate-pop place-items-center rounded-full bg-blossomdeep px-1 text-[10px] font-bold text-white"
+                  >
+                    {badgeCount}
+                  </span>
+                )}
+              </button>
+              {cartOpen && <CartDropdown onClose={() => setCartOpen(false)} />}
+            </div>
+          )}
+
+          <button
+            type="button"
+            aria-label="Open menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="grid size-12 place-items-center rounded-full text-blossomdeep transition hover:bg-blush lg:hidden"
+          >
+            <MenuIcon className="size-6" />
+          </button>
+        </div>
       </div>
 
-      {/* mobile panel */}
       {menuOpen && (
-        <div className="md:hidden border-t border-beige/70 bg-ivory px-4 py-4 space-y-3">
-          <SearchInput />
-          <div className="flex flex-wrap gap-2">
-            <PillSelect icon="📍" label="Tashkent" />
-            <PillSelect icon="🕐" label="Today" />
-            <PillSelect icon="💵" label="USD" />
-          </div>
+        <div className="border-t border-line bg-white px-5 py-4 shadow-soft lg:hidden">
+          <nav className="mx-auto flex max-w-[1480px] flex-col gap-3 text-base font-bold">
+            {!isStaff && (
+              <a
+                href="#catalog"
+                onClick={() => setMenuOpen(false)}
+                className="rounded-2xl px-3 py-2 transition hover:bg-blush"
+              >
+                {t.shop}
+              </a>
+            )}
+            <Link
+              href={isSignedIn ? "/profile" : "/profile?mode=login"}
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-2 rounded-2xl px-3 py-2 transition hover:bg-blush"
+            >
+              {isSignedIn && (
+                <span className="grid size-8 place-items-center rounded-full bg-blossomdeep text-xs font-extrabold text-white">
+                  {displayName.trim().charAt(0).toUpperCase()}
+                </span>
+              )}
+              {isSignedIn ? displayName : t.login}
+            </Link>
+            {!isSignedIn && hydrated && (
+              <Link
+                href="/profile"
+                onClick={() => setMenuOpen(false)}
+                className="rounded-full bg-blossomdeep px-5 py-3 text-center font-extrabold text-white"
+              >
+                {t.signUp}
+              </Link>
+            )}
+            {isSignedIn && isStaff && (
+              <Link
+                href="/admin"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center justify-between rounded-2xl px-3 py-2 transition hover:bg-blush"
+              >
+                <span>Messages</span>
+                {visibleAdminUnreadCount > 0 && (
+                  <span className="grid min-w-6 place-items-center rounded-full bg-blossomdeep px-2 text-xs font-extrabold leading-6 text-white">
+                    {visibleAdminUnreadCount}
+                  </span>
+                )}
+              </Link>
+            )}
+            {isSignedIn && (
+              <button
+                type="button"
+                onClick={() => {
+                  signOut();
+                  setMenuOpen(false);
+                }}
+                className="rounded-full border border-line px-5 py-3 text-left font-extrabold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
+              >
+                Sign out
+              </button>
+            )}
+            <div className="pt-1">
+              <LanguageSwitch />
+            </div>
+            {isSignedIn && !isStaff && (
+              <Link
+                href="/profile#favorites"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 rounded-2xl px-3 py-2 transition hover:bg-blush sm:hidden"
+              >
+                <UserIcon className="size-5" />
+                {t.favorites}
+              </Link>
+            )}
+          </nav>
         </div>
       )}
     </header>
