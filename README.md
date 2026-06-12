@@ -2,9 +2,9 @@
 
 # 🌸 Bloom & Petal
 
-**Full-stack flower shop e-commerce — Django REST Framework + React**
+**Flower delivery marketplace — Django REST Framework API + Next.js frontend**
 
-Fresh flowers, real product photos, JWT auth, server-synced cart, and a trilingual UI & admin (EN / RU / UZ).
+A trilingual Django admin & REST API (products, cart, orders, support chat) paired with **Gulora** — a premium Tashkent flower-marketplace UI with original illustrated bouquets.
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Django](https://img.shields.io/badge/Django-4.2-092E20?logo=django&logoColor=white)
@@ -21,15 +21,18 @@ Fresh flowers, real product photos, JWT auth, server-synced cart, and a trilingu
 
 ## ✨ Features
 
-### 🛍️ Customer
-- Browse 28 flower products across 7 categories — **real photos** from Wikimedia Commons
-- Search, filter by category / price / availability, sort, pagination
-- **Three languages — English (default), Русский, Oʻzbekcha** — switchable from the navbar, remembered in localStorage
-- Registration & JWT login with automatic token refresh
-- Server-synced shopping cart: add, update quantity, remove, clear
-- Checkout with delivery details, free shipping over $50
-- Order history with live status badges
-- Profile editing, contact-the-shop messaging
+### 🌸 Gulora marketplace UI (frontend)
+- Premium one-page marketplace: trust bar, sticky header with search / location / currency, hero with floating proof cards
+- Horizontally scrollable category chips, catalog with **working sort & delivery-today filter**
+- Product cards with badges, ratings, favorites, hover quick-buy — 4/2/1 column responsive grid
+- Gift finder by occasion and an **interactive bouquet builder** with live recolored preview
+- Original illustrated SVG bouquets — zero external image assets, fully self-contained
+- Mock data (10 products, 4 shops) — ready to be wired to the Django API
+
+### 🔌 REST API (backend)
+- Products & categories with search / filter / sort / pagination — 28 seeded flowers with **real photos**
+- Registration & JWT auth with refresh, server-synced cart, checkout, order history
+- Customer↔support messaging with admin replies
 
 ### 🛠️ Admin
 - **Trilingual Django admin**: `/admin/` (English), `/ru/admin/`, `/uz/admin/` + a language switcher in the header
@@ -51,7 +54,7 @@ Fresh flowers, real product photos, JWT auth, server-synced cart, and a trilingu
 | Layer | Technology |
 |---|---|
 | Backend | Python 3.12 · Django 4.2 · DRF 3.14 · SimpleJWT · django-filter |
-| Frontend | React 18 · React Router v6 · Axios · react-i18next |
+| Frontend | Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 |
 | Database | PostgreSQL 15 |
 | Queue / Realtime | Redis · Celery 5 · Celery Beat · Django Channels (Daphne) |
 | i18n | react-i18next (frontend) · Django locale + gettext catalogs (admin) |
@@ -88,17 +91,12 @@ flower-shop/
 │   ├── tests/                   # cross-app tests (admin i18n)
 │   └── manage.py · requirements.txt · pytest.ini · Dockerfile
 │
-├── frontend/
-│   └── src/
-│       ├── api/                 # Axios instance + JWT refresh interceptor
-│       ├── components/          # common / products / cart
-│       ├── context/             # AuthContext, CartContext
-│       ├── hooks/               # useAuth, useCart, useProducts
-│       ├── i18n/                # en.json · ru.json · uz.json + i18next setup
-│       ├── pages/               # Home, Products, Detail, Cart, Checkout, Auth,
-│       │                        # Profile, Orders, AdminDashboard
-│       ├── routes/              # AppRoutes + ProtectedRoute (auth/admin guards)
-│       └── utils/               # JWT storage, formatting helpers
+├── frontend/                    # "Gulora" — Next.js 16 marketplace UI (mock data)
+│   ├── app/                     # App Router: layout, page, global theme tokens
+│   ├── components/              # TrustBar, Header, Hero, CategoryNav, Catalog,
+│   │                            # ProductCard, GiftFinder, BouquetBuilder,
+│   │                            # Reviews, WhyChooseUs, Footer, BouquetArt (SVG)
+│   └── lib/                     # types.ts + mock data (products, reviews, palettes)
 │
 ├── docker-compose.yml           # db + backend + frontend
 └── README.md
@@ -150,16 +148,20 @@ python manage.py runserver      # http://localhost:8000
 </details>
 
 <details>
-<summary><b>Frontend</b></summary>
+<summary><b>Frontend (Gulora marketplace UI)</b></summary>
 
 ```bash
 cd frontend
 
-cp .env.example .env            # REACT_APP_API_URL=http://localhost:8000/api
-
 npm install
-npm start                       # http://localhost:3000
+npm run dev                     # http://localhost:3000
 ```
+
+Runs standalone on mock data — no backend or env vars required.
+
+> The previous Bloom & Petal storefront (React 18 + i18n + support chat,
+> wired to the Django API) was replaced by this design and lives in git
+> history up to commit `834f639`.
 </details>
 
 ### 🌷 Seed demo data
@@ -179,22 +181,19 @@ python manage.py download_flower_images
 
 ## 🌍 Languages
 
-English is the default everywhere. Russian and Uzbek are fully supported:
+English is the default. The Django admin is fully trilingual:
 
 | Where | How to switch |
 |---|---|
-| Storefront | **EN / РУ / OʻZ** buttons in the navbar — persisted in localStorage, auto-detected from the browser on first visit |
 | Django admin | URL prefix — `/admin/` (EN), `/ru/admin/`, `/uz/admin/` — or the **EN / RU / UZ** switcher next to the logout link |
+| Gulora frontend | English UI (EN / RU / UZ pills in the footer are visual placeholders for now) |
 
-**Editing translations:**
+**Editing admin translations:** edit `backend/locale/{ru,uz}/LC_MESSAGES/django.po`, then compile and restart:
 
-- *Frontend:* edit `frontend/src/i18n/locales/{en,ru,uz}.json` — hot-reloads in dev.
-- *Admin:* edit `backend/locale/{ru,uz}/LC_MESSAGES/django.po`, then compile and restart:
-
-  ```bash
-  cd backend
-  python scripts/compile_messages.py   # pure Python, GNU gettext not required
-  ```
+```bash
+cd backend
+python scripts/compile_messages.py   # pure Python, GNU gettext not required
+```
 
 ---
 
@@ -241,7 +240,7 @@ python manage.py download_flower_images
 
 > ⚠️ On most PaaS free tiers the filesystem is ephemeral — uploaded media (product photos) disappears on redeploy. Re-run `download_flower_images` after deploys, or move media to S3/Cloudinary for permanence.
 
-For the React frontend (Vercel / Netlify): set `REACT_APP_API_URL=https://your-backend.example.com/api` and build with `npm run build`.
+For the Gulora frontend (Vercel / Netlify): it's a standard Next.js app on mock data — no env vars needed; Vercel auto-detects the framework from `frontend/package.json`.
 
 ---
 

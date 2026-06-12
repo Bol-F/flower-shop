@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'channels',
     'django_celery_beat',
     'django_celery_results',
+    'django_extensions',
     # Local apps
     'apps.users',
     'apps.categories',
