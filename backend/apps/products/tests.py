@@ -74,7 +74,24 @@ class TestProductDetail:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['name'] == product.name
 
+    def test_create_product_anonymous_unauthorized(self, api_client, category):
+        url = reverse('product-list')
+        data = {
+            'name': 'New Product',
+            'description': 'Test',
+            'price': '15.00',
+            'stock': 5,
+        }
+        response = api_client.post(url, data, format='json')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
     def test_create_product_requires_admin(self, api_client, category):
+        regular_user = User.objects.create_user(
+            username='regular',
+            email='regular@example.com',
+            password='pass123',
+        )
+        api_client.force_authenticate(user=regular_user)
         url = reverse('product-list')
         data = {
             'name': 'New Product',

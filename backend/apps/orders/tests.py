@@ -81,7 +81,9 @@ class TestOrderCreation:
         )
         response = api_client.get(reverse('order-list'))
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
+        # paginated response
+        assert response.data['count'] == 1
+        assert len(response.data['results']) == 1
 
     def test_order_requires_auth(self, api_client):
         response = api_client.post(reverse('order-create'), {})
