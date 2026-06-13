@@ -263,3 +263,50 @@ export async function markSupportMessageRead(id: number): Promise<AdminSupportMe
     auth: true,
   });
 }
+
+/* ── reviews, ratings & likes (apps.reviews) ──────────────────── */
+
+export interface ReviewItem {
+  id: number;
+  author: string;
+  rating: number;
+  body: string;
+  created_at: string;
+  is_mine: boolean;
+}
+
+/** One payload with everything the product page needs. */
+export interface ProductSocial {
+  product: string;
+  rating_average: number | null;
+  rating_count: number;
+  my_review: { rating: number; body: string } | null;
+  reviews: ReviewItem[];
+}
+
+/** Public summary; sends the token when signed in so my_review fills in. */
+export async function fetchProductSocial(productId: string): Promise<ProductSocial> {
+  return request<ProductSocial>(`/api/reviews/products/${productId}/`, {
+    auth: true,
+  });
+}
+
+/** Create or update the signed-in user's review; returns the refreshed summary. */
+export async function submitReview(
+  productId: string,
+  payload: { rating: number; body: string },
+): Promise<ProductSocial> {
+  return request<ProductSocial>(`/api/reviews/products/${productId}/review/`, {
+    method: "POST",
+    body: payload,
+    auth: true,
+  });
+}
+
+/** Remove the signed-in user's own review; returns the refreshed summary. */
+export async function deleteMyReview(productId: string): Promise<ProductSocial> {
+  return request<ProductSocial>(`/api/reviews/products/${productId}/review/`, {
+    method: "DELETE",
+    auth: true,
+  });
+}

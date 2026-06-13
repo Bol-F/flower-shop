@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { categories, products } from "@/lib/data";
 import { categoryName, copy } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
@@ -11,12 +11,16 @@ type SortKey = "popular" | "price-asc" | "price-desc" | "new" | "rated";
 
 const sortOptions: SortKey[] = ["popular", "price-asc", "price-desc", "new", "rated"];
 
+/** Cards shown before "Show more" — two rows on the widest (4-col) grid. */
+const PAGE_SIZE = 8;
+
 export default function Catalog() {
   const { query, setQuery, category, setCategory, language } = useStore();
   const t = copy[language].catalog;
   const [sort, setSort] = useState<SortKey>("popular");
   const [todayOnly, setTodayOnly] = useState(false);
   const [saleOnly, setSaleOnly] = useState(false);
+  const [shown, setShown] = useState(PAGE_SIZE);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -40,6 +44,15 @@ export default function Catalog() {
         return list.sort((a, b) => b.popularity - a.popularity);
     }
   }, [query, category, sort, todayOnly, saleOnly]);
+
+  // A fresh filter/search/sort starts the list back at two rows.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setShown(PAGE_SIZE);
+  }, [query, category, sort, todayOnly, saleOnly]);
+
+  const shownProducts = visible.slice(0, shown);
+  const remaining = visible.length - shownProducts.length;
 
   const activeCategory = categories.find((c) => c.id === category);
   const activeCategoryName = activeCategory
@@ -128,11 +141,25 @@ export default function Catalog() {
 
       {/* grid */}
       {visible.length > 0 ? (
-        <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-          {visible.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        <>
+          <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+            {shownProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+
+          {remaining > 0 && (
+            <div className="mt-8 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShown((s) => s + PAGE_SIZE)}
+                className="rounded-full border border-line bg-card px-7 py-3 text-sm font-bold shadow-soft transition hover:border-blossom hover:text-raspberry active:scale-95"
+              >
+                {t.showMore} ({remaining})
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         <div className="mt-12 rounded-3xl bg-card py-16 text-center shadow-soft">
           <p className="text-4xl">🥀</p>

@@ -5,9 +5,11 @@ import { useState } from "react";
 import type { Product } from "@/lib/types";
 import { bouquetSizes, categories, products } from "@/lib/data";
 import { formatPrice } from "@/lib/currency";
+import { categoryName, copy } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import BouquetArt from "./BouquetArt";
 import ProductCard from "./ProductCard";
+import ProductReviews from "./ProductReviews";
 import {
   BoltIcon,
   CameraIcon,
@@ -19,10 +21,25 @@ import {
 } from "./icons";
 
 export default function ProductDetail({ product }: { product: Product }) {
-  const { currency, favorites, toggleFavorite, addToCart, showToast } = useStore();
-  const [variant, setVariant] = useState(0);
+  const { currency, language, favorites, toggleFavorite, addToCart, showToast } =
+    useStore();
+  const t = copy[language].detail;
   const [sizeId, setSizeId] = useState<"S" | "M" | "L">("M");
+  // The 3 gallery shots map 1:1 to the S / M / L sizes, so choosing one keeps
+  // the other in sync. bouquetSizes is the single source for that ordering.
+  const [variant, setVariant] = useState(() =>
+    product.hasSizes ? bouquetSizes.findIndex((s) => s.id === "M") : 0,
+  );
   const [qty, setQty] = useState(1);
+
+  const chooseSize = (id: "S" | "M" | "L") => {
+    setSizeId(id);
+    setVariant(bouquetSizes.findIndex((s) => s.id === id));
+  };
+  const chooseVariant = (v: number) => {
+    setVariant(v);
+    if (product.hasSizes) setSizeId(bouquetSizes[v].id);
+  };
 
   const liked = favorites.includes(product.id);
   const category = categories.find((c) => c.id === product.category);
@@ -47,17 +64,17 @@ export default function ProductDetail({ product }: { product: Product }) {
   return (
     <main className="mx-auto max-w-7xl px-4 py-8">
       {/* breadcrumbs */}
-      <nav aria-label="Breadcrumb" className="text-sm text-stone">
+      <nav aria-label={t.breadcrumb} className="text-sm text-stone">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
             <Link href="/" className="transition hover:text-blossomdeep">
-              Home
+              {t.home}
             </Link>
           </li>
           <li aria-hidden>/</li>
           <li>
             <Link href="/#catalog" className="transition hover:text-blossomdeep">
-              {category?.name ?? "Catalog"}
+              {category ? categoryName(language, category.id) : t.catalog}
             </Link>
           </li>
           <li aria-hidden>/</li>
@@ -86,13 +103,13 @@ export default function ProductDetail({ product }: { product: Product }) {
               )}
               {product.isNew && (
                 <span className="rounded-full bg-mint px-3 py-1.5 text-xs font-bold text-leaf">
-                  New
+                  {copy[language].product.new}
                 </span>
               )}
             </div>
             <button
               type="button"
-              aria-label={liked ? "Remove from favorites" : "Add to favorites"}
+              aria-label={liked ? t.favoriteRemove : t.favoriteAdd}
               aria-pressed={liked}
               onClick={() => toggleFavorite(product.id)}
               className="absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-card/90 shadow-soft backdrop-blur transition hover:scale-110 active:scale-90"
@@ -110,9 +127,13 @@ export default function ProductDetail({ product }: { product: Product }) {
               <button
                 key={v}
                 type="button"
-                aria-label={`View angle ${v + 1}`}
+                aria-label={
+                  product.hasSizes
+                    ? `${t.size} ${bouquetSizes[v].id} · ${t.sizes[bouquetSizes[v].id]}`
+                    : `${t.angle} ${v + 1}`
+                }
                 aria-pressed={variant === v}
-                onClick={() => setVariant(v)}
+                onClick={() => chooseVariant(v)}
                 className={`grid h-20 w-20 place-items-center overflow-hidden rounded-2xl transition hover:-translate-y-0.5 ${
                   variant === v
                     ? "ring-2 ring-blossomdeep ring-offset-2 ring-offset-paper"
@@ -131,7 +152,7 @@ export default function ProductDetail({ product }: { product: Product }) {
           <div className="flex items-center gap-2 text-sm">
             <StarIcon className="size-4 text-blossom" />
             <span className="font-bold">{product.rating.toFixed(1)}</span>
-            <span className="text-stone">({product.reviews} reviews)</span>
+            <span className="text-stone">({product.reviews} {t.reviews})</span>
             <span className="text-stone">·</span>
             <span className="font-semibold text-ink/80">{product.shop}</span>
           </div>
@@ -151,7 +172,7 @@ export default function ProductDetail({ product }: { product: Product }) {
             )}
             {product.oldPrice && (product.hasSizes || qty > 1) && (
               <span className="rounded-full bg-berrysoft px-2.5 py-1 text-xs font-bold text-berry">
-                −{discount}% today
+                −{discount}% {t.discountToday}
               </span>
             )}
           </p>
@@ -161,16 +182,16 @@ export default function ProductDetail({ product }: { product: Product }) {
             <span className="flex items-center gap-1.5 rounded-full bg-mint px-3.5 py-2 text-sm font-semibold text-leaf">
               <BoltIcon className="size-4" />
               {product.deliveryToday
-                ? `Today in ~${product.deliveryMins} min`
-                : "Tomorrow from 9:00"}
+                ? t.deliveryToday.replace("{min}", String(product.deliveryMins))
+                : t.deliveryTomorrow}
             </span>
             <span className="flex items-center gap-1.5 rounded-full bg-blush px-3.5 py-2 text-sm font-semibold text-raspberry">
               <CameraIcon className="size-4" />
-              Photo before delivery
+              {t.photo}
             </span>
             <span className="flex items-center gap-1.5 rounded-full bg-lilac px-3.5 py-2 text-sm font-semibold text-iris">
               <LeafIcon className="size-4" />
-              Fresh guarantee
+              {t.fresh}
             </span>
           </div>
 
@@ -178,7 +199,7 @@ export default function ProductDetail({ product }: { product: Product }) {
           {product.hasSizes && (
             <div className="mt-6">
               <p className="text-sm font-bold uppercase tracking-wider text-stone">
-                Size
+                {t.size}
               </p>
               <div className="mt-2.5 flex gap-2.5">
                 {bouquetSizes.map((s) => (
@@ -186,7 +207,7 @@ export default function ProductDetail({ product }: { product: Product }) {
                     key={s.id}
                     type="button"
                     aria-pressed={sizeId === s.id}
-                    onClick={() => setSizeId(s.id)}
+                    onClick={() => chooseSize(s.id)}
                     className={`flex-1 rounded-2xl border-2 px-4 py-3 text-left transition active:scale-[0.98] ${
                       sizeId === s.id
                         ? "border-blossomdeep bg-blush/60"
@@ -194,7 +215,7 @@ export default function ProductDetail({ product }: { product: Product }) {
                     }`}
                   >
                     <span className="block text-sm font-bold">
-                      {s.id} · {s.label}
+                      {s.id} · {t.sizes[s.id]}
                     </span>
                     <span className="mt-0.5 block text-sm font-semibold text-blossomdeep">
                       {formatPrice(Math.round(product.price * s.multiplier), currency)}
@@ -210,7 +231,7 @@ export default function ProductDetail({ product }: { product: Product }) {
             <div className="flex items-center gap-1 rounded-full border border-line bg-card p-1.5">
               <button
                 type="button"
-                aria-label="Decrease quantity"
+                aria-label={t.qtyDecrease}
                 onClick={() => setQty(Math.max(1, qty - 1))}
                 className="grid size-9 place-items-center rounded-full bg-blush text-raspberry transition hover:bg-blushdeep active:scale-90"
               >
@@ -219,7 +240,7 @@ export default function ProductDetail({ product }: { product: Product }) {
               <span className="w-8 text-center font-bold">{qty}</span>
               <button
                 type="button"
-                aria-label="Increase quantity"
+                aria-label={t.qtyIncrease}
                 onClick={() => setQty(qty + 1)}
                 className="grid size-9 place-items-center rounded-full bg-blush text-raspberry transition hover:bg-blushdeep active:scale-90"
               >
@@ -233,25 +254,27 @@ export default function ProductDetail({ product }: { product: Product }) {
                 addToCart(product.id, qty);
                 showToast(
                   qty === 1
-                    ? `${product.name} added to cart`
-                    : `${qty} × ${product.name} added to cart`,
+                    ? t.addedOne.replace("{name}", product.name)
+                    : t.addedMany
+                        .replace("{qty}", String(qty))
+                        .replace("{name}", product.name),
                 );
                 setQty(1);
               }}
               className="flex-1 rounded-full bg-blossomdeep px-8 py-4 text-sm font-bold text-white shadow-lift transition hover:-translate-y-0.5 hover:bg-raspberry active:translate-y-0 sm:flex-none sm:px-12"
             >
-              Add to cart — {formatPrice(unitPrice * qty, currency)}
+              {t.addToCart} — {formatPrice(unitPrice * qty, currency)}
             </button>
           </div>
 
           {/* description */}
           <div className="mt-8 rounded-3xl bg-card p-6 shadow-soft">
-            <h2 className="font-display text-lg font-semibold">About this item</h2>
+            <h2 className="font-display text-lg font-semibold">{t.about}</h2>
             <p className="mt-2 text-sm leading-relaxed text-ink/80">
               {product.description}
             </p>
             <h3 className="mt-5 text-sm font-bold uppercase tracking-wider text-stone">
-              What&apos;s inside
+              {t.inside}
             </h3>
             <ul className="mt-2.5 flex flex-wrap gap-2">
               {product.composition.map((item) => (
@@ -272,9 +295,7 @@ export default function ProductDetail({ product }: { product: Product }) {
             </span>
             <div className="min-w-0">
               <p className="truncate font-bold">{product.shop}</p>
-              <p className="text-xs text-stone">
-                Local florist studio · Tashkent · verified partner
-              </p>
+              <p className="text-xs text-stone">{t.shopMeta}</p>
             </div>
             <span className="ml-auto flex shrink-0 items-center gap-1 text-sm font-bold">
               <StarIcon className="size-4 text-blossom" />
@@ -284,10 +305,13 @@ export default function ProductDetail({ product }: { product: Product }) {
         </div>
       </div>
 
+      {/* reviews, ratings & likes */}
+      <ProductReviews productId={product.id} />
+
       {/* similar */}
-      <section aria-label="You may also like" className="mt-14">
+      <section aria-label={t.similar} className="mt-14">
         <h2 className="font-display text-2xl font-semibold sm:text-3xl">
-          You may also like
+          {t.similar}
         </h2>
         <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
           {similar.map((p) => (

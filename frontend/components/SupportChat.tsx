@@ -151,7 +151,11 @@ export default function SupportChat() {
     try {
       setSending(true);
       const sent = await sendSupportMessage(trimmed);
-      setMessages((current) => [sent, ...current]);
+      // A poll can land between the POST resolving and this update, already
+      // carrying the sent message — guard against a duplicate id (React key).
+      setMessages((current) =>
+        current.some((m) => m.id === sent.id) ? current : [sent, ...current],
+      );
       setBody("");
       setError("");
     } catch (err) {

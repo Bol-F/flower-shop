@@ -18,6 +18,7 @@ urlpatterns = [
     path('api/cart/', include('apps.cart.urls')),
     path('api/orders/', include('apps.orders.urls')),
     path('api/contact/', include('apps.contact.urls')),
+    path('api/reviews/', include('apps.reviews.urls')),
 ]
 
 # /admin/ stays English (default), /ru/admin/ and /uz/admin/ switch language

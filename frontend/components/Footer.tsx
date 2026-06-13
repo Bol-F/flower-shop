@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const columns = [
   {
@@ -16,8 +19,12 @@ const columns = [
 ];
 
 export default function Footer() {
+  const pathname = usePathname();
+  // Staff work in the admin dashboard — the marketing footer is just noise there.
+  if (pathname?.startsWith("/admin")) return null;
+
   return (
-    <footer className="mt-10 border-t border-line bg-card">
+    <footer className="mt-10 border-t border-line bg-gradient-to-br from-[#fff2f8] via-[#fde7f1] to-[#fbdaeb]">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:grid-cols-2 lg:grid-cols-5">
         {/* brand */}
         <div className="lg:col-span-2">
