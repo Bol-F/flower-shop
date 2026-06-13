@@ -2,24 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const columns = [
-  {
-    title: "Каталог",
-    links: ["Розы", "Монобукеты", "Цветы в коробке", "Корзины", "Растения", "Подарки", "Шары"],
-  },
-  {
-    title: "Поводы",
-    links: ["День рождения", "Романтика", "Свадьба", "Годовщина", "Новорожденным", "Просто так"],
-  },
-  {
-    title: "Клиентам",
-    links: ["Доставка и оплата", "Гарантия свежести", "Фото перед доставкой", "Стать партнером", "Помощь"],
-  },
-];
+import { copy } from "@/lib/i18n";
+import { useStore } from "@/lib/store";
 
 export default function Footer() {
   const pathname = usePathname();
+  const { language } = useStore();
+  const t = copy[language].footer;
+  const columns = [t.columns.catalog, t.columns.occasions, t.columns.clients];
+
   // Staff work in the admin dashboard — the marketing footer is just noise there.
   if (pathname?.startsWith("/admin")) return null;
 
@@ -35,11 +26,10 @@ export default function Footer() {
             </span>
           </Link>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-stone">
-            Нежная доставка букетов и подарков в Ташкенте. Свежие цветы,
-            аккуратная сборка и фото перед отправкой.
+            {t.tagline}
           </p>
           <p className="mt-4 text-sm font-semibold">
-            Каждый день 8:00 - 22:00
+            {t.hours}
             <br />
             <a href="tel:+998711234567" className="text-blossomdeep hover:underline">
               +998 71 123-45-67
@@ -70,13 +60,13 @@ export default function Footer() {
 
       <div className="border-t border-line">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-stone">
-          <p>© 2026 Bloom &amp; Petal. Цветы с фото перед доставкой.</p>
+          <p>{t.copyright}</p>
           <p>
-            Цены в USD или UZS, переключение доступно в{" "}
+            {t.currencyPre}
             <Link href="/profile" className="font-semibold text-blossomdeep hover:underline">
-              профиле
+              {t.currencyLink}
             </Link>
-            .
+            {t.currencyPost}
           </p>
         </div>
       </div>

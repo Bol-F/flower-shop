@@ -1,4 +1,8 @@
+"use client";
+
 import { reviews } from "@/lib/data";
+import { copy } from "@/lib/i18n";
+import { useStore } from "@/lib/store";
 import BouquetArt from "./BouquetArt";
 import { StarIcon } from "./icons";
 
@@ -31,14 +35,16 @@ function ReviewCard({ review }: { review: (typeof reviews)[number] }) {
 
 /** Endless scrolling wall of love — pauses on hover */
 export default function ReviewsMarquee() {
+  const { language } = useStore();
+  const t = copy[language].marquee;
   return (
-    <section aria-label="Customer reviews" className="overflow-hidden py-10">
+    <section aria-label={t.label} className="overflow-hidden py-10">
       <div className="mx-auto max-w-7xl px-4">
         <h2 className="font-display text-3xl font-semibold sm:text-4xl">
-          4.9 из 5 после 12 000+ доставок
+          {t.title}
         </h2>
         <p className="mt-1.5 text-sm text-stone">
-          Реальные отзывы от клиентов Bloom &amp; Petal в Ташкенте
+          {t.subtitle}
         </p>
       </div>
 

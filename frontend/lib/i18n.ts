@@ -133,6 +133,34 @@ export const copy = {
       gifts: "Gifts",
       balloons: "Balloons",
     },
+    footer: {
+      tagline:
+        "Gentle delivery of bouquets and gifts in Tashkent. Fresh flowers, careful assembly, and a photo before we send.",
+      hours: "Every day 8:00 – 22:00",
+      columns: {
+        catalog: {
+          title: "Catalog",
+          links: ["Roses", "Mono bouquets", "Flowers in box", "Baskets", "Plants", "Gifts", "Balloons"],
+        },
+        occasions: {
+          title: "Occasions",
+          links: ["Birthday", "Romantic", "Wedding", "Anniversary", "Newborn", "Just because"],
+        },
+        clients: {
+          title: "Customers",
+          links: ["Delivery & payment", "Freshness guarantee", "Photo before delivery", "Become a partner", "Help"],
+        },
+      },
+      copyright: "© 2026 Bloom & Petal. Flowers with a photo before delivery.",
+      currencyPre: "Prices in USD or UZS — switch in your ",
+      currencyLink: "profile",
+      currencyPost: ".",
+    },
+    marquee: {
+      label: "Customer reviews",
+      title: "4.9 out of 5 after 12,000+ deliveries",
+      subtitle: "Real reviews from Bloom & Petal customers in Tashkent",
+    },
   },
   RU: {
     nav: {
@@ -260,6 +288,34 @@ export const copy = {
       gifts: "Подарки",
       balloons: "Шары",
     },
+    footer: {
+      tagline:
+        "Нежная доставка букетов и подарков в Ташкенте. Свежие цветы, аккуратная сборка и фото перед отправкой.",
+      hours: "Каждый день 8:00 – 22:00",
+      columns: {
+        catalog: {
+          title: "Каталог",
+          links: ["Розы", "Монобукеты", "Цветы в коробке", "Корзины", "Растения", "Подарки", "Шары"],
+        },
+        occasions: {
+          title: "Поводы",
+          links: ["День рождения", "Романтика", "Свадьба", "Годовщина", "Новорожденным", "Просто так"],
+        },
+        clients: {
+          title: "Клиентам",
+          links: ["Доставка и оплата", "Гарантия свежести", "Фото перед доставкой", "Стать партнером", "Помощь"],
+        },
+      },
+      copyright: "© 2026 Bloom & Petal. Цветы с фото перед доставкой.",
+      currencyPre: "Цены в USD или UZS, переключение доступно в ",
+      currencyLink: "профиле",
+      currencyPost: ".",
+    },
+    marquee: {
+      label: "Отзывы клиентов",
+      title: "4.9 из 5 после 12 000+ доставок",
+      subtitle: "Реальные отзывы от клиентов Bloom & Petal в Ташкенте",
+    },
   },
   UZ: {
     nav: {
@@ -386,6 +442,34 @@ export const copy = {
       plants: "O'simliklar",
       gifts: "Sovg'alar",
       balloons: "Sharlar",
+    },
+    footer: {
+      tagline:
+        "Toshkentda guldasta va sovg'alarni mehr bilan yetkazamiz. Yangi gullar, ozoda yig'ish va jo'natishdan oldin foto.",
+      hours: "Har kuni 8:00 – 22:00",
+      columns: {
+        catalog: {
+          title: "Katalog",
+          links: ["Atirgullar", "Mono guldastalar", "Qutidagi gullar", "Savatlar", "O'simliklar", "Sovg'alar", "Sharlar"],
+        },
+        occasions: {
+          title: "Tadbirlar",
+          links: ["Tug'ilgan kun", "Romantika", "To'y", "Yubiley", "Chaqaloq uchun", "Shunchaki"],
+        },
+        clients: {
+          title: "Mijozlarga",
+          links: ["Yetkazish va to'lov", "Tozalik kafolati", "Yetkazishdan oldin foto", "Hamkor bo'lish", "Yordam"],
+        },
+      },
+      copyright: "© 2026 Bloom & Petal. Yetkazishdan oldin fotoli gullar.",
+      currencyPre: "Narxlar USD yoki UZS da — ",
+      currencyLink: "profil",
+      currencyPost: " orqali almashtiring.",
+    },
+    marquee: {
+      label: "Mijozlar sharhlari",
+      title: "12 000+ yetkazishdan so'ng 4.9 / 5",
+      subtitle: "Toshkentdagi Bloom & Petal mijozlarining haqiqiy sharhlari",
     },
   },
 } satisfies Record<Language, unknown>;
