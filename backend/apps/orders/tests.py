@@ -61,6 +61,8 @@ class TestOrderCreation:
         assert response.status_code == status.HTTP_201_CREATED
         assert Order.objects.filter(user=user).count() == 1
         assert response.data['total_price'] == '39.98'
+        product = Product.objects.get(name='Tulip Bouquet')
+        assert product.stock == 13
 
     def test_create_order_empty_cart(self, api_client, user):
         api_client.force_authenticate(user=user)
@@ -71,6 +73,26 @@ class TestOrderCreation:
             format='json',
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_create_order_rejects_cart_quantity_above_current_stock(
+        self, api_client, user, product
+    ):
+        product.stock = 1
+        product.save(update_fields=['stock'])
+        cart = Cart.objects.create(user=user)
+        CartItem.objects.create(cart=cart, product=product, quantity=2)
+
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            reverse('order-create'),
+            {'shipping_address': '123 Street', 'phone': '+1234567890'},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Order.objects.filter(user=user).count() == 0
+        product.refresh_from_db()
+        assert product.stock == 1
 
     def test_order_list_returns_user_orders(self, api_client, user, cart_with_item):
         api_client.force_authenticate(user=user)

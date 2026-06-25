@@ -7,9 +7,9 @@ from django.utils.translation import gettext_lazy as _
 class Review(models.Model):
     """A customer's star rating + comment for a catalog product.
 
-    The catalog lives in the frontend as mock data, so a product is
-    referenced by its slug string (e.g. 'pink-rose-harmony') rather than a
-    foreign key. One review per user per product — re-submitting updates it.
+    Reviews are keyed by the storefront product slug. Keeping this as a
+    string lets reviews work for API-backed products and for offline demo
+    products. One review per user per product — re-submitting updates it.
     """
     product = models.CharField(_('product'), max_length=100, db_index=True)
     user = models.ForeignKey(

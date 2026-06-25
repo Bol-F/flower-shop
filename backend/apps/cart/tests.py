@@ -61,6 +61,15 @@ class TestCart:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['total_items'] == 2
 
+    def test_add_item_rejects_quantity_above_stock(self, api_client, user, product):
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            reverse('cart-items'),
+            {'product_id': product.id, 'quantity': product.stock + 1},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
     def test_update_cart_item(self, api_client, user, product):
         api_client.force_authenticate(user=user)
         api_client.post(
@@ -72,6 +81,21 @@ class TestCart:
         response = api_client.patch(url, {'quantity': 3}, format='json')
         assert response.status_code == status.HTTP_200_OK
         assert response.data['total_items'] == 3
+
+    def test_update_cart_item_rejects_quantity_above_stock(self, api_client, user, product):
+        api_client.force_authenticate(user=user)
+        api_client.post(
+            reverse('cart-items'),
+            {'product_id': product.id, 'quantity': 1},
+            format='json',
+        )
+        url = reverse('cart-item-detail', kwargs={'product_id': product.id})
+        response = api_client.patch(
+            url,
+            {'quantity': product.stock + 1},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_remove_item_from_cart(self, api_client, user, product):
         api_client.force_authenticate(user=user)

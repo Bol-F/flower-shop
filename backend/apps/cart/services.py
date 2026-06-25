@@ -11,6 +11,7 @@ def get_or_create_cart(user) -> Cart:
 
 def add_item_to_cart(user, product_id: int, quantity: int = 1) -> CartItem:
     product = _get_available_product(product_id)
+    _ensure_stock(product, quantity)
     cart = get_or_create_cart(user)
 
     cart_item, created = CartItem.objects.get_or_create(
@@ -20,7 +21,9 @@ def add_item_to_cart(user, product_id: int, quantity: int = 1) -> CartItem:
     )
 
     if not created:
-        cart_item.quantity += quantity
+        next_quantity = cart_item.quantity + quantity
+        _ensure_stock(product, next_quantity)
+        cart_item.quantity = next_quantity
         cart_item.save()
 
     return cart_item
@@ -36,6 +39,7 @@ def update_cart_item(user, product_id: int, quantity: int) -> CartItem:
     except CartItem.DoesNotExist:
         raise ValidationError('Item not found in cart.')
 
+    _ensure_stock(cart_item.product, quantity)
     cart_item.quantity = quantity
     cart_item.save()
     return cart_item
@@ -61,3 +65,10 @@ def _get_available_product(product_id: int) -> Product:
         raise ValidationError(f'"{product.name}" is out of stock.')
 
     return product
+
+
+def _ensure_stock(product: Product, quantity: int) -> None:
+    if quantity > product.stock:
+        raise ValidationError(
+            f'Only {product.stock} item(s) available for "{product.name}".'
+        )
