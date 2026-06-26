@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/currency";
@@ -13,6 +14,7 @@ export default function ProductCard({ product }: { product: Product }) {
     useStore();
   const t = copy[language].product;
   const liked = favorites.includes(product.id);
+  const purchasable = product.isAvailable !== false && product.isInStock !== false;
   const discount = product.oldPrice
     ? Math.round((1 - product.price / product.oldPrice) * 100)
     : 0;
@@ -24,10 +26,18 @@ export default function ProductCard({ product }: { product: Product }) {
         className="relative aspect-[4/5] overflow-hidden rounded-2xl"
         style={{ background: product.palette.backdrop }}
       >
-        <BouquetArt
-          palette={product.palette}
-          className="absolute inset-x-0 bottom-0 mx-auto h-[94%] transition duration-500 group-hover:scale-[1.07] group-hover:-rotate-1"
-        />
+        {product.image ? (
+          <img
+            src={product.image}
+            alt={product.name}
+            className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.05]"
+          />
+        ) : (
+          <BouquetArt
+            palette={product.palette}
+            className="absolute inset-x-0 bottom-0 mx-auto h-[94%] transition duration-500 group-hover:scale-[1.07] group-hover:-rotate-1"
+          />
+        )}
 
         {/* badges */}
         <div className="absolute left-2.5 top-2.5 z-20 flex flex-col items-start gap-1.5">
@@ -61,11 +71,16 @@ export default function ProductCard({ product }: { product: Product }) {
         <button
           type="button"
           aria-label={`Add ${product.name} to cart`}
+          disabled={!purchasable}
           onClick={() => {
-            addToCart(product.id);
-            showToast(`${product.name} added to cart`);
+            addToCart(product);
+            showToast(
+              purchasable
+                ? `${product.name} added to cart`
+                : `${product.name} is out of stock`,
+            );
           }}
-          className="absolute bottom-2.5 right-2.5 z-20 grid size-10 place-items-center rounded-full bg-card text-blossomdeep shadow-soft transition hover:bg-blossomdeep hover:text-white hover:shadow-lift active:scale-90"
+          className="absolute bottom-2.5 right-2.5 z-20 grid size-10 place-items-center rounded-full bg-card text-blossomdeep shadow-soft transition hover:bg-blossomdeep hover:text-white hover:shadow-lift active:scale-90 disabled:cursor-not-allowed disabled:text-stone disabled:opacity-60"
         >
           <PlusIcon className="size-5" />
         </button>
@@ -106,7 +121,7 @@ export default function ProductCard({ product }: { product: Product }) {
 
       {/* stretched link below the action buttons */}
       <Link
-        href={`/product/${product.id}`}
+        href={`/product/${product.slug ?? product.id}`}
         aria-label={`View ${product.name}`}
         className="absolute inset-0 z-10 rounded-3xl"
       />

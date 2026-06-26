@@ -1,11 +1,11 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { products } from "@/lib/data";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { formatPrice } from "@/lib/currency";
 import { copy, languages } from "@/lib/i18n";
-import { fetchAdminSupportMessages } from "@/lib/api";
+import { createOrder, fetchAdminSupportMessages } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import BouquetArt from "./BouquetArt";
 import {
@@ -18,35 +18,88 @@ import {
 } from "./icons";
 
 function CartDropdown({ onClose }: { onClose: () => void }) {
-  const { cart, currency, language, setCartQty, removeFromCart } = useStore();
+  const {
+    cartLines,
+    currency,
+    language,
+    setCartQty,
+    removeFromCart,
+    user,
+    clearCart,
+    cartLoading,
+    cartError,
+    showToast,
+  } = useStore();
   const t = copy[language].cart;
-  const items = Object.entries(cart).flatMap(([id, qty]) => {
-    const product = products.find((p) => p.id === id);
-    return product ? [{ product, qty }] : [];
-  });
-  const total = items.reduce((sum, i) => sum + i.product.price * i.qty, 0);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [shippingAddress, setShippingAddress] = useState(user?.address ?? "");
+  const [phone, setPhone] = useState(user?.phone ?? "");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const total = cartLines.reduce((sum, item) => sum + item.subtotal, 0);
+
+  async function onCheckout(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    if (!user) {
+      setError("Sign in before checkout.");
+      return;
+    }
+    if (!shippingAddress.trim() || !phone.trim()) {
+      setError("Delivery address and phone are required.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const order = await createOrder({
+        shipping_address: shippingAddress.trim(),
+        phone: phone.trim(),
+        notes: notes.trim(),
+      });
+      clearCart();
+      setCheckoutOpen(false);
+      showToast(`Order #${order.id} created`);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create order.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="absolute right-0 top-[calc(100%+14px)] z-50 w-[min(20rem,calc(100vw-2rem))] animate-fade-up rounded-[1.75rem] border border-line bg-card p-4 shadow-lift">
       <p className="font-display text-lg font-bold">{t.title}</p>
 
-      {items.length === 0 ? (
+      {cartLines.length === 0 ? (
         <div className="py-6 text-center">
           <p className="text-3xl">🌷</p>
-          <p className="mt-2 text-sm text-stone">{t.empty}</p>
+          <p className="mt-2 text-sm text-stone">
+            {cartLoading ? "Syncing cart..." : t.empty}
+          </p>
         </div>
       ) : (
         <>
           <ul className="mt-3 flex max-h-72 flex-col gap-3 overflow-y-auto pr-1">
-            {items.map(({ product, qty }) => (
+            {cartLines.map(({ product, qty }) => (
               <li key={product.id} className="flex items-center gap-3">
                 <Link
-                  href={`/product/${product.id}`}
+                  href={`/product/${product.slug ?? product.id}`}
                   onClick={onClose}
                   className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-2xl"
                   style={{ background: product.palette.backdrop }}
                 >
-                  <BouquetArt palette={product.palette} className="h-12" />
+                  {product.image ? (
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <BouquetArt palette={product.palette} className="h-12" />
+                  )}
                 </Link>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{product.name}</p>
@@ -91,14 +144,69 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
               {formatPrice(total, currency)}
             </span>
           </div>
-          <button
-            type="button"
-            disabled
-            className="mt-3 w-full cursor-not-allowed rounded-full bg-ink/10 py-3 text-sm font-semibold text-stone"
-            title="Checkout is coming soon"
-          >
-            {t.checkout}
-          </button>
+          {(cartError || error) && (
+            <p className="mt-3 rounded-2xl bg-berrysoft px-3 py-2 text-xs font-bold text-berry">
+              {error || cartError}
+            </p>
+          )}
+
+          {!checkoutOpen ? (
+            user ? (
+              <button
+                type="button"
+                onClick={() => setCheckoutOpen(true)}
+                className="mt-3 w-full rounded-full bg-blossomdeep py-3 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry active:scale-95"
+              >
+                {t.checkout}
+              </button>
+            ) : (
+              <Link
+                href="/profile?mode=login"
+                onClick={onClose}
+                className="mt-3 block w-full rounded-full bg-blossomdeep py-3 text-center text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
+              >
+                Sign in to checkout
+              </Link>
+            )
+          ) : (
+            <form onSubmit={onCheckout} className="mt-3 grid gap-2.5">
+              <input
+                value={shippingAddress}
+                onChange={(event) => setShippingAddress(event.target.value)}
+                placeholder="Delivery address"
+                className="rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+              />
+              <input
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                placeholder="+998 90 123 45 67"
+                className="rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+              />
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                rows={2}
+                placeholder="Delivery notes"
+                className="resize-none rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCheckoutOpen(false)}
+                  className="rounded-full border border-line py-2.5 text-sm font-bold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="rounded-full bg-blossomdeep py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry disabled:cursor-wait disabled:opacity-70"
+                >
+                  {submitting ? "..." : "Place order"}
+                </button>
+              </div>
+            </form>
+          )}
         </>
       )}
     </div>

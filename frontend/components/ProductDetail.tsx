@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { useState } from "react";
 import type { Product } from "@/lib/types";
@@ -42,6 +43,7 @@ export default function ProductDetail({ product }: { product: Product }) {
   };
 
   const liked = favorites.includes(product.id);
+  const purchasable = product.isAvailable !== false && product.isInStock !== false;
   const category = categories.find((c) => c.id === product.category);
   const size = bouquetSizes.find((s) => s.id === sizeId)!;
   const unitPrice = product.hasSizes
@@ -89,12 +91,20 @@ export default function ProductDetail({ product }: { product: Product }) {
             className="relative aspect-[5/6] overflow-hidden rounded-[2rem] shadow-soft sm:aspect-[4/5] lg:aspect-square"
             style={{ background: product.palette.backdrop }}
           >
-            <BouquetArt
-              key={variant}
-              palette={product.palette}
-              variant={variant}
-              className="absolute inset-x-0 bottom-0 mx-auto h-[94%] animate-fade-up"
-            />
+            {product.image ? (
+              <img
+                src={product.image}
+                alt={product.name}
+                className="absolute inset-0 h-full w-full object-cover animate-fade-up"
+              />
+            ) : (
+              <BouquetArt
+                key={variant}
+                palette={product.palette}
+                variant={variant}
+                className="absolute inset-x-0 bottom-0 mx-auto h-[94%] animate-fade-up"
+              />
+            )}
             <div className="absolute left-4 top-4 flex flex-col items-start gap-1.5">
               {discount > 0 && (
                 <span className="rounded-full bg-berry px-3 py-1.5 text-xs font-bold text-white">
@@ -250,8 +260,9 @@ export default function ProductDetail({ product }: { product: Product }) {
 
             <button
               type="button"
+              disabled={!purchasable}
               onClick={() => {
-                addToCart(product.id, qty);
+                addToCart(product, qty);
                 showToast(
                   qty === 1
                     ? t.addedOne.replace("{name}", product.name)
@@ -261,9 +272,10 @@ export default function ProductDetail({ product }: { product: Product }) {
                 );
                 setQty(1);
               }}
-              className="flex-1 rounded-full bg-blossomdeep px-8 py-4 text-sm font-bold text-white shadow-lift transition hover:-translate-y-0.5 hover:bg-raspberry active:translate-y-0 sm:flex-none sm:px-12"
+              className="flex-1 rounded-full bg-blossomdeep px-8 py-4 text-sm font-bold text-white shadow-lift transition hover:-translate-y-0.5 hover:bg-raspberry active:translate-y-0 disabled:cursor-not-allowed disabled:bg-ink/20 disabled:text-stone disabled:shadow-none sm:flex-none sm:px-12"
             >
-              {t.addToCart} — {formatPrice(unitPrice * qty, currency)}
+              {purchasable ? t.addToCart : "Out of stock"} —{" "}
+              {formatPrice(unitPrice * qty, currency)}
             </button>
           </div>
 

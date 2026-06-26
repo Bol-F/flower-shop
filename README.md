@@ -23,15 +23,15 @@ A trilingual Django admin & REST API (products, cart, orders, support chat) pair
 
 ### 🌸 Gulora marketplace UI (frontend)
 - Premium one-page marketplace: trust bar, sticky header with search / location / currency, hero with floating proof cards
-- Horizontally scrollable category chips, catalog with **working sort & delivery-today filter**
-- Product cards with badges, ratings, favorites, hover quick-buy — 4/2/1 column responsive grid
-- Gift finder by occasion and an **interactive bouquet builder** with live recolored preview
-- Original illustrated SVG bouquets — zero external image assets, fully self-contained
-- Mock data (10 products, 4 shops) — ready to be wired to the Django API
+- Horizontally scrollable category chips loaded from the API, catalog with **working sort & delivery-today filter**
+- Product cards with API photos when available, illustrated bouquet fallback, ratings, favorites, and quick add
+- Backend-synced cart for signed-in customers, checkout, and profile order history
+- Support chat, product reviews, profile settings, and staff support inbox wired to the Django API
+- Offline demo fallback catalog so the frontend can still render while the backend is unavailable
 
 ### 🔌 REST API (backend)
 - Products & categories with search / filter / sort / pagination — 28 seeded flowers with **real photos**
-- Registration & JWT auth with refresh, server-synced cart, checkout, order history
+- Registration & JWT auth with refresh, server-synced cart, stock-checked checkout, order history
 - Customer↔support messaging with admin replies
 
 ### 🛠️ Admin
@@ -45,7 +45,7 @@ A trilingual Django admin & REST API (products, cart, orders, support chat) pair
 - Celery + Celery Beat for background tasks (admin notifications, daily summaries)
 - Django Channels (ASGI via Daphne) ready for real-time features
 - Docker Compose for one-command startup
-- 45 pytest tests covering auth, products, cart, orders, categories, contact, and admin i18n
+- 62 pytest tests covering auth, products, cart, orders, categories, contact, reviews, and admin i18n
 
 ---
 
@@ -57,8 +57,8 @@ A trilingual Django admin & REST API (products, cart, orders, support chat) pair
 | Frontend | Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 |
 | Database | PostgreSQL 15 |
 | Queue / Realtime | Redis · Celery 5 · Celery Beat · Django Channels (Daphne) |
-| i18n | react-i18next (frontend) · Django locale + gettext catalogs (admin) |
-| Testing | pytest + pytest-django |
+| i18n | Lightweight frontend copy map · Django locale + gettext catalogs (admin) |
+| Testing | pytest + pytest-django · Vitest |
 | Deployment | Docker + Docker Compose |
 
 ---
@@ -91,12 +91,11 @@ flower-shop/
 │   ├── tests/                   # cross-app tests (admin i18n)
 │   └── manage.py · requirements.txt · pytest.ini · Dockerfile
 │
-├── frontend/                    # "Gulora" — Next.js 16 marketplace UI (mock data)
+├── frontend/                    # "Gulora" — Next.js 16 marketplace UI
 │   ├── app/                     # App Router: layout, page, global theme tokens
-│   ├── components/              # TrustBar, Header, Hero, CategoryNav, Catalog,
-│   │                            # ProductCard, GiftFinder, BouquetBuilder,
-│   │                            # Reviews, WhyChooseUs, Footer, BouquetArt (SVG)
-│   └── lib/                     # types.ts + mock data (products, reviews, palettes)
+│   ├── components/              # Header, Hero, CategoryRail, Catalog, ProductCard,
+│   │                            # ProductDetail, Reviews, SupportChat, Admin inbox
+│   └── lib/                     # API client, catalog adapter, store, copy, fallback data
 │
 ├── docker-compose.yml           # db + backend + frontend
 └── README.md
@@ -157,7 +156,9 @@ npm install
 npm run dev                     # http://localhost:3000
 ```
 
-Runs standalone on mock data — no backend or env vars required.
+By default the frontend calls `http://localhost:8000`. Set `NEXT_PUBLIC_API_URL`
+when the backend lives elsewhere. If the backend is unavailable, the catalog
+falls back to bundled demo products so the UI still renders.
 
 > The previous Bloom & Petal storefront (React 18 + i18n + support chat,
 > wired to the Django API) was replaced by this design and lives in git
@@ -186,7 +187,7 @@ English is the default. The Django admin is fully trilingual:
 | Where | How to switch |
 |---|---|
 | Django admin | URL prefix — `/admin/` (EN), `/ru/admin/`, `/uz/admin/` — or the **EN / RU / UZ** switcher next to the logout link |
-| Gulora frontend | English UI (EN / RU / UZ pills in the footer are visual placeholders for now) |
+| Gulora frontend | Header language switcher — EN / RU / UZ copy is available for the storefront |
 
 **Editing admin translations:** edit `backend/locale/{ru,uz}/LC_MESSAGES/django.po`, then compile and restart:
 
@@ -240,7 +241,9 @@ python manage.py download_flower_images
 
 > ⚠️ On most PaaS free tiers the filesystem is ephemeral — uploaded media (product photos) disappears on redeploy. Re-run `download_flower_images` after deploys, or move media to S3/Cloudinary for permanence.
 
-For the Gulora frontend (Vercel / Netlify): it's a standard Next.js app on mock data — no env vars needed; Vercel auto-detects the framework from `frontend/package.json`.
+For the Gulora frontend (Vercel / Netlify): set `NEXT_PUBLIC_API_URL` to the
+deployed backend origin. The app can render with fallback demo products, but
+auth, cart, checkout, support chat, and order history need the backend.
 
 ### 🔄 CI/CD
 
@@ -258,7 +261,8 @@ Deploys are gated on CI by the platforms themselves:
 
 ## 🧪 Tests
 
-53 tests across users, products, categories, cart, orders, contact, and admin i18n.
+Backend: 62 pytest tests across users, products, categories, cart, orders,
+contact, reviews, and admin i18n.
 
 ```bash
 cd backend
@@ -276,6 +280,15 @@ pytest --cov=apps --cov-report=term-missing
 ```
 
 > PostgreSQL must be running — pytest creates and destroys its own test database.
+
+Frontend:
+
+```bash
+cd frontend
+npm run lint
+npm run test
+npm run build
+```
 
 ---
 
@@ -344,10 +357,11 @@ All responses are paginated (`count` / `next` / `previous` / `results`, 12 per p
 - Contact notifications go through Celery, wrapped so a down Redis never breaks the request
 
 **Frontend**
-- Axios interceptor attaches the JWT and transparently retries once on 401 with the refresh token
-- `AuthContext` and `CartContext` are independent — the cart re-syncs from the server on every auth change
-- `ProtectedRoute` guards both authenticated-only and admin-only pages
-- All UI strings flow through i18next — adding a 4th language is one JSON file + one entry in `LANGUAGES`
+- The fetch API client attaches JWTs and retries once on 401 with the refresh token
+- The catalog adapter maps Django product/category rows into the rich storefront card model
+- Signed-in cart actions sync to the Django cart API; guest carts stay local until sign-in
+- Checkout creates backend orders and the customer profile reads `/api/orders/`
+- UI copy is kept in `frontend/lib/i18n.ts`; add a language by extending `Language`, `languages`, and `copy`
 
 **Admin i18n**
 - `i18n_patterns(prefix_default_language=False)` keeps `/admin/` English while `/ru/` and `/uz/` prefixes switch language

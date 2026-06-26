@@ -7,20 +7,13 @@ export interface BouquetPalette {
   backdrop: string;
 }
 
-export type CategoryId =
-  | "roses"
-  | "mono"
-  | "box"
-  | "baskets"
-  | "birthday"
-  | "romantic"
-  | "wedding"
-  | "plants"
-  | "gifts"
-  | "balloons";
+export type CategoryId = string;
 
 export interface Product {
   id: string;
+  /** Numeric database id when the product comes from the Django API. */
+  backendId?: number;
+  slug?: string;
   name: string;
   shop: string;
   /** base price in USD — converted to UZS client-side */
@@ -39,6 +32,11 @@ export interface Product {
   /** bouquets come in S/M/L; plants & gifts are one size */
   hasSizes: boolean;
   palette: BouquetPalette;
+  image?: string | null;
+  stock?: number;
+  isAvailable?: boolean;
+  isInStock?: boolean;
+  source?: "api" | "mock";
 }
 
 export interface Category {

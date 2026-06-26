@@ -10,8 +10,22 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { CategoryId, Currency, Language } from "./types";
-import { loadAuth, logout as apiLogout, type AuthUser } from "./api";
+import {
+  addCartItem,
+  clearRemoteCart,
+  fetchCart,
+  loadAuth,
+  logout as apiLogout,
+  removeCartItem,
+  updateCartItem,
+  type ApiCart,
+  type AuthUser,
+} from "./api";
+import {
+  apiProductToProduct,
+  fallbackCatalogProducts,
+} from "./catalog";
+import type { CategoryId, Currency, Language, Product } from "./types";
 
 /**
  * One small client store for everything that must survive navigation:
@@ -26,6 +40,7 @@ interface PersistedState {
   city: string;
   favorites: string[];
   cart: Record<string, number>;
+  cartProducts: Record<string, Product>;
 }
 
 const DEFAULTS: PersistedState = {
@@ -35,7 +50,14 @@ const DEFAULTS: PersistedState = {
   city: "Tashkent",
   favorites: [],
   cart: {},
+  cartProducts: {},
 };
+
+export interface CartLine {
+  product: Product;
+  qty: number;
+  subtotal: number;
+}
 
 const STORAGE_KEY = "bloompetal:v1";
 
@@ -58,20 +80,60 @@ interface StoreValue extends PersistedState {
   /* favorites */
   toggleFavorite: (id: string) => void;
   /* cart */
-  addToCart: (id: string, qty?: number) => void;
+  addToCart: (product: Product | string, qty?: number) => void;
   setCartQty: (id: string, qty: number) => void;
   removeFromCart: (id: string) => void;
+  clearCart: () => void;
+  reloadCart: () => Promise<void>;
+  cartLines: CartLine[];
   cartCount: number;
+  cartLoading: boolean;
+  cartError: string;
   /* feedback */
   showToast: (message: string) => void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
 
+const fallbackProductById = new Map(
+  fallbackCatalogProducts.map((product) => [product.id, product]),
+);
+
+function hydratePersisted(raw: string | null): PersistedState {
+  if (!raw) return DEFAULTS;
+  const parsed = JSON.parse(raw) as Partial<PersistedState>;
+  const cart = parsed.cart ?? {};
+  const cartProducts = { ...(parsed.cartProducts ?? {}) };
+
+  for (const id of Object.keys(cart)) {
+    if (!cartProducts[id]) {
+      const fallback = fallbackProductById.get(id);
+      if (fallback) cartProducts[id] = fallback;
+    }
+  }
+
+  return { ...DEFAULTS, ...parsed, cart, cartProducts };
+}
+
+function cartStateFromApi(cart: ApiCart): Pick<PersistedState, "cart" | "cartProducts"> {
+  const quantities: Record<string, number> = {};
+  const snapshots: Record<string, Product> = {};
+
+  for (const item of cart.items) {
+    const product = apiProductToProduct(item.product);
+    quantities[product.id] = item.quantity;
+    snapshots[product.id] = product;
+  }
+
+  return { cart: quantities, cartProducts: snapshots };
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [persisted, setPersisted] = useState<PersistedState>(DEFAULTS);
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [cartLoading, setCartLoading] = useState(false);
+  const [cartError, setCartError] = useState("");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -83,7 +145,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (raw) setPersisted({ ...DEFAULTS, ...JSON.parse(raw) });
+      if (raw) setPersisted(hydratePersisted(raw));
     } catch {
       /* corrupted storage — fall back to defaults */
     }
@@ -101,6 +163,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setHydrated(true);
   }, []);
 
+  const applyRemoteCart = useCallback((cart: ApiCart) => {
+    setPersisted((prev) => ({ ...prev, ...cartStateFromApi(cart) }));
+    setCartError("");
+  }, []);
+
+  const reloadCart = useCallback(async () => {
+    if (!user) return;
+    try {
+      setCartLoading(true);
+      applyRemoteCart(await fetchCart());
+    } catch {
+      setCartError("Could not sync cart with the server.");
+    } finally {
+      setCartLoading(false);
+    }
+  }, [applyRemoteCart, user]);
+
+  useEffect(() => {
+    if (!hydrated || !user) return;
+    const timer = window.setTimeout(() => {
+      void reloadCart();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [hydrated, reloadCart, user]);
+
   useEffect(() => {
     if (!hydrated) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
@@ -115,6 +202,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(() => {
     apiLogout();
     setUserState(null);
+    setPersisted((prev) => ({ ...prev, cart: {}, cartProducts: {} }));
   }, []);
 
   const setUser = useCallback((nextUser: AuthUser | null) => {
@@ -132,6 +220,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<StoreValue>(() => {
     const update = (patch: Partial<PersistedState>) =>
       setPersisted((prev) => ({ ...prev, ...patch }));
+
+    const productFor = (productOrId: Product | string) => {
+      if (typeof productOrId !== "string") return productOrId;
+      return persisted.cartProducts[productOrId] ?? fallbackProductById.get(productOrId);
+    };
+
+    const updateLocalCart = (product: Product, qty: number, mode: "add" | "set") => {
+      setPersisted((prev) => {
+        const nextQty = mode === "add" ? (prev.cart[product.id] ?? 0) + qty : qty;
+        const cart = { ...prev.cart };
+        const cartProducts = { ...prev.cartProducts, [product.id]: product };
+        if (nextQty <= 0) {
+          delete cart[product.id];
+          delete cartProducts[product.id];
+        } else {
+          cart[product.id] = nextQty;
+        }
+        return { ...prev, cart, cartProducts };
+      });
+    };
+
+    const removeLocalCartItem = (id: string) => {
+      setPersisted((prev) => {
+        const cart = { ...prev.cart };
+        const cartProducts = { ...prev.cartProducts };
+        delete cart[id];
+        delete cartProducts[id];
+        return { ...prev, cart, cartProducts };
+      });
+    };
+
+    const cartLines = Object.entries(persisted.cart).flatMap(([id, qty]) => {
+      const product = persisted.cartProducts[id] ?? fallbackProductById.get(id);
+      return product ? [{ product, qty, subtotal: product.price * qty }] : [];
+    });
 
     return {
       ...persisted,
@@ -154,28 +277,72 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ? prev.favorites.filter((f) => f !== id)
             : [...prev.favorites, id],
         })),
-      addToCart: (id, qty = 1) =>
-        setPersisted((prev) => ({
-          ...prev,
-          cart: { ...prev.cart, [id]: (prev.cart[id] ?? 0) + qty },
-        })),
-      setCartQty: (id, qty) =>
-        setPersisted((prev) => {
-          const cart = { ...prev.cart };
-          if (qty <= 0) delete cart[id];
-          else cart[id] = qty;
-          return { ...prev, cart };
-        }),
-      removeFromCart: (id) =>
-        setPersisted((prev) => {
-          const cart = { ...prev.cart };
-          delete cart[id];
-          return { ...prev, cart };
-        }),
+      addToCart: (productOrId, qty = 1) => {
+        const product = productFor(productOrId);
+        if (!product) return;
+        updateLocalCart(product, qty, "add");
+
+        if (user && product.backendId) {
+          void addCartItem(product.backendId, qty)
+            .then(applyRemoteCart)
+            .catch(() => {
+              setCartError("Could not add item to the server cart.");
+            });
+        }
+      },
+      setCartQty: (id, qty) => {
+        const product = productFor(id);
+        if (!product) return;
+        updateLocalCart(product, qty, "set");
+
+        if (user && product.backendId) {
+          const action =
+            qty <= 0
+              ? removeCartItem(product.backendId).then(() => undefined)
+              : updateCartItem(product.backendId, qty).then(applyRemoteCart);
+          void action.catch(() => {
+            setCartError("Could not update the server cart.");
+          });
+        }
+      },
+      removeFromCart: (id) => {
+        const product = productFor(id);
+        removeLocalCartItem(id);
+        if (user && product?.backendId) {
+          void removeCartItem(product.backendId).catch(() => {
+            setCartError("Could not remove item from the server cart.");
+          });
+        }
+      },
+      clearCart: () => {
+        setPersisted((prev) => ({ ...prev, cart: {}, cartProducts: {} }));
+        if (user) {
+          void clearRemoteCart().catch(() => {
+            setCartError("Could not clear the server cart.");
+          });
+        }
+      },
+      reloadCart,
+      cartLines,
       cartCount: Object.values(persisted.cart).reduce((a, b) => a + b, 0),
+      cartLoading,
+      cartError,
       showToast,
     };
-  }, [persisted, hydrated, user, setUser, signOut, query, category, showToast]);
+  }, [
+    persisted,
+    hydrated,
+    user,
+    setUser,
+    signOut,
+    query,
+    category,
+    applyRemoteCart,
+    reloadCart,
+    cartLoading,
+    cartError,
+    showToast,
+  ]);
 
   return (
     <StoreContext.Provider value={value}>

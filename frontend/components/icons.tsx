@@ -1,5 +1,3 @@
-import type { CategoryId } from "@/lib/types";
-
 /**
  * Hand-drawn icon set so the marketplace doesn't depend on an icon
  * library. UI icons are single-color strokes; category icons are tiny
@@ -197,7 +195,7 @@ export function LogoMark({ className }: IconProps) {
 
 /* ── category illustrations ───────────────────────────────────── */
 
-function RoseIcon() {
+export function RoseIcon() {
   return (
     <svg viewBox="0 0 32 32" className="size-8" aria-hidden="true">
       <path d="M16 18 V28" stroke="#4e8a63" strokeWidth="2" strokeLinecap="round" />
@@ -311,7 +309,7 @@ function BalloonsIcon() {
   );
 }
 
-export const CATEGORY_ICONS: Record<CategoryId, () => React.ReactElement> = {
+export const CATEGORY_ICONS: Record<string, () => React.ReactElement> = {
   roses: RoseIcon,
   mono: TulipIcon,
   box: HatboxIcon,

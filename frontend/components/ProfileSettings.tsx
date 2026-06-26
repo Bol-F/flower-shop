@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { products } from "@/lib/data";
+import { fallbackCatalogProducts } from "@/lib/catalog";
 import { formatPrice, toUzs } from "@/lib/currency";
 import { copy, languages } from "@/lib/i18n";
 import {
@@ -12,8 +12,10 @@ import {
   OfflineError,
   changePassword,
   fetchAdminSupportMessages,
+  fetchOrders,
   login as apiLogin,
   register as apiRegister,
+  type ApiOrder,
   type AdminSupportMessage,
   updateProfile,
 } from "@/lib/api";
@@ -256,7 +258,7 @@ function AdminWorkspace() {
     },
     {
       label: "Catalog",
-      value: products.length,
+      value: fallbackCatalogProducts.length,
       detail: "Products visible online",
     },
   ];
@@ -757,6 +759,132 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
   );
 }
 
+function CustomerOrderHistory({ currency }: { currency: Currency }) {
+  const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    async function loadOrders() {
+      try {
+        setLoading(true);
+        const data = await fetchOrders();
+        if (active) {
+          setOrders(data);
+          setError("");
+        }
+      } catch (err) {
+        if (active) setError(firstApiMessage(err, "Could not load orders."));
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void loadOrders();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <section className="mt-10 rounded-3xl bg-card p-6 shadow-soft">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display text-2xl font-semibold sm:text-3xl">
+            Order history
+          </h2>
+          <p className="mt-1 text-sm text-stone">
+            Orders created from your Bloom &amp; Petal cart.
+          </p>
+        </div>
+        {orders.length > 0 && (
+          <span className="rounded-full bg-mint px-3 py-1 text-xs font-extrabold text-leaf">
+            {orders.length} orders
+          </span>
+        )}
+      </div>
+
+      {error && (
+        <p className="mt-5 rounded-2xl bg-berrysoft px-4 py-3 text-sm font-semibold text-berry">
+          {error}
+        </p>
+      )}
+
+      {loading ? (
+        <p className="mt-5 text-sm font-semibold text-stone">Loading orders...</p>
+      ) : orders.length === 0 ? (
+        <div className="mt-5 rounded-3xl bg-paper py-12 text-center">
+          <CartIcon className="mx-auto size-10 text-line" />
+          <p className="mt-3 font-display text-xl font-semibold">
+            No orders yet
+          </p>
+          <p className="mt-1 text-sm text-stone">
+            Completed checkouts will appear here.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-5 grid gap-3">
+          {orders.map((order) => {
+            const total = Number.parseFloat(order.total_price);
+            return (
+              <article
+                key={order.id}
+                className="rounded-3xl border border-line bg-paper p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-display text-xl font-bold">
+                      Order #{order.id}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-stone">
+                      {formatAdminTime(order.created_at)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="rounded-full bg-blush px-3 py-1 text-xs font-extrabold text-blossomdeep">
+                      {order.status_display}
+                    </span>
+                    <p className="mt-2 font-display text-lg font-bold">
+                      {formatPrice(Number.isFinite(total) ? total : 0, currency)}
+                    </p>
+                  </div>
+                </div>
+
+                <ul className="mt-4 grid gap-2">
+                  {order.items.map((item) => (
+                    <li
+                      key={item.id}
+                      className="flex items-center justify-between gap-3 text-sm"
+                    >
+                      <span className="min-w-0 truncate font-semibold">
+                        {item.quantity} x {item.product_name}
+                      </span>
+                      <span className="shrink-0 font-bold text-ink/80">
+                        {formatPrice(
+                          Number.parseFloat(item.subtotal) || 0,
+                          currency,
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                <p className="mt-4 text-sm text-stone">
+                  {order.shipping_address} · {order.phone}
+                </p>
+                {order.notes && (
+                  <p className="mt-1 text-sm text-stone">{order.notes}</p>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function ProfileSettings({
   initialMode = "register",
 }: {
@@ -785,7 +913,7 @@ export default function ProfileSettings({
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
 
-  const favoriteProducts = products.filter((p) => favorites.includes(p.id));
+  const favoriteProducts = fallbackCatalogProducts.filter((p) => favorites.includes(p.id));
   const samplePrice = 49;
 
   if (!user) return <AuthCard key={initialMode} initialMode={initialMode} />;
@@ -1082,6 +1210,8 @@ export default function ProfileSettings({
           </p>
         </section>
       </div>
+
+      <CustomerOrderHistory currency={currency} />
 
       <section id="favorites" className="mt-10 scroll-mt-24">
         <div className="flex items-center gap-2.5">

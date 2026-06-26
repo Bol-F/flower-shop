@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { categories, products } from "@/lib/data";
+import {
+  fallbackCatalogCategories,
+  fallbackCatalogProducts,
+  loadCatalogCategories,
+  loadCatalogProducts,
+} from "@/lib/catalog";
 import { categoryName, copy } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
+import type { Category, Product } from "@/lib/types";
 import ProductCard from "./ProductCard";
 import { BoltIcon, CloseIcon } from "./icons";
 
@@ -17,14 +23,48 @@ const PAGE_SIZE = 8;
 export default function Catalog() {
   const { query, setQuery, category, setCategory, language } = useStore();
   const t = copy[language].catalog;
+  const [allProducts, setAllProducts] = useState<Product[]>(fallbackCatalogProducts);
+  const [allCategories, setAllCategories] = useState<Category[]>(
+    fallbackCatalogCategories,
+  );
+  const [loading, setLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
   const [sort, setSort] = useState<SortKey>("popular");
   const [todayOnly, setTodayOnly] = useState(false);
   const [saleOnly, setSaleOnly] = useState(false);
   const [shown, setShown] = useState(PAGE_SIZE);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const [products, categories] = await Promise.all([
+          loadCatalogProducts(),
+          loadCatalogCategories(),
+        ]);
+        if (cancelled) return;
+        setAllProducts(products.length > 0 ? products : fallbackCatalogProducts);
+        setAllCategories(categories.length > 0 ? categories : fallbackCatalogCategories);
+        setUsingFallback(false);
+      } catch {
+        if (cancelled) return;
+        setAllProducts(fallbackCatalogProducts);
+        setAllCategories(fallbackCatalogCategories);
+        setUsingFallback(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = products.filter((p) => {
+    const list = allProducts.filter((p) => {
       if (todayOnly && !p.deliveryToday) return false;
       if (saleOnly && !p.oldPrice) return false;
       if (category && p.category !== category) return false;
@@ -43,7 +83,7 @@ export default function Catalog() {
       default:
         return list.sort((a, b) => b.popularity - a.popularity);
     }
-  }, [query, category, sort, todayOnly, saleOnly]);
+  }, [allProducts, query, category, sort, todayOnly, saleOnly]);
 
   // A fresh filter/search/sort starts the list back at two rows.
   useEffect(() => {
@@ -54,7 +94,7 @@ export default function Catalog() {
   const shownProducts = visible.slice(0, shown);
   const remaining = visible.length - shownProducts.length;
 
-  const activeCategory = categories.find((c) => c.id === category);
+  const activeCategory = allCategories.find((c) => c.id === category);
   const activeCategoryName = activeCategory
     ? categoryName(language, activeCategory.id)
     : null;
@@ -67,7 +107,12 @@ export default function Catalog() {
             {activeCategoryName ?? t.title}
           </h2>
           <p className="mt-1.5 text-sm text-stone">
-            {visible.length} {t.count}
+            {loading ? "..." : visible.length} {t.count}
+            {usingFallback && (
+              <span className="ml-2 font-semibold text-raspberry">
+                Demo catalog
+              </span>
+            )}
           </p>
         </div>
 

@@ -27,7 +27,7 @@ export const copy = {
       title: "Cart",
       empty: "Your cart is empty. Add a bouquet from the catalog.",
       total: "Total",
-      checkout: "Checkout coming soon",
+      checkout: "Checkout",
     },
     catalog: {
       title: "Popular bouquets in Tashkent",
@@ -182,7 +182,7 @@ export const copy = {
       title: "Корзина",
       empty: "Пока пусто. Добавьте букет из каталога.",
       total: "Итого",
-      checkout: "Оформление скоро",
+      checkout: "Оформить заказ",
     },
     catalog: {
       title: "Популярные букеты в Ташкенте",
@@ -337,7 +337,7 @@ export const copy = {
       title: "Savat",
       empty: "Savat bo'sh. Katalogdan guldasta qo'shing.",
       total: "Jami",
-      checkout: "Rasmiylashtirish tez orada",
+      checkout: "Rasmiylashtirish",
     },
     catalog: {
       title: "Toshkentdagi mashhur guldastalar",
@@ -475,5 +475,13 @@ export const copy = {
 } satisfies Record<Language, unknown>;
 
 export function categoryName(language: Language, id: CategoryId) {
-  return copy[language].categories[id];
+  const names = copy[language].categories as Record<string, string>;
+  return (
+    names[id] ??
+    id
+      .split("-")
+      .filter(Boolean)
+      .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+      .join(" ")
+  );
 }

@@ -1,19 +1,39 @@
 "use client";
 
-import { categories } from "@/lib/data";
+import { useEffect, useState } from "react";
+import {
+  fallbackCatalogCategories,
+  loadCatalogCategories,
+} from "@/lib/catalog";
 import { categoryName } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
-import { CATEGORY_ICONS } from "./icons";
+import type { Category } from "@/lib/types";
+import { CATEGORY_ICONS, RoseIcon } from "./icons";
 
 /** Horizontally scrollable category circles, Flowwow-style but ours */
 export default function CategoryRail() {
   const { category, setCategory, language } = useStore();
+  const [categories, setCategories] = useState<Category[]>(fallbackCatalogCategories);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadCatalogCategories()
+      .then((items) => {
+        if (!cancelled && items.length > 0) setCategories(items);
+      })
+      .catch(() => {
+        if (!cancelled) setCategories(fallbackCatalogCategories);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <nav aria-label="Categories" className="mx-auto max-w-7xl px-4 pt-8">
       <ul className="flex min-h-[7rem] gap-4 overflow-x-auto no-scrollbar px-1 pb-3 sm:gap-5 sm:justify-between">
         {categories.map((cat) => {
-          const Icon = CATEGORY_ICONS[cat.id];
+          const Icon = CATEGORY_ICONS[cat.id] ?? RoseIcon;
           const active = category === cat.id;
           return (
             <li key={cat.id} className="shrink-0 basis-[5.75rem] sm:basis-0 sm:flex-1">

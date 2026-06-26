@@ -40,6 +40,82 @@ export interface AdminSupportMessage extends SupportMessage {
   is_read: boolean;
 }
 
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+export interface ApiCategory {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  image: string | null;
+  product_count: number;
+}
+
+export interface ApiProductBase {
+  id: number;
+  name: string;
+  slug: string;
+  price: string;
+  image: string | null;
+  category_name: string | null;
+  is_available: boolean;
+  is_in_stock: boolean;
+}
+
+export interface ApiProductListItem extends ApiProductBase {
+  category: number | null;
+}
+
+export interface ApiProductDetail extends ApiProductBase {
+  description: string;
+  category: ApiCategory | null;
+  stock: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiCartItem {
+  id: number;
+  product: ApiProductListItem;
+  quantity: number;
+  subtotal: string;
+}
+
+export interface ApiCart {
+  id: number;
+  items: ApiCartItem[];
+  total_price: string;
+  total_items: number;
+  updated_at: string;
+}
+
+export interface ApiOrderItem {
+  id: number;
+  product: number | null;
+  product_name: string;
+  product_price: string;
+  quantity: number;
+  subtotal: string;
+}
+
+export interface ApiOrder {
+  id: number;
+  status: string;
+  status_display: string;
+  total_price: string;
+  shipping_address: string;
+  phone: string;
+  notes: string;
+  items: ApiOrderItem[];
+  created_at: string;
+  updated_at: string;
+}
+
 interface StoredAuth {
   access: string;
   refresh: string;
@@ -262,6 +338,91 @@ export async function markSupportMessageRead(id: number): Promise<AdminSupportMe
     body: { is_read: true },
     auth: true,
   });
+}
+
+/* ── catalog, cart & orders ───────────────────────────────────── */
+
+export async function fetchCategories(): Promise<ApiCategory[]> {
+  const data = await request<ApiCategory[] | PaginatedResponse<ApiCategory>>(
+    "/api/categories/?page_size=100",
+  );
+  return Array.isArray(data) ? data : data.results;
+}
+
+export async function fetchProducts(params: {
+  search?: string;
+  category?: string | null;
+  ordering?: string;
+  page_size?: number;
+} = {}): Promise<ApiProductListItem[]> {
+  const query = new URLSearchParams();
+  query.set("page_size", String(params.page_size ?? 100));
+  if (params.search) query.set("search", params.search);
+  if (params.category) query.set("category", params.category);
+  if (params.ordering) query.set("ordering", params.ordering);
+
+  const data = await request<
+    ApiProductListItem[] | PaginatedResponse<ApiProductListItem>
+  >(`/api/products/?${query.toString()}`);
+  return Array.isArray(data) ? data : data.results;
+}
+
+export async function fetchProduct(slug: string): Promise<ApiProductDetail> {
+  return request<ApiProductDetail>(`/api/products/${encodeURIComponent(slug)}/`);
+}
+
+export async function fetchCart(): Promise<ApiCart> {
+  return request<ApiCart>("/api/cart/", { auth: true });
+}
+
+export async function addCartItem(productId: number, quantity = 1): Promise<ApiCart> {
+  return request<ApiCart>("/api/cart/items/", {
+    method: "POST",
+    body: { product_id: productId, quantity },
+    auth: true,
+  });
+}
+
+export async function updateCartItem(
+  productId: number,
+  quantity: number,
+): Promise<ApiCart> {
+  return request<ApiCart>(`/api/cart/items/${productId}/`, {
+    method: "PATCH",
+    body: { quantity },
+    auth: true,
+  });
+}
+
+export async function removeCartItem(productId: number): Promise<void> {
+  await request<void>(`/api/cart/items/${productId}/`, {
+    method: "DELETE",
+    auth: true,
+  });
+}
+
+export async function clearRemoteCart(): Promise<void> {
+  await request<void>("/api/cart/", { method: "DELETE", auth: true });
+}
+
+export async function createOrder(payload: {
+  shipping_address: string;
+  phone: string;
+  notes?: string;
+}): Promise<ApiOrder> {
+  return request<ApiOrder>("/api/orders/create/", {
+    method: "POST",
+    body: payload,
+    auth: true,
+  });
+}
+
+export async function fetchOrders(): Promise<ApiOrder[]> {
+  const data = await request<ApiOrder[] | PaginatedResponse<ApiOrder>>(
+    "/api/orders/?page_size=100",
+    { auth: true },
+  );
+  return Array.isArray(data) ? data : data.results;
 }
 
 /* ── reviews, ratings & likes (apps.reviews) ──────────────────── */
