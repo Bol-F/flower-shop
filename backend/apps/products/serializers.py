@@ -13,6 +13,7 @@ class ProductListSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'name', 'slug', 'price', 'image',
             'category', 'category_name', 'is_available', 'is_in_stock',
+            'is_low_stock', 'stock_status',
         )
 
 
@@ -31,6 +32,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'name', 'slug', 'description', 'price',
             'category', 'category_id', 'image', 'stock',
-            'is_available', 'is_in_stock', 'created_at', 'updated_at',
+            'low_stock_threshold', 'is_available', 'is_in_stock',
+            'is_low_stock', 'stock_status', 'created_at', 'updated_at',
         )
         read_only_fields = ('slug', 'created_at', 'updated_at')

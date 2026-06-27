@@ -25,27 +25,27 @@ A trilingual Django admin & REST API (products, cart, orders, support chat) pair
 - Premium one-page marketplace: trust bar, sticky header with search / location / currency, hero with floating proof cards
 - Horizontally scrollable category chips loaded from the API, catalog with **working sort & delivery-today filter**
 - Product cards with API photos when available, illustrated bouquet fallback, ratings, favorites, and quick add
-- Backend-synced cart for signed-in customers, cash/card checkout, Leaflet delivery map picker, and profile order history
+- Backend-synced cart for signed-in customers, cash/card/online checkout, delivery zones, optional Leaflet map picker, and profile order history
 - Support chat, product reviews, profile settings, and staff support inbox wired to the Django API
 - Offline demo fallback catalog so the frontend can still render while the backend is unavailable
 
 ### 🔌 REST API (backend)
 - Products & categories with search / filter / sort / pagination — 28 seeded flowers with **real photos**
-- Registration & JWT auth with refresh, server-synced cart, stock-checked checkout with delivery dates, recipients, fees, and order history
+- Registration & JWT auth with refresh, server-synced cart, stock-checked checkout with delivery zones, payment status, notification logs, and order history
 - Customer↔support messaging with admin replies
 
 ### 🛠️ Admin
 - **Trilingual Django admin**: `/admin/` (English), `/ru/admin/`, `/uz/admin/` + a language switcher in the header
-- Product list with photo thumbnails, inline price/stock editing, image preview
-- Orders with read-only item inlines, delivery details, map previews, filters, and one-click status updates
+- Product list with photo thumbnails, inline price/stock/low-stock editing, image preview
+- Orders with read-only item inlines, payment status, delivery zones, map previews, filters, notification logs, and one-click status updates
 - Category product counts, customer messages with reply workflow
-- React admin dashboard at `/admin` (frontend) with revenue & order stats
+- React admin dashboard at `/admin` (frontend) with revenue, order, delivery queue, best-selling, and inventory alert stats
 
 ### ⚙️ Infrastructure
 - Celery + Celery Beat for background tasks (admin notifications, daily summaries)
 - Django Channels (ASGI via Daphne) ready for real-time features
 - Docker Compose for one-command startup
-- 69 pytest tests covering auth, products, cart, orders, categories, contact, reviews, and admin i18n
+- 76 pytest tests covering auth, products, cart, orders, categories, contact, reviews, and admin i18n
 
 ---
 
@@ -215,6 +215,12 @@ DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DBNAME
 CORS_ALLOWED_ORIGINS=https://your-frontend.example.com
 CSRF_TRUSTED_ORIGINS=https://your-backend.example.com
 REDIS_URL=<only if you run Celery / Channels>
+EMAIL_HOST=
+EMAIL_PORT=587
+EMAIL_HOST_USER=
+EMAIL_HOST_PASSWORD=
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_ADMIN_CHAT_ID=
 ```
 
 > ⚠️ `DJANGO_SETTINGS_MODULE` must be a real environment variable on the platform — putting it in `.env` has no effect, because Django chooses the settings module before `.env` is read.
@@ -261,7 +267,7 @@ Deploys are gated on CI by the platforms themselves:
 
 ## 🧪 Tests
 
-Backend: 69 pytest tests across users, products, categories, cart, orders,
+Backend: 76 pytest tests across users, products, categories, cart, orders,
 contact, reviews, and admin i18n.
 
 ```bash
@@ -289,6 +295,26 @@ npm run lint
 npm run test
 npm run build
 ```
+
+---
+
+## Business Rules
+
+- Payment methods are `cash`, `card`, and `online`. Cash starts as `unpaid`; card and online orders start as `pending` until staff marks them `paid` or `failed`.
+- Payment workflow code lives in `backend/apps/orders/payments.py`, so a real Click, Payme, Stripe, or bank provider can be added without rewriting checkout.
+- Order notifications are stored in `NotificationLog`. Email and Telegram are placeholders for now; missing credentials fall back to console logs and never break checkout.
+- Delivery fees are calculated in `backend/apps/orders/pricing.py`. Orders above the free-delivery threshold have a zero fee; otherwise the selected active delivery zone controls the fee.
+- Zones that require manual confirmation still allow checkout, but the order is flagged so staff can confirm availability before fulfillment.
+- Inventory is validated again when an order is created. Stock decreases inside the same database transaction, and order items keep product name and price snapshots.
+
+## Future Growth Plan
+
+- Promo codes: add a promotions app with code validation, usage limits, expiry dates, and order discount snapshots.
+- Wishlist and repeat order: keep these customer features near cart/profile APIs, reusing product serializers.
+- Loyalty points: add a ledger-style model so points are auditable instead of storing only one mutable balance.
+- Courier assignment: extend orders with a courier/user relation, delivery status timestamps, and staff filters.
+- Multi-city delivery: turn delivery zones into city-scoped zones, then use stored polygons for automatic zone detection from map coordinates.
+- Analytics: keep dashboard queries in dedicated service functions as reports grow, so views stay thin.
 
 ---
 
@@ -332,10 +358,13 @@ All responses are paginated (`count` / `next` / `previous` / `results`, 12 per p
 ### Orders
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
+| GET | `/api/orders/dashboard/` | Staff dashboard stats, delivery queue, best sellers, and inventory alerts | 👑 Admin |
+| GET | `/api/orders/delivery-zones/` | Active delivery zones and fees | — |
 | GET | `/api/orders/` | Own orders (admin sees all) | ✅ |
-| POST | `/api/orders/create/` | Place order from cart with `shipping_address`, `phone`, and `payment_method`; optional delivery fields include `delivery_address`, `delivery_lat`/`delivery_lng`, `delivery_date`, `delivery_time_slot`, `recipient_name`, `recipient_phone`, `gift_note`, `call_recipient_before_delivery`, and `notes` | ✅ |
+| POST | `/api/orders/create/` | Place order from cart with `shipping_address`, `phone`, and `payment_method`; optional delivery fields include `delivery_zone_id`, `delivery_address`, `delivery_lat`/`delivery_lng`, `delivery_date`, `delivery_time_slot`, `recipient_name`, `recipient_phone`, `gift_note`, `call_recipient_before_delivery`, and `notes` | ✅ |
 | GET | `/api/orders/{id}/` | Detail | ✅ owner |
 | PATCH | `/api/orders/{id}/status/` | Update status | 👑 Admin |
+| PATCH | `/api/orders/{id}/payment-status/` | Update manual payment status | 👑 Admin |
 
 ### Contact
 | Method | Endpoint | Description | Auth |
@@ -353,7 +382,10 @@ All responses are paginated (`count` / `next` / `previous` / `results`, 12 per p
 - `IsAdminOrReadOnly` / `IsOwnerOrAdmin` permissions shared via `apps/common`
 - Slug-based URLs for products and categories
 - Orders snapshot `product_name` / `product_price` at purchase time — later price changes never rewrite history
-- Delivery pricing is isolated in `apps/orders/pricing.py` so fixed city fees can later become distance-based fees using saved coordinates
+- Payment status workflow is isolated in `apps/orders/payments.py`; real Click/Payme/Stripe providers can replace the manual placeholder later
+- Notification placeholders live in `apps/orders/notifications.py`; missing email/Telegram credentials fall back to console notification logs
+- Delivery pricing is isolated in `apps/orders/pricing.py`; delivery zones are stored in the database and can later use polygons/coordinates for automatic detection
+- Products expose `low_stock_threshold` and `stock_status` so staff can track low-stock, out-of-stock, and unavailable inventory
 - `@transaction.atomic` order creation: the cart is cleared only if the order commits
 - Contact notifications go through Celery, wrapped so a down Redis never breaks the request
 

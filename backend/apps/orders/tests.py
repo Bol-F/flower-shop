@@ -9,8 +9,8 @@ from apps.users.models import User
 from apps.categories.models import Category
 from apps.products.models import Product
 from apps.cart.models import Cart, CartItem
-from apps.orders.models import Order
-from apps.orders.pricing import FIXED_CITY_DELIVERY_FEE
+from apps.orders.models import DeliveryZone, NotificationLog, Order
+from apps.orders.pricing import FIXED_CITY_DELIVERY_FEE, OUTER_CITY_DELIVERY_FEE
 
 
 @pytest.fixture
@@ -97,8 +97,13 @@ class TestOrderCreation:
         assert response.data['call_recipient_before_delivery'] is True
         assert response.data['payment_method'] == Order.PaymentMethod.CASH
         assert response.data['payment_method_display'] == 'Cash'
+        assert response.data['payment_status'] == Order.PaymentStatus.UNPAID
+        assert response.data['payment_status_display'] == 'Unpaid'
         assert response.data['status_timeline'][0]['id'] == Order.Status.PENDING
         assert response.data['status_timeline'][0]['active'] is True
+        assert response.data['notification_logs'][0]['event'] == (
+            NotificationLog.Event.ORDER_CREATED
+        )
         product = Product.objects.get(name='Tulip Bouquet')
         assert product.stock == 13
 
@@ -112,6 +117,18 @@ class TestOrderCreation:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['payment_method'] == Order.PaymentMethod.CARD
         assert response.data['payment_method_display'] == 'Card'
+        assert response.data['payment_status'] == Order.PaymentStatus.PENDING
+
+    def test_create_order_accepts_online_payment(self, api_client, user, cart_with_item):
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            reverse('order-create'),
+            order_payload(payment_method=Order.PaymentMethod.ONLINE),
+            format='json',
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['payment_method'] == Order.PaymentMethod.ONLINE
+        assert response.data['payment_status'] == Order.PaymentStatus.PENDING
 
     def test_create_order_adds_fixed_delivery_fee_below_free_threshold(
         self, api_client, user, product
@@ -130,6 +147,44 @@ class TestOrderCreation:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['delivery_fee'] == f'{FIXED_CITY_DELIVERY_FEE:.2f}'
         assert response.data['total_price'] == f'{expected_total:.2f}'
+
+    def test_create_order_uses_selected_delivery_zone_fee(
+        self, api_client, user, product
+    ):
+        zone = DeliveryZone.objects.get(name='Outer Tashkent')
+        Cart.objects.create(user=user)
+        CartItem.objects.create(cart=user.cart, product=product, quantity=1)
+
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            reverse('order-create'),
+            order_payload(delivery_zone_id=zone.id),
+            format='json',
+        )
+
+        expected_total = Decimal(product.price) + OUTER_CITY_DELIVERY_FEE
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['delivery_zone']['name'] == 'Outer Tashkent'
+        assert response.data['delivery_fee'] == f'{OUTER_CITY_DELIVERY_FEE:.2f}'
+        assert response.data['total_price'] == f'{expected_total:.2f}'
+
+    def test_create_order_flags_manual_delivery_confirmation(
+        self, api_client, user, product
+    ):
+        zone = DeliveryZone.objects.get(name='Outside City')
+        Cart.objects.create(user=user)
+        CartItem.objects.create(cart=user.cart, product=product, quantity=1)
+
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            reverse('order-create'),
+            order_payload(delivery_zone_id=zone.id),
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['delivery_zone']['name'] == 'Outside City'
+        assert response.data['delivery_requires_confirmation'] is True
 
     def test_create_order_rejects_invalid_payment_method(
         self, api_client, user, cart_with_item
@@ -224,6 +279,78 @@ class TestOrderCreation:
         courier_step = response.data['status_timeline'][3]
         assert courier_step['active'] is True
         assert response.data['status_timeline'][2]['completed'] is True
+        assert any(
+            log['event'] == NotificationLog.Event.COURIER_PICKED_UP
+            for log in response.data['notification_logs']
+        )
+
+    def test_staff_can_update_payment_status(self, api_client, user, staff_user, cart_with_item):
+        api_client.force_authenticate(user=user)
+        create_response = api_client.post(
+            reverse('order-create'),
+            order_payload(),
+            format='json',
+        )
+
+        api_client.force_authenticate(user=staff_user)
+        response = api_client.patch(
+            reverse('order-payment-status-update', args=[create_response.data['id']]),
+            {'payment_status': Order.PaymentStatus.PAID},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['payment_status'] == Order.PaymentStatus.PAID
+        assert any(
+            log['event'] == NotificationLog.Event.PAYMENT_STATUS_CHANGED
+            for log in response.data['notification_logs']
+        )
+
+    def test_rejects_invalid_payment_status_transition(
+        self, api_client, user, staff_user, cart_with_item
+    ):
+        api_client.force_authenticate(user=user)
+        create_response = api_client.post(
+            reverse('order-create'),
+            order_payload(),
+            format='json',
+        )
+
+        api_client.force_authenticate(user=staff_user)
+        paid_response = api_client.patch(
+            reverse('order-payment-status-update', args=[create_response.data['id']]),
+            {'payment_status': Order.PaymentStatus.PAID},
+            format='json',
+        )
+        failed_response = api_client.patch(
+            reverse('order-payment-status-update', args=[create_response.data['id']]),
+            {'payment_status': Order.PaymentStatus.FAILED},
+            format='json',
+        )
+
+        assert paid_response.status_code == status.HTTP_200_OK
+        assert failed_response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_staff_dashboard_returns_order_and_inventory_stats(
+        self, api_client, user, staff_user, cart_with_item, product
+    ):
+        product.low_stock_threshold = 20
+        product.save(update_fields=['low_stock_threshold'])
+        api_client.force_authenticate(user=user)
+        api_client.post(
+            reverse('order-create'),
+            order_payload(),
+            format='json',
+        )
+
+        api_client.force_authenticate(user=staff_user)
+        response = api_client.get(reverse('order-dashboard'))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['today_orders'] == 1
+        assert response.data['pending_orders'] == 1
+        assert response.data['low_stock_products'][0]['name'] == product.name
+        assert response.data['delivery_queue'][0]['id']
 
     def test_order_requires_auth(self, api_client):
         response = api_client.post(reverse('order-create'), {})

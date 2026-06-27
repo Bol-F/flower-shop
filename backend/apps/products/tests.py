@@ -74,6 +74,17 @@ class TestProductDetail:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['name'] == product.name
 
+    def test_product_detail_includes_stock_status(self, api_client, product):
+        product.stock = 2
+        product.low_stock_threshold = 3
+        product.save(update_fields=['stock', 'low_stock_threshold'])
+
+        response = api_client.get(reverse('product-detail', kwargs={'slug': product.slug}))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['is_low_stock'] is True
+        assert response.data['stock_status'] == 'low_stock'
+
     def test_create_product_anonymous_unauthorized(self, api_client, category):
         url = reverse('product-list')
         data = {

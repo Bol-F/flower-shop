@@ -11,6 +11,7 @@ import {
   ApiError,
   OfflineError,
   changePassword,
+  fetchAdminDashboard,
   fetchAdminSupportMessages,
   fetchOrders,
   login as apiLogin,
@@ -18,7 +19,10 @@ import {
   type ApiOrder,
   type ApiOrderStatus,
   type ApiOrderStatusStep,
+  type ApiAdminDashboard,
+  type ApiPaymentStatus,
   type AdminSupportMessage,
+  updatePaymentStatus,
   updateOrderStatus,
   updateProfile,
 } from "@/lib/api";
@@ -84,6 +88,14 @@ const staffOrderStatuses: Array<{ id: ApiOrderStatus; label: string }> = [
   { id: "preparing", label: "Preparing" },
   { id: "courier_picked_up", label: "Courier picked up" },
   { id: "delivered", label: "Delivered" },
+];
+
+const paymentStatuses: Array<{ id: ApiPaymentStatus; label: string }> = [
+  { id: "unpaid", label: "Unpaid" },
+  { id: "pending", label: "Pending" },
+  { id: "paid", label: "Paid" },
+  { id: "failed", label: "Failed" },
+  { id: "refunded", label: "Refunded" },
 ];
 
 function formatDeliveryDate(value: string | null) {
@@ -178,13 +190,17 @@ function AdminWorkspace() {
   const [supportLoading, setSupportLoading] = useState(true);
   const [supportError, setSupportError] = useState("");
   const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [dashboard, setDashboard] = useState<ApiAdminDashboard | null>(null);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState("");
   const [statusFilter, setStatusFilter] = useState<ApiOrderStatus | "all">("all");
-  const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "card">(
-    "all",
-  );
+  const [paymentFilter, setPaymentFilter] =
+    useState<"all" | "cash" | "card" | "online">("all");
+  const [paymentStatusFilter, setPaymentStatusFilter] =
+    useState<ApiPaymentStatus | "all">("all");
+  const [deliveryZoneFilter, setDeliveryZoneFilter] = useState("all");
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
+  const [updatingPaymentId, setUpdatingPaymentId] = useState<number | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
@@ -197,22 +213,35 @@ function AdminWorkspace() {
     () => buildAdminConversations(messages),
     [messages],
   );
-  const waitingConversations = conversations.filter(
-    (conversation) => conversation.waiting,
-  );
-  const unreadCount = conversations.reduce(
-    (total, conversation) => total + conversation.unread,
-    0,
-  );
   const filteredOrders = useMemo(
     () =>
       orders.filter((order) => {
         const matchesStatus = statusFilter === "all" || order.status === statusFilter;
         const matchesPayment =
           paymentFilter === "all" || order.payment_method === paymentFilter;
-        return matchesStatus && matchesPayment;
+        const matchesPaymentStatus =
+          paymentStatusFilter === "all" ||
+          order.payment_status === paymentStatusFilter;
+        const matchesZone =
+          deliveryZoneFilter === "all" ||
+          String(order.delivery_zone?.id ?? "none") === deliveryZoneFilter;
+        return matchesStatus && matchesPayment && matchesPaymentStatus && matchesZone;
       }),
-    [orders, paymentFilter, statusFilter],
+    [deliveryZoneFilter, orders, paymentFilter, paymentStatusFilter, statusFilter],
+  );
+  const deliveryZoneOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          orders
+            .filter((order) => order.delivery_zone)
+            .map((order) => [
+              String(order.delivery_zone?.id),
+              order.delivery_zone?.name ?? "",
+            ]),
+        ).entries(),
+      ),
+    [orders],
   );
   const lastCustomerMessage = messages.find((message) => !message.is_from_admin);
   const displayName = name || user?.username || "Admin";
@@ -259,9 +288,13 @@ function AdminWorkspace() {
     async function loadOrders(showSpinner = false) {
       try {
         if (showSpinner) setOrdersLoading(true);
-        const data = await fetchOrders();
+        const [data, dashboardData] = await Promise.all([
+          fetchOrders(),
+          fetchAdminDashboard(),
+        ]);
         if (active) {
           setOrders(data);
+          setDashboard(dashboardData);
           setOrdersError("");
         }
       } catch (err) {
@@ -297,6 +330,25 @@ function AdminWorkspace() {
       setOrdersError(firstApiMessage(err, "Could not update order status."));
     } finally {
       setUpdatingOrderId(null);
+    }
+  }
+
+  async function onPaymentStatusChange(
+    orderId: number,
+    nextStatus: ApiPaymentStatus,
+  ) {
+    setOrdersError("");
+    try {
+      setUpdatingPaymentId(orderId);
+      const updated = await updatePaymentStatus(orderId, nextStatus);
+      setOrders((current) =>
+        current.map((order) => (order.id === updated.id ? updated : order)),
+      );
+      showToast(`Order #${updated.id} payment marked ${updated.payment_status_display}`);
+    } catch (err) {
+      setOrdersError(firstApiMessage(err, "Could not update payment status."));
+    } finally {
+      setUpdatingPaymentId(null);
     }
   }
 
@@ -355,24 +407,27 @@ function AdminWorkspace() {
 
   const statCards = [
     {
-      label: "Support chats",
-      value: conversations.length,
-      detail: supportLoading ? "Syncing" : "Active customer threads",
+      label: "Today",
+      value: dashboard?.today_orders ?? orders.length,
+      detail: ordersLoading ? "Syncing orders" : "Orders created today",
     },
     {
-      label: "Waiting",
-      value: waitingConversations.length,
-      detail: "Need an admin reply",
+      label: "Pending",
+      value: dashboard?.pending_orders ?? 0,
+      detail: "Need confirmation",
     },
     {
-      label: "Unread",
-      value: unreadCount,
-      detail: "New customer messages",
+      label: "Preparing",
+      value: dashboard?.preparing_orders ?? 0,
+      detail: "Being arranged",
     },
     {
-      label: "Orders",
-      value: orders.length,
-      detail: ordersLoading ? "Syncing delivery queue" : "Delivery orders",
+      label: "Revenue today",
+      value: formatPrice(
+        Number.parseFloat(dashboard?.total_revenue_today ?? "0") || 0,
+        user.currency,
+      ),
+      detail: "Non-cancelled orders",
     },
   ];
 
@@ -462,13 +517,43 @@ function AdminWorkspace() {
               <select
                 value={paymentFilter}
                 onChange={(event) =>
-                  setPaymentFilter(event.target.value as "all" | "cash" | "card")
+                  setPaymentFilter(
+                    event.target.value as "all" | "cash" | "card" | "online",
+                  )
                 }
                 className="rounded-full border border-line bg-paper px-4 py-2 text-sm font-bold outline-none transition focus:border-blossomdeep"
               >
                 <option value="all">All payments</option>
                 <option value="cash">Cash</option>
                 <option value="card">Card</option>
+                <option value="online">Online</option>
+              </select>
+              <select
+                value={paymentStatusFilter}
+                onChange={(event) =>
+                  setPaymentStatusFilter(event.target.value as ApiPaymentStatus | "all")
+                }
+                className="rounded-full border border-line bg-paper px-4 py-2 text-sm font-bold outline-none transition focus:border-blossomdeep"
+              >
+                <option value="all">All payment statuses</option>
+                {paymentStatuses.map((paymentStatus) => (
+                  <option key={paymentStatus.id} value={paymentStatus.id}>
+                    {paymentStatus.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={deliveryZoneFilter}
+                onChange={(event) => setDeliveryZoneFilter(event.target.value)}
+                className="rounded-full border border-line bg-paper px-4 py-2 text-sm font-bold outline-none transition focus:border-blossomdeep"
+              >
+                <option value="all">All zones</option>
+                <option value="none">No zone</option>
+                {deliveryZoneOptions.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
               </select>
               <a
                 href={`${API_BASE}/admin/orders/order/delivery-map/`}
@@ -517,6 +602,12 @@ function AdminWorkspace() {
                       <span className="rounded-full bg-mint px-3 py-1 text-xs font-extrabold text-leaf">
                         {order.payment_method_display}
                       </span>
+                      <span className="rounded-full bg-[#fff3d8] px-3 py-1 text-xs font-extrabold text-[#9a6410]">
+                        {order.payment_status_display}
+                      </span>
+                      <span className="rounded-full bg-[#fff3d8] px-3 py-1 text-xs font-extrabold text-[#9a6410]">
+                        {order.payment_status_display}
+                      </span>
                       <span className="rounded-full bg-ink px-3 py-1 text-xs font-extrabold text-white">
                         {formatPrice(total, user.currency)}
                       </span>
@@ -552,6 +643,14 @@ function AdminWorkspace() {
                       <p className="text-stone">
                         {order.delivery_time_slot_display || order.delivery_time_slot}
                       </p>
+                      <p className="mt-1 text-stone">
+                        {order.delivery_zone?.name || "No zone selected"}
+                      </p>
+                      {order.delivery_requires_confirmation && (
+                        <p className="mt-1 text-xs font-bold text-[#9a6410]">
+                          Manual delivery confirmation
+                        </p>
+                      )}
                     </div>
                     <div>
                       <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
@@ -604,12 +703,112 @@ function AdminWorkspace() {
                           {updatingOrderId === order.id ? "Updating..." : status.label}
                         </button>
                       ))}
+                    <button
+                      type="button"
+                      disabled={
+                        updatingPaymentId === order.id ||
+                        order.payment_status === "paid"
+                      }
+                      onClick={() => void onPaymentStatusChange(order.id, "paid")}
+                      className="rounded-full border border-line px-3 py-1.5 text-xs font-extrabold text-stone transition hover:border-leaf hover:text-leaf disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      {updatingPaymentId === order.id ? "Updating..." : "Payment paid"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        updatingPaymentId === order.id ||
+                        order.payment_status === "failed"
+                      }
+                      onClick={() => void onPaymentStatusChange(order.id, "failed")}
+                      className="rounded-full border border-line px-3 py-1.5 text-xs font-extrabold text-stone transition hover:border-berry hover:text-berry disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      {updatingPaymentId === order.id ? "Updating..." : "Payment failed"}
+                    </button>
                   </div>
                 </article>
               );
             })}
           </div>
         </section>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-3">
+          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+            <h2 className="font-display text-2xl font-extrabold text-ink">
+              Low stock
+            </h2>
+            <div className="mt-4 grid gap-2">
+              {(dashboard?.low_stock_products ?? []).slice(0, 5).map((product) => (
+                <Link
+                  key={product.id}
+                  href={`/product/${product.slug}`}
+                  className="flex items-center justify-between rounded-2xl border border-line px-4 py-3 text-sm transition hover:border-blossomdeep"
+                >
+                  <span className="min-w-0 truncate font-bold">{product.name}</span>
+                  <span className="shrink-0 text-xs font-extrabold text-[#9a6410]">
+                    {product.stock} left
+                  </span>
+                </Link>
+              ))}
+              {(dashboard?.low_stock_products ?? []).length === 0 && (
+                <p className="rounded-2xl bg-paper px-4 py-3 text-sm font-semibold text-stone">
+                  No low-stock products.
+                </p>
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+            <h2 className="font-display text-2xl font-extrabold text-ink">
+              Out of stock
+            </h2>
+            <div className="mt-4 grid gap-2">
+              {(dashboard?.out_of_stock_products ?? []).slice(0, 5).map((product) => (
+                <Link
+                  key={product.id}
+                  href={`/product/${product.slug}`}
+                  className="flex items-center justify-between rounded-2xl border border-line px-4 py-3 text-sm transition hover:border-blossomdeep"
+                >
+                  <span className="min-w-0 truncate font-bold">{product.name}</span>
+                  <span className="shrink-0 text-xs font-extrabold text-berry">
+                    Restock
+                  </span>
+                </Link>
+              ))}
+              {(dashboard?.out_of_stock_products ?? []).length === 0 && (
+                <p className="rounded-2xl bg-paper px-4 py-3 text-sm font-semibold text-stone">
+                  No out-of-stock products.
+                </p>
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+            <h2 className="font-display text-2xl font-extrabold text-ink">
+              Best sellers
+            </h2>
+            <div className="mt-4 grid gap-2">
+              {(dashboard?.best_selling_products ?? []).slice(0, 5).map((product) => (
+                <div
+                  key={product.product_name}
+                  className="flex items-center justify-between rounded-2xl border border-line px-4 py-3 text-sm"
+                >
+                  <span className="min-w-0 truncate font-bold">
+                    {product.product_name}
+                  </span>
+                  <span className="shrink-0 text-xs font-extrabold text-leaf">
+                    {product.quantity_sold} sold
+                  </span>
+                </div>
+              ))}
+              {(dashboard?.best_selling_products ?? []).length === 0 && (
+                <p className="rounded-2xl bg-paper px-4 py-3 text-sm font-semibold text-stone">
+                  No sales data yet.
+                </p>
+              )}
+            </div>
+          </section>
+        </div>
 
         <div className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
           <section className="rounded-[1.75rem] border border-line bg-white shadow-soft">
@@ -1182,6 +1381,14 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                     <p className="text-stone">
                       {order.delivery_time_slot_display || order.delivery_time_slot}
                     </p>
+                    <p className="mt-1 text-stone">
+                      {order.delivery_zone?.name || "No zone selected"}
+                    </p>
+                    {order.delivery_requires_confirmation && (
+                      <p className="mt-1 text-xs font-bold text-[#9a6410]">
+                        Staff will confirm this delivery zone.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <p className="text-xs font-extrabold uppercase tracking-wider text-stone">

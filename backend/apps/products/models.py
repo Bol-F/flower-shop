@@ -20,6 +20,7 @@ class Product(models.Model):
     )
     image = models.ImageField(_('image'), upload_to='products/', blank=True, null=True)
     stock = models.PositiveIntegerField(_('stock'), default=0)
+    low_stock_threshold = models.PositiveIntegerField(_('low stock threshold'), default=3)
     is_available = models.BooleanField(_('is available'), default=True)
     created_at = models.DateTimeField(_('created at'), auto_now_add=True)
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
@@ -35,6 +36,20 @@ class Product(models.Model):
     @property
     def is_in_stock(self):
         return self.stock > 0
+
+    @property
+    def is_low_stock(self):
+        return self.is_in_stock and self.stock <= self.low_stock_threshold
+
+    @property
+    def stock_status(self):
+        if not self.is_available:
+            return 'unavailable'
+        if not self.is_in_stock:
+            return 'out_of_stock'
+        if self.is_low_stock:
+            return 'low_stock'
+        return 'in_stock'
 
     def save(self, *args, **kwargs):
         if not self.slug:

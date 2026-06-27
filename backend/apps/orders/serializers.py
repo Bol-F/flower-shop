@@ -1,7 +1,29 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Order, OrderItem
+from .models import DeliveryZone, NotificationLog, Order, OrderItem
+
+
+class DeliveryZoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeliveryZone
+        fields = (
+            'id', 'name', 'fee', 'is_active',
+            'requires_manual_confirmation', 'description',
+        )
+
+
+class NotificationLogSerializer(serializers.ModelSerializer):
+    event_display = serializers.CharField(source='get_event_display', read_only=True)
+    channel_display = serializers.CharField(source='get_channel_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = NotificationLog
+        fields = (
+            'id', 'event', 'event_display', 'channel', 'channel_display',
+            'status', 'status_display', 'message', 'error', 'created_at',
+        )
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -14,10 +36,16 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
+    delivery_zone = DeliveryZoneSerializer(read_only=True)
+    notification_logs = NotificationLogSerializer(many=True, read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     status_timeline = serializers.SerializerMethodField()
     payment_method_display = serializers.CharField(
         source='get_payment_method_display',
+        read_only=True,
+    )
+    payment_status_display = serializers.CharField(
+        source='get_payment_status_display',
         read_only=True,
     )
     delivery_time_slot_display = serializers.CharField(
@@ -32,12 +60,14 @@ class OrderSerializer(serializers.ModelSerializer):
             'id', 'status', 'status_display', 'status_timeline',
             'subtotal_price', 'total_price',
             'shipping_address', 'phone', 'payment_method',
-            'payment_method_display', 'delivery_address',
+            'payment_method_display', 'payment_status',
+            'payment_status_display', 'delivery_address',
             'delivery_lat', 'delivery_lng', 'delivery_date',
             'delivery_time_slot', 'delivery_time_slot_display',
+            'delivery_zone', 'delivery_requires_confirmation',
             'recipient_name', 'recipient_phone', 'gift_note',
             'call_recipient_before_delivery', 'delivery_fee',
-            'notes', 'items',
+            'notes', 'items', 'notification_logs',
             'created_at', 'updated_at',
         )
         read_only_fields = ('id', 'status', 'total_price', 'created_at', 'updated_at')
@@ -105,6 +135,12 @@ class CreateOrderSerializer(serializers.Serializer):
         required=False,
         default=Order.DeliveryTimeSlot.MIDDAY,
     )
+    delivery_zone_id = serializers.PrimaryKeyRelatedField(
+        source='delivery_zone',
+        queryset=DeliveryZone.objects.filter(is_active=True),
+        required=False,
+        allow_null=True,
+    )
     recipient_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     recipient_phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
     gift_note = serializers.CharField(max_length=1000, required=False, allow_blank=True)
@@ -156,3 +192,7 @@ class UpdateOrderStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('status',)
+
+
+class UpdatePaymentStatusSerializer(serializers.Serializer):
+    payment_status = serializers.ChoiceField(choices=Order.PaymentStatus.choices)

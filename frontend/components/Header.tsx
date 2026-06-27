@@ -7,15 +7,23 @@ import { formatPrice } from "@/lib/currency";
 import {
   calculateDeliveryFee,
   deliveryTimeSlots,
+  fallbackDeliveryZones,
+  type DeliveryZoneOption,
   type DeliveryTimeSlot,
 } from "@/lib/delivery";
 import { copy, languages } from "@/lib/i18n";
-import { createOrder, fetchAdminSupportMessages } from "@/lib/api";
+import {
+  createOrder,
+  fetchAdminSupportMessages,
+  fetchDeliveryZones,
+  type ApiPaymentMethod,
+} from "@/lib/api";
 import { useStore } from "@/lib/store";
 import BouquetArt from "./BouquetArt";
 import DeliveryMapPicker, { type DeliveryMapValue } from "./DeliveryMapPicker";
 import {
   CartIcon,
+  CloseIcon,
   MenuIcon,
   MinusIcon,
   PlusIcon,
@@ -61,7 +69,12 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
     lng: null,
   });
   const [phone, setPhone] = useState(user?.phone ?? "");
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<ApiPaymentMethod>("cash");
+  const [deliveryZones, setDeliveryZones] =
+    useState<DeliveryZoneOption[]>(fallbackDeliveryZones);
+  const [selectedDeliveryZoneId, setSelectedDeliveryZoneId] = useState(
+    fallbackDeliveryZones[0].id,
+  );
   const [deliveryDayMode, setDeliveryDayMode] =
     useState<DeliveryDayMode>("today");
   const [customDeliveryDate, setCustomDeliveryDate] = useState(
@@ -81,13 +94,60 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const total = cartLines.reduce((sum, item) => sum + item.subtotal, 0);
-  const deliveryFee = calculateDeliveryFee(total);
+  const selectedDeliveryZone =
+    deliveryZones.find((zone) => zone.id === selectedDeliveryZoneId) ??
+    deliveryZones[0] ??
+    null;
+  const deliveryFee = calculateDeliveryFee(total, selectedDeliveryZone);
   const finalTotal = total + deliveryFee;
   const selectedDeliveryDate =
     deliveryDayMode === "custom"
       ? customDeliveryDate
       : relativeDeliveryDate(deliveryDayMode);
   const minDeliveryDate = relativeDeliveryDate("today");
+
+  useEffect(() => {
+    const isMobile = window.matchMedia("(max-width: 639px)").matches;
+    if (!isMobile) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDeliveryZones() {
+      try {
+        const zones = await fetchDeliveryZones();
+        if (!active || zones.length === 0) return;
+        const mappedZones = zones.map((zone) => ({
+          id: zone.id,
+          name: zone.name,
+          fee: Number.parseFloat(zone.fee) || 0,
+          requiresManualConfirmation: zone.requires_manual_confirmation,
+          description: zone.description,
+        }));
+        setDeliveryZones(mappedZones);
+        setSelectedDeliveryZoneId((current) =>
+          mappedZones.some((zone) => zone.id === current)
+            ? current
+            : mappedZones[0].id,
+        );
+      } catch {
+        if (active) setDeliveryZones(fallbackDeliveryZones);
+      }
+    }
+
+    if (checkoutOpen) void loadDeliveryZones();
+
+    return () => {
+      active = false;
+    };
+  }, [checkoutOpen]);
 
   async function onCheckout(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -126,6 +186,10 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
         delivery_lng: deliveryLocation.lng,
         delivery_date: selectedDeliveryDate,
         delivery_time_slot: deliveryTimeSlot,
+        delivery_zone_id:
+          selectedDeliveryZone && selectedDeliveryZone.id > 0
+            ? selectedDeliveryZone.id
+            : null,
         recipient_name: resolvedRecipientName,
         recipient_phone: resolvedRecipientPhone,
         gift_note: giftNote.trim(),
@@ -145,16 +209,33 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div
-      className={`absolute right-0 top-[calc(100%+14px)] z-50 max-h-[calc(100vh-6rem)] animate-fade-up overflow-y-auto rounded-[1.75rem] border border-line bg-card p-4 shadow-lift ${
-        checkoutOpen
-          ? showMapPicker
-            ? "w-[min(34rem,calc(100vw-2rem))]"
-            : "w-[min(28rem,calc(100vw-2rem))]"
-          : "w-[min(20rem,calc(100vw-2rem))]"
-      }`}
-    >
-      <p className="font-display text-lg font-bold">{t.title}</p>
+    <>
+      <button
+        type="button"
+        aria-label="Close cart"
+        onClick={onClose}
+        className="fixed inset-0 top-[66px] z-[60] bg-ink/25 backdrop-blur-[2px] sm:hidden"
+      />
+      <div
+        className={`fixed inset-x-3 bottom-3 top-[78px] z-[70] animate-fade-up overflow-y-auto rounded-[1.5rem] border border-line bg-card p-3 shadow-lift sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-[calc(100%+14px)] sm:z-50 sm:max-h-[calc(100vh-6rem)] sm:rounded-[1.75rem] sm:p-4 ${
+          checkoutOpen
+            ? showMapPicker
+              ? "sm:w-[min(34rem,calc(100vw-2rem))]"
+              : "sm:w-[min(28rem,calc(100vw-2rem))]"
+            : "sm:w-[min(20rem,calc(100vw-2rem))]"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <p className="font-display text-lg font-bold">{t.title}</p>
+          <button
+            type="button"
+            aria-label="Close cart"
+            onClick={onClose}
+            className="grid size-9 place-items-center rounded-full bg-blush text-blossomdeep transition active:scale-95 sm:hidden"
+          >
+            <CloseIcon className="size-4.5" />
+          </button>
+        </div>
 
       {cartLines.length === 0 ? (
         <div className="py-6 text-center">
@@ -282,7 +363,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                       })
                     }
                     placeholder="Street, building, apartment"
-                    className="min-w-0 flex-1 rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                    className="w-full min-w-0 rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
                   />
                 )}
               </div>
@@ -295,7 +376,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
                   placeholder="+998 90 123 45 67"
-                  className="rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                  className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
                 />
               </div>
 
@@ -318,6 +399,24 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                 </label>
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
+                    Zone
+                  </span>
+                  <select
+                    value={selectedDeliveryZoneId}
+                    onChange={(event) =>
+                      setSelectedDeliveryZoneId(Number(event.target.value))
+                    }
+                    className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm font-bold outline-none transition focus:border-blossomdeep"
+                  >
+                    {deliveryZones.map((zone) => (
+                      <option key={zone.id} value={zone.id}>
+                        {zone.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
                     Time
                   </span>
                   <select
@@ -334,13 +433,18 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                     ))}
                   </select>
                 </label>
+                {selectedDeliveryZone?.requiresManualConfirmation && (
+                  <p className="rounded-2xl bg-[#fff3d8] px-3 py-2 text-xs font-bold text-[#9a6410] sm:col-span-2">
+                    Staff will confirm delivery availability and final fee for this zone.
+                  </p>
+                )}
                 {deliveryDayMode === "custom" && (
                   <input
                     type="date"
                     min={minDeliveryDate}
                     value={customDeliveryDate}
                     onChange={(event) => setCustomDeliveryDate(event.target.value)}
-                    className="rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition focus:border-blossomdeep sm:col-span-2"
+                    className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition focus:border-blossomdeep sm:col-span-2"
                   />
                 )}
               </div>
@@ -362,20 +466,20 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                       value={recipientName}
                       onChange={(event) => setRecipientName(event.target.value)}
                       placeholder="Recipient name"
-                      className="rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                      className="w-full rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
                     />
                     <input
                       value={recipientPhone}
                       onChange={(event) => setRecipientPhone(event.target.value)}
                       placeholder="Recipient phone"
-                      className="rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                      className="w-full rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
                     />
                     <textarea
                       value={giftNote}
                       onChange={(event) => setGiftNote(event.target.value)}
                       rows={2}
                       placeholder="Gift note"
-                      className="resize-none rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                      className="w-full resize-none rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
                     />
                     <label className="flex items-center gap-2 px-1 text-sm font-bold text-ink">
                       <input
@@ -404,15 +508,16 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                     onChange={(event) => setNotes(event.target.value)}
                     rows={2}
                     placeholder="Entrance, floor, landmark..."
-                    className="resize-none rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                    className="w-full resize-none rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
                   />
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-2 rounded-2xl bg-paper p-1">
+              <div className="grid grid-cols-3 gap-2 rounded-2xl bg-paper p-1">
                 {[
                   { id: "cash", label: "Cash" },
                   { id: "card", label: "Card" },
+                  { id: "online", label: "Online" },
                 ].map((method) => {
                   const active = paymentMethod === method.id;
                   return (
@@ -421,7 +526,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                       type="button"
                       aria-pressed={active}
                       onClick={() =>
-                        setPaymentMethod(method.id as "cash" | "card")
+                        setPaymentMethod(method.id as ApiPaymentMethod)
                       }
                       className={`rounded-xl px-3 py-2 text-sm font-extrabold transition ${
                         active
@@ -441,7 +546,10 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                   <span className="font-bold">{formatPrice(total, currency)}</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-3">
-                  <span className="text-stone">Delivery</span>
+                  <span className="text-stone">
+                    Delivery
+                    {selectedDeliveryZone ? ` (${selectedDeliveryZone.name})` : ""}
+                  </span>
                   <span className="font-bold">
                     {deliveryFee === 0 ? "Free" : formatPrice(deliveryFee, currency)}
                   </span>
@@ -474,7 +582,8 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
           )}
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -559,7 +668,11 @@ export default function Header() {
   }, [hydrated, isStaff]);
 
   return (
-    <header className="sticky top-0 z-40 bg-white shadow-[0_1px_0_rgb(247_220_232)]">
+    <header
+      className={`sticky top-0 bg-white shadow-[0_1px_0_rgb(247_220_232)] ${
+        cartOpen ? "z-[70]" : "z-40"
+      }`}
+    >
       <div className="mx-auto flex h-[66px] max-w-[1250px] items-center gap-5 px-5 sm:px-8 lg:px-0">
         <Link href="/" className="group flex shrink-0 items-center gap-3">
           <span className="text-2xl leading-none transition duration-300 group-hover:rotate-12 sm:text-3xl">

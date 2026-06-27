@@ -14,6 +14,12 @@ env = environ.Env(
     DB_PORT=(str, '5432'),
     REDIS_URL=(str, 'redis://127.0.0.1:6379/0'),
     PEXELS_API_KEY=(str, ''),
+    EMAIL_HOST=(str, ''),
+    EMAIL_PORT=(int, 587),
+    EMAIL_HOST_USER=(str, ''),
+    EMAIL_HOST_PASSWORD=(str, ''),
+    TELEGRAM_BOT_TOKEN=(str, ''),
+    TELEGRAM_ADMIN_CHAT_ID=(str, ''),
 )
 
 environ.Env.read_env(BASE_DIR / '.env')
@@ -182,3 +188,31 @@ SIMPLE_JWT = {
 
 CORS_ALLOWED_ORIGINS = env('CORS_ALLOWED_ORIGINS')
 CSRF_TRUSTED_ORIGINS = env('CSRF_TRUSTED_ORIGINS')
+
+EMAIL_HOST = env('EMAIL_HOST')
+EMAIL_PORT = env('EMAIL_PORT')
+EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN')
+TELEGRAM_ADMIN_CHAT_ID = env('TELEGRAM_ADMIN_CHAT_ID')
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'apps.orders.notifications': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}

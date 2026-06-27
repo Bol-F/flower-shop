@@ -7,12 +7,15 @@ from .models import Product
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('thumbnail', 'name', 'category', 'price', 'stock', 'is_available', 'created_at')
+    list_display = (
+        'thumbnail', 'name', 'category', 'price', 'stock',
+        'low_stock_threshold', 'stock_status', 'is_available', 'created_at',
+    )
     list_display_links = ('thumbnail', 'name')
     list_filter = ('category', 'is_available', 'created_at')
     search_fields = ('name', 'description', 'slug')
     prepopulated_fields = {'slug': ('name',)}
-    list_editable = ('price', 'stock', 'is_available')
+    list_editable = ('price', 'stock', 'low_stock_threshold', 'is_available')
     list_select_related = ('category',)
     date_hierarchy = 'created_at'
     list_per_page = 25
@@ -20,7 +23,9 @@ class ProductAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {'fields': ('name', 'slug', 'category', 'description')}),
-        (_('Pricing & stock'), {'fields': ('price', 'stock', 'is_available')}),
+        (_('Pricing & stock'), {
+            'fields': ('price', 'stock', 'low_stock_threshold', 'is_available'),
+        }),
         (_('Image'), {'fields': ('image', 'preview')}),
         (_('Timestamps'), {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
     )
@@ -32,6 +37,10 @@ class ProductAdmin(admin.ModelAdmin):
                 '<img src="{}" style="width:42px;height:42px;object-fit:cover;'
                 'border-radius:6px;" alt="">', obj.image.url)
         return '🌸'
+
+    @admin.display(description=_('Stock status'))
+    def stock_status(self, obj):
+        return obj.stock_status.replace('_', ' ').title()
 
     @admin.display(description=_('Preview'))
     def preview(self, obj):

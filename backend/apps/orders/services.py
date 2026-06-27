@@ -3,7 +3,9 @@ from rest_framework.exceptions import ValidationError
 
 from apps.cart.services import get_or_create_cart, clear_cart
 from apps.products.models import Product
+from . import notifications
 from .models import Order, OrderItem
+from .payments import initial_payment_status
 from .pricing import calculate_delivery_fee
 
 
@@ -18,6 +20,7 @@ def create_order_from_cart(
     recipient_name: str,
     recipient_phone: str,
     payment_method: str = Order.PaymentMethod.CASH,
+    delivery_zone=None,
     delivery_lat=None,
     delivery_lng=None,
     gift_note: str = '',
@@ -42,8 +45,11 @@ def create_order_from_cart(
                 f'Only {product.stock} item(s) available for "{product.name}".'
             )
 
-    subtotal = cart.total_price
-    delivery_fee = calculate_delivery_fee(subtotal)
+    subtotal = sum(item.product.price * item.quantity for item in cart_items)
+    delivery_fee = calculate_delivery_fee(subtotal, delivery_zone)
+    delivery_requires_confirmation = (
+        delivery_zone.requires_manual_confirmation if delivery_zone else False
+    )
 
     order = Order.objects.create(
         user=user,
@@ -51,11 +57,14 @@ def create_order_from_cart(
         shipping_address=shipping_address,
         phone=phone,
         payment_method=payment_method,
+        payment_status=initial_payment_status(payment_method),
         delivery_address=delivery_address,
         delivery_lat=delivery_lat,
         delivery_lng=delivery_lng,
         delivery_date=delivery_date,
         delivery_time_slot=delivery_time_slot,
+        delivery_zone=delivery_zone,
+        delivery_requires_confirmation=delivery_requires_confirmation,
         recipient_name=recipient_name,
         recipient_phone=recipient_phone,
         gift_note=gift_note,
@@ -81,5 +90,6 @@ def create_order_from_cart(
     Product.objects.bulk_update(list(products.values()), ['stock'])
 
     clear_cart(user)
+    notifications.notify_order_created(order)
 
     return order

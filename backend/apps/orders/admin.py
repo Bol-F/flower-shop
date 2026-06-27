@@ -5,7 +5,9 @@ from django.urls import path
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-from .models import Order, OrderItem
+from . import notifications
+from .models import DeliveryZone, NotificationLog, Order, OrderItem
+from .payments import update_payment_status
 
 
 class OrderItemInline(admin.TabularInline):
@@ -22,18 +24,57 @@ class OrderItemInline(admin.TabularInline):
         return False
 
 
+class NotificationLogInline(admin.TabularInline):
+    model = NotificationLog
+    extra = 0
+    readonly_fields = (
+        'event', 'channel', 'status', 'message', 'error', 'created_at',
+    )
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(DeliveryZone)
+class DeliveryZoneAdmin(admin.ModelAdmin):
+    list_display = ('name', 'fee', 'is_active', 'requires_manual_confirmation')
+    list_filter = ('is_active', 'requires_manual_confirmation')
+    search_fields = ('name', 'description')
+    list_editable = ('fee', 'is_active', 'requires_manual_confirmation')
+
+
+@admin.register(NotificationLog)
+class NotificationLogAdmin(admin.ModelAdmin):
+    list_display = ('id', 'order', 'event', 'channel', 'status', 'created_at')
+    list_filter = ('event', 'channel', 'status', 'created_at')
+    search_fields = ('order__id', 'message', 'error')
+    readonly_fields = (
+        'order', 'event', 'channel', 'status', 'message', 'error', 'created_at',
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     change_list_template = 'admin/orders/order/change_list.html'
     list_display = (
-        'id', 'user', 'status', 'payment_method',
-        'recipient_name', 'delivery_date', 'delivery_time_slot',
-        'delivery_fee', 'total_price', 'item_count', 'created_at',
+        'id', 'user', 'status', 'payment_method', 'payment_status',
+        'recipient_name', 'delivery_date', 'delivery_time_slot', 'delivery_zone',
+        'delivery_fee', 'delivery_requires_confirmation',
+        'total_price', 'item_count', 'created_at',
     )
-    list_filter = ('status', 'payment_method', 'delivery_date', 'delivery_time_slot', 'created_at')
+    list_filter = (
+        'status', 'payment_method', 'payment_status', 'delivery_zone',
+        'delivery_requires_confirmation', 'delivery_date', 'delivery_time_slot',
+        'created_at',
+    )
     search_fields = (
         'id', 'user__email', 'user__username', 'phone', 'shipping_address',
         'delivery_address', 'recipient_name', 'recipient_phone',
+        'delivery_zone__name',
     )
     list_editable = ('status',)
     list_select_related = ('user',)
@@ -43,19 +84,27 @@ class OrderAdmin(admin.ModelAdmin):
         'user', 'delivery_fee', 'total_price', 'map_preview',
         'created_at', 'updated_at',
     )
-    inlines = [OrderItemInline]
+    inlines = [OrderItemInline, NotificationLogInline]
     actions = (
         'mark_confirmed',
         'mark_preparing',
         'mark_courier_picked_up',
         'mark_delivered',
+        'mark_payment_paid',
+        'mark_payment_failed',
     )
 
     fieldsets = (
-        (None, {'fields': ('user', 'status', 'payment_method', 'delivery_fee', 'total_price')}),
+        (None, {
+            'fields': (
+                'user', 'status', 'payment_method', 'payment_status',
+                'delivery_fee', 'total_price',
+            ),
+        }),
         (_('Delivery'), {
             'fields': (
                 'delivery_date', 'delivery_time_slot', 'delivery_address',
+                'delivery_zone', 'delivery_requires_confirmation',
                 ('delivery_lat', 'delivery_lng'), 'map_preview',
                 'shipping_address', 'phone', 'notes',
             ),
@@ -70,7 +119,12 @@ class OrderAdmin(admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        return super().get_queryset(request).annotate(_item_count=Count('items'))
+        return (
+            super()
+            .get_queryset(request)
+            .select_related('delivery_zone')
+            .annotate(_item_count=Count('items'))
+        )
 
     def get_urls(self):
         urls = super().get_urls()
@@ -136,16 +190,38 @@ class OrderAdmin(admin.ModelAdmin):
 
     @admin.action(description=_('Mark selected orders as confirmed'))
     def mark_confirmed(self, request, queryset):
-        queryset.update(status=Order.Status.CONFIRMED)
+        self._mark_status(queryset, Order.Status.CONFIRMED)
 
     @admin.action(description=_('Mark selected orders as preparing'))
     def mark_preparing(self, request, queryset):
-        queryset.update(status=Order.Status.PREPARING)
+        self._mark_status(queryset, Order.Status.PREPARING)
 
     @admin.action(description=_('Mark selected orders as courier picked up'))
     def mark_courier_picked_up(self, request, queryset):
-        queryset.update(status=Order.Status.COURIER_PICKED_UP)
+        self._mark_status(queryset, Order.Status.COURIER_PICKED_UP)
 
     @admin.action(description=_('Mark selected orders as delivered'))
     def mark_delivered(self, request, queryset):
-        queryset.update(status=Order.Status.DELIVERED)
+        self._mark_status(queryset, Order.Status.DELIVERED)
+
+    @admin.action(description=_('Mark selected payments as paid'))
+    def mark_payment_paid(self, request, queryset):
+        self._mark_payment_status(queryset, Order.PaymentStatus.PAID)
+
+    @admin.action(description=_('Mark selected payments as failed'))
+    def mark_payment_failed(self, request, queryset):
+        self._mark_payment_status(queryset, Order.PaymentStatus.FAILED)
+
+    def _mark_status(self, queryset, status):
+        for order in queryset:
+            order.status = status
+            order.save(update_fields=['status', 'updated_at'])
+            notifications.notify_order_status_changed(order)
+
+    def _mark_payment_status(self, queryset, payment_status):
+        for order in queryset:
+            try:
+                update_payment_status(order, payment_status)
+            except Exception:
+                continue
+            notifications.notify_payment_status_changed(order)

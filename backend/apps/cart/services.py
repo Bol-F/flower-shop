@@ -9,6 +9,14 @@ def get_or_create_cart(user) -> Cart:
     return cart
 
 
+def get_cart_for_response(user) -> Cart:
+    get_or_create_cart(user)
+    return (
+        Cart.objects.prefetch_related('items__product__category')
+        .get(user=user)
+    )
+
+
 def add_item_to_cart(user, product_id: int, quantity: int = 1) -> CartItem:
     product = _get_available_product(product_id)
     _ensure_stock(product, quantity)

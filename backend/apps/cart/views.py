@@ -16,7 +16,7 @@ class CartView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        cart = services.get_or_create_cart(request.user)
+        cart = services.get_cart_for_response(request.user)
         serializer = CartSerializer(cart)
         return Response(serializer.data)
 
@@ -37,7 +37,7 @@ class CartItemView(APIView):
             product_id=serializer.validated_data['product_id'],
             quantity=serializer.validated_data['quantity'],
         )
-        cart = services.get_or_create_cart(request.user)
+        cart = services.get_cart_for_response(request.user)
         return Response(CartSerializer(cart).data, status=status.HTTP_201_CREATED)
 
     def patch(self, request, product_id):
@@ -49,7 +49,7 @@ class CartItemView(APIView):
             product_id=product_id,
             quantity=serializer.validated_data['quantity'],
         )
-        cart = services.get_or_create_cart(request.user)
+        cart = services.get_cart_for_response(request.user)
         return Response(CartSerializer(cart).data)
 
     def delete(self, request, product_id):

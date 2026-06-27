@@ -19,6 +19,14 @@ class Order(models.Model):
     class PaymentMethod(models.TextChoices):
         CASH = 'cash', _('Cash')
         CARD = 'card', _('Card')
+        ONLINE = 'online', _('Online payment')
+
+    class PaymentStatus(models.TextChoices):
+        UNPAID = 'unpaid', _('Unpaid')
+        PENDING = 'pending', _('Pending')
+        PAID = 'paid', _('Paid')
+        FAILED = 'failed', _('Failed')
+        REFUNDED = 'refunded', _('Refunded')
 
     class DeliveryTimeSlot(models.TextChoices):
         MORNING = '09:00-12:00', _('09:00-12:00')
@@ -38,9 +46,15 @@ class Order(models.Model):
     phone = models.CharField(_('phone'), max_length=20)
     payment_method = models.CharField(
         _('payment method'),
-        max_length=10,
+        max_length=20,
         choices=PaymentMethod.choices,
         default=PaymentMethod.CASH,
+    )
+    payment_status = models.CharField(
+        _('payment status'),
+        max_length=20,
+        choices=PaymentStatus.choices,
+        default=PaymentStatus.UNPAID,
     )
     delivery_address = models.TextField(_('delivery address'), blank=True)
     delivery_lat = models.DecimalField(
@@ -63,6 +77,18 @@ class Order(models.Model):
         max_length=20,
         choices=DeliveryTimeSlot.choices,
         blank=True,
+    )
+    delivery_zone = models.ForeignKey(
+        'DeliveryZone',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders',
+        verbose_name=_('delivery zone'),
+    )
+    delivery_requires_confirmation = models.BooleanField(
+        _('delivery requires confirmation'),
+        default=False,
     )
     recipient_name = models.CharField(_('recipient name'), max_length=150, blank=True)
     recipient_phone = models.CharField(_('recipient phone'), max_length=20, blank=True)
@@ -88,6 +114,69 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Order #{self.id} by {self.user.email}"
+
+
+class DeliveryZone(models.Model):
+    name = models.CharField(_('name'), max_length=120, unique=True)
+    fee = models.DecimalField(_('fee'), max_digits=10, decimal_places=2, default=0)
+    is_active = models.BooleanField(_('is active'), default=True)
+    requires_manual_confirmation = models.BooleanField(
+        _('requires manual confirmation'),
+        default=False,
+    )
+    description = models.TextField(_('description'), blank=True)
+    polygon = models.JSONField(_('polygon'), blank=True, null=True)
+    created_at = models.DateTimeField(_('created at'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('updated at'), auto_now=True)
+
+    class Meta:
+        verbose_name = _('Delivery zone')
+        verbose_name_plural = _('Delivery zones')
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class NotificationLog(models.Model):
+    class Event(models.TextChoices):
+        ORDER_CREATED = 'order_created', _('Order created')
+        ORDER_CONFIRMED = 'order_confirmed', _('Order confirmed')
+        ORDER_PREPARING = 'order_preparing', _('Order preparing')
+        COURIER_PICKED_UP = 'courier_picked_up', _('Courier picked up')
+        ORDER_DELIVERED = 'order_delivered', _('Order delivered')
+        PAYMENT_STATUS_CHANGED = 'payment_status_changed', _('Payment status changed')
+
+    class Channel(models.TextChoices):
+        EMAIL = 'email', _('Email')
+        TELEGRAM = 'telegram', _('Telegram')
+        CONSOLE = 'console', _('Console')
+
+    class Status(models.TextChoices):
+        SUCCESS = 'success', _('Success')
+        FAILED = 'failed', _('Failed')
+        SKIPPED = 'skipped', _('Skipped')
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='notification_logs',
+        verbose_name=_('order'),
+    )
+    event = models.CharField(_('event'), max_length=40, choices=Event.choices)
+    channel = models.CharField(_('channel'), max_length=20, choices=Channel.choices)
+    status = models.CharField(_('status'), max_length=20, choices=Status.choices)
+    message = models.TextField(_('message'), blank=True)
+    error = models.TextField(_('error'), blank=True)
+    created_at = models.DateTimeField(_('created at'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Notification log')
+        verbose_name_plural = _('Notification logs')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.get_event_display()} via {self.get_channel_display()}'
 
 
 class OrderItem(models.Model):

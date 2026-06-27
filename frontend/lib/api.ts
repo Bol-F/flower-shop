@@ -65,6 +65,8 @@ export interface ApiProductBase {
   category_name: string | null;
   is_available: boolean;
   is_in_stock: boolean;
+  is_low_stock: boolean;
+  stock_status: "in_stock" | "low_stock" | "out_of_stock" | "unavailable";
 }
 
 export interface ApiProductListItem extends ApiProductBase {
@@ -75,6 +77,7 @@ export interface ApiProductDetail extends ApiProductBase {
   description: string;
   category: ApiCategory | null;
   stock: number;
+  low_stock_threshold: number;
   created_at: string;
   updated_at: string;
 }
@@ -120,6 +123,36 @@ export interface ApiOrderStatusStep {
   completed: boolean;
 }
 
+export type ApiPaymentMethod = "cash" | "card" | "online";
+export type ApiPaymentStatus =
+  | "unpaid"
+  | "pending"
+  | "paid"
+  | "failed"
+  | "refunded";
+
+export interface ApiDeliveryZone {
+  id: number;
+  name: string;
+  fee: string;
+  is_active: boolean;
+  requires_manual_confirmation: boolean;
+  description: string;
+}
+
+export interface ApiNotificationLog {
+  id: number;
+  event: string;
+  event_display: string;
+  channel: string;
+  channel_display: string;
+  status: string;
+  status_display: string;
+  message: string;
+  error: string;
+  created_at: string;
+}
+
 export interface ApiOrder {
   id: number;
   status: ApiOrderStatus;
@@ -129,14 +162,18 @@ export interface ApiOrder {
   total_price: string;
   shipping_address: string;
   phone: string;
-  payment_method: "cash" | "card";
+  payment_method: ApiPaymentMethod;
   payment_method_display: string;
+  payment_status: ApiPaymentStatus;
+  payment_status_display: string;
   delivery_address: string;
   delivery_lat: string | null;
   delivery_lng: string | null;
   delivery_date: string | null;
   delivery_time_slot: string;
   delivery_time_slot_display: string;
+  delivery_zone: ApiDeliveryZone | null;
+  delivery_requires_confirmation: boolean;
   recipient_name: string;
   recipient_phone: string;
   gift_note: string;
@@ -144,8 +181,40 @@ export interface ApiOrder {
   delivery_fee: string;
   notes: string;
   items: ApiOrderItem[];
+  notification_logs: ApiNotificationLog[];
   created_at: string;
   updated_at: string;
+}
+
+export interface ApiAdminProductSummary {
+  id: number;
+  name: string;
+  slug: string;
+  stock: number;
+  low_stock_threshold: number;
+  is_available: boolean;
+  stock_status: ApiProductBase["stock_status"];
+}
+
+export interface ApiBestSellingProduct {
+  product_name: string;
+  quantity_sold: number;
+  revenue: string;
+}
+
+export interface ApiAdminDashboard {
+  today_orders: number;
+  pending_orders: number;
+  confirmed_orders: number;
+  preparing_orders: number;
+  delivered_orders: number;
+  total_revenue_today: string;
+  total_revenue_month: string;
+  low_stock_products: ApiAdminProductSummary[];
+  out_of_stock_products: ApiAdminProductSummary[];
+  unavailable_products: ApiAdminProductSummary[];
+  best_selling_products: ApiBestSellingProduct[];
+  delivery_queue: ApiOrder[];
 }
 
 interface StoredAuth {
@@ -403,6 +472,13 @@ export async function fetchProduct(slug: string): Promise<ApiProductDetail> {
   return request<ApiProductDetail>(`/api/products/${encodeURIComponent(slug)}/`);
 }
 
+export async function fetchDeliveryZones(): Promise<ApiDeliveryZone[]> {
+  const data = await request<ApiDeliveryZone[] | PaginatedResponse<ApiDeliveryZone>>(
+    "/api/orders/delivery-zones/?page_size=100",
+  );
+  return Array.isArray(data) ? data : data.results;
+}
+
 export async function fetchCart(): Promise<ApiCart> {
   return request<ApiCart>("/api/cart/", { auth: true });
 }
@@ -440,12 +516,13 @@ export async function clearRemoteCart(): Promise<void> {
 export async function createOrder(payload: {
   shipping_address: string;
   phone: string;
-  payment_method: "cash" | "card";
+  payment_method: ApiPaymentMethod;
   delivery_address?: string;
   delivery_lat?: number | null;
   delivery_lng?: number | null;
   delivery_date?: string;
   delivery_time_slot?: string;
+  delivery_zone_id?: number | null;
   recipient_name?: string;
   recipient_phone?: string;
   gift_note?: string;
@@ -476,6 +553,21 @@ export async function updateOrderStatus(
     body: { status: orderStatus },
     auth: true,
   });
+}
+
+export async function updatePaymentStatus(
+  id: number,
+  paymentStatus: ApiPaymentStatus,
+): Promise<ApiOrder> {
+  return request<ApiOrder>(`/api/orders/${id}/payment-status/`, {
+    method: "PATCH",
+    body: { payment_status: paymentStatus },
+    auth: true,
+  });
+}
+
+export async function fetchAdminDashboard(): Promise<ApiAdminDashboard> {
+  return request<ApiAdminDashboard>("/api/orders/dashboard/", { auth: true });
 }
 
 /* ── reviews, ratings & likes (apps.reviews) ──────────────────── */

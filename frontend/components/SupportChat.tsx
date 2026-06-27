@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   useEffect,
   useMemo,
@@ -83,6 +84,7 @@ function timeLabel(value: string | null) {
 
 export default function SupportChat() {
   const { user, hydrated, language } = useStore();
+  const pathname = usePathname();
   const t = text[language];
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
@@ -172,7 +174,13 @@ export default function SupportChat() {
     event.currentTarget.form?.requestSubmit();
   }
 
-  if (hydrated && user?.is_staff) return null;
+  if (
+    pathname?.startsWith("/profile") ||
+    pathname?.startsWith("/admin") ||
+    (hydrated && user?.is_staff)
+  ) {
+    return null;
+  }
 
   return (
     <div className="fixed bottom-4 right-4 z-50 sm:bottom-5 sm:right-6">

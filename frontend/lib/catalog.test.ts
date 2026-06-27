@@ -25,6 +25,8 @@ function apiProduct(overrides: Partial<ApiProductListItem> = {}): ApiProductList
     category_name: roses.name,
     is_available: true,
     is_in_stock: true,
+    is_low_stock: false,
+    stock_status: "in_stock",
     ...overrides,
   };
 }
