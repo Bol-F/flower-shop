@@ -4,6 +4,7 @@ import { StoreProvider } from "@/lib/store";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SupportChat from "@/components/SupportChat";
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
 const playfair = Playfair_Display({

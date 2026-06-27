@@ -103,13 +103,45 @@ export interface ApiOrderItem {
   subtotal: string;
 }
 
+export type ApiOrderStatus =
+  | "pending"
+  | "confirmed"
+  | "preparing"
+  | "courier_picked_up"
+  | "processing"
+  | "shipped"
+  | "delivered"
+  | "cancelled";
+
+export interface ApiOrderStatusStep {
+  id: ApiOrderStatus;
+  label: string;
+  active: boolean;
+  completed: boolean;
+}
+
 export interface ApiOrder {
   id: number;
-  status: string;
+  status: ApiOrderStatus;
   status_display: string;
+  status_timeline: ApiOrderStatusStep[];
+  subtotal_price: string;
   total_price: string;
   shipping_address: string;
   phone: string;
+  payment_method: "cash" | "card";
+  payment_method_display: string;
+  delivery_address: string;
+  delivery_lat: string | null;
+  delivery_lng: string | null;
+  delivery_date: string | null;
+  delivery_time_slot: string;
+  delivery_time_slot_display: string;
+  recipient_name: string;
+  recipient_phone: string;
+  gift_note: string;
+  call_recipient_before_delivery: boolean;
+  delivery_fee: string;
   notes: string;
   items: ApiOrderItem[];
   created_at: string;
@@ -408,6 +440,16 @@ export async function clearRemoteCart(): Promise<void> {
 export async function createOrder(payload: {
   shipping_address: string;
   phone: string;
+  payment_method: "cash" | "card";
+  delivery_address?: string;
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
+  delivery_date?: string;
+  delivery_time_slot?: string;
+  recipient_name?: string;
+  recipient_phone?: string;
+  gift_note?: string;
+  call_recipient_before_delivery?: boolean;
   notes?: string;
 }): Promise<ApiOrder> {
   return request<ApiOrder>("/api/orders/create/", {
@@ -423,6 +465,17 @@ export async function fetchOrders(): Promise<ApiOrder[]> {
     { auth: true },
   );
   return Array.isArray(data) ? data : data.results;
+}
+
+export async function updateOrderStatus(
+  id: number,
+  orderStatus: ApiOrderStatus,
+): Promise<ApiOrder> {
+  return request<ApiOrder>(`/api/orders/${id}/status/`, {
+    method: "PATCH",
+    body: { status: orderStatus },
+    auth: true,
+  });
 }
 
 /* ── reviews, ratings & likes (apps.reviews) ──────────────────── */

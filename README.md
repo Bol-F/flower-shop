@@ -25,19 +25,19 @@ A trilingual Django admin & REST API (products, cart, orders, support chat) pair
 - Premium one-page marketplace: trust bar, sticky header with search / location / currency, hero with floating proof cards
 - Horizontally scrollable category chips loaded from the API, catalog with **working sort & delivery-today filter**
 - Product cards with API photos when available, illustrated bouquet fallback, ratings, favorites, and quick add
-- Backend-synced cart for signed-in customers, checkout, and profile order history
+- Backend-synced cart for signed-in customers, cash/card checkout, Leaflet delivery map picker, and profile order history
 - Support chat, product reviews, profile settings, and staff support inbox wired to the Django API
 - Offline demo fallback catalog so the frontend can still render while the backend is unavailable
 
 ### 🔌 REST API (backend)
 - Products & categories with search / filter / sort / pagination — 28 seeded flowers with **real photos**
-- Registration & JWT auth with refresh, server-synced cart, stock-checked checkout, order history
+- Registration & JWT auth with refresh, server-synced cart, stock-checked checkout with delivery dates, recipients, fees, and order history
 - Customer↔support messaging with admin replies
 
 ### 🛠️ Admin
 - **Trilingual Django admin**: `/admin/` (English), `/ru/admin/`, `/uz/admin/` + a language switcher in the header
 - Product list with photo thumbnails, inline price/stock editing, image preview
-- Orders with read-only item inlines, subtotals, and one-click status updates
+- Orders with read-only item inlines, delivery details, map previews, filters, and one-click status updates
 - Category product counts, customer messages with reply workflow
 - React admin dashboard at `/admin` (frontend) with revenue & order stats
 
@@ -45,7 +45,7 @@ A trilingual Django admin & REST API (products, cart, orders, support chat) pair
 - Celery + Celery Beat for background tasks (admin notifications, daily summaries)
 - Django Channels (ASGI via Daphne) ready for real-time features
 - Docker Compose for one-command startup
-- 62 pytest tests covering auth, products, cart, orders, categories, contact, reviews, and admin i18n
+- 69 pytest tests covering auth, products, cart, orders, categories, contact, reviews, and admin i18n
 
 ---
 
@@ -54,7 +54,7 @@ A trilingual Django admin & REST API (products, cart, orders, support chat) pair
 | Layer | Technology |
 |---|---|
 | Backend | Python 3.12 · Django 4.2 · DRF 3.14 · SimpleJWT · django-filter |
-| Frontend | Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 |
+| Frontend | Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · Leaflet |
 | Database | PostgreSQL 15 |
 | Queue / Realtime | Redis · Celery 5 · Celery Beat · Django Channels (Daphne) |
 | i18n | Lightweight frontend copy map · Django locale + gettext catalogs (admin) |
@@ -261,7 +261,7 @@ Deploys are gated on CI by the platforms themselves:
 
 ## 🧪 Tests
 
-Backend: 62 pytest tests across users, products, categories, cart, orders,
+Backend: 69 pytest tests across users, products, categories, cart, orders,
 contact, reviews, and admin i18n.
 
 ```bash
@@ -333,7 +333,7 @@ All responses are paginated (`count` / `next` / `previous` / `results`, 12 per p
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
 | GET | `/api/orders/` | Own orders (admin sees all) | ✅ |
-| POST | `/api/orders/create/` | Place order from cart | ✅ |
+| POST | `/api/orders/create/` | Place order from cart with `shipping_address`, `phone`, and `payment_method`; optional delivery fields include `delivery_address`, `delivery_lat`/`delivery_lng`, `delivery_date`, `delivery_time_slot`, `recipient_name`, `recipient_phone`, `gift_note`, `call_recipient_before_delivery`, and `notes` | ✅ |
 | GET | `/api/orders/{id}/` | Detail | ✅ owner |
 | PATCH | `/api/orders/{id}/status/` | Update status | 👑 Admin |
 
@@ -353,6 +353,7 @@ All responses are paginated (`count` / `next` / `previous` / `results`, 12 per p
 - `IsAdminOrReadOnly` / `IsOwnerOrAdmin` permissions shared via `apps/common`
 - Slug-based URLs for products and categories
 - Orders snapshot `product_name` / `product_price` at purchase time — later price changes never rewrite history
+- Delivery pricing is isolated in `apps/orders/pricing.py` so fixed city fees can later become distance-based fees using saved coordinates
 - `@transaction.atomic` order creation: the cart is cleared only if the order commits
 - Contact notifications go through Celery, wrapped so a down Redis never breaks the request
 
@@ -360,7 +361,7 @@ All responses are paginated (`count` / `next` / `previous` / `results`, 12 per p
 - The fetch API client attaches JWTs and retries once on 401 with the refresh token
 - The catalog adapter maps Django product/category rows into the rich storefront card model
 - Signed-in cart actions sync to the Django cart API; guest carts stay local until sign-in
-- Checkout creates backend orders and the customer profile reads `/api/orders/`
+- Checkout uses Leaflet + OpenStreetMap for delivery point selection, then creates backend orders and the customer profile reads `/api/orders/`
 - UI copy is kept in `frontend/lib/i18n.ts`; add a language by extending `Language`, `languages`, and `copy`
 
 **Admin i18n**

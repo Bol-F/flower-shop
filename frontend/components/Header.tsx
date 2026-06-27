@@ -4,10 +4,16 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { formatPrice } from "@/lib/currency";
+import {
+  calculateDeliveryFee,
+  deliveryTimeSlots,
+  type DeliveryTimeSlot,
+} from "@/lib/delivery";
 import { copy, languages } from "@/lib/i18n";
 import { createOrder, fetchAdminSupportMessages } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import BouquetArt from "./BouquetArt";
+import DeliveryMapPicker, { type DeliveryMapValue } from "./DeliveryMapPicker";
 import {
   CartIcon,
   MenuIcon,
@@ -16,6 +22,23 @@ import {
   TrashIcon,
   UserIcon,
 } from "./icons";
+
+type DeliveryDayMode = "today" | "tomorrow" | "custom";
+
+function formatDateInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function relativeDeliveryDate(mode: Exclude<DeliveryDayMode, "custom">): string {
+  const date = new Date();
+  if (mode === "tomorrow") {
+    date.setDate(date.getDate() + 1);
+  }
+  return formatDateInput(date);
+}
 
 function CartDropdown({ onClose }: { onClose: () => void }) {
   const {
@@ -32,12 +55,39 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
   } = useStore();
   const t = copy[language].cart;
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [shippingAddress, setShippingAddress] = useState(user?.address ?? "");
+  const [deliveryLocation, setDeliveryLocation] = useState<DeliveryMapValue>({
+    address: user?.address ?? "",
+    lat: null,
+    lng: null,
+  });
   const [phone, setPhone] = useState(user?.phone ?? "");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card">("cash");
+  const [deliveryDayMode, setDeliveryDayMode] =
+    useState<DeliveryDayMode>("today");
+  const [customDeliveryDate, setCustomDeliveryDate] = useState(
+    relativeDeliveryDate("today"),
+  );
+  const [deliveryTimeSlot, setDeliveryTimeSlot] =
+    useState<DeliveryTimeSlot>(deliveryTimeSlots[1]);
+  const [recipientName, setRecipientName] = useState(user?.username ?? "");
+  const [recipientPhone, setRecipientPhone] = useState(user?.phone ?? "");
+  const [giftNote, setGiftNote] = useState("");
+  const [callRecipientBeforeDelivery, setCallRecipientBeforeDelivery] =
+    useState(true);
   const [notes, setNotes] = useState("");
+  const [sendAsGift, setSendAsGift] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [showExtraDetails, setShowExtraDetails] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const total = cartLines.reduce((sum, item) => sum + item.subtotal, 0);
+  const deliveryFee = calculateDeliveryFee(total);
+  const finalTotal = total + deliveryFee;
+  const selectedDeliveryDate =
+    deliveryDayMode === "custom"
+      ? customDeliveryDate
+      : relativeDeliveryDate(deliveryDayMode);
+  const minDeliveryDate = relativeDeliveryDate("today");
 
   async function onCheckout(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,16 +96,41 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
       setError("Sign in before checkout.");
       return;
     }
-    if (!shippingAddress.trim() || !phone.trim()) {
-      setError("Delivery address and phone are required.");
+    if (!deliveryLocation.address.trim() || !phone.trim()) {
+      setError("Delivery address and your phone are required.");
+      return;
+    }
+    if (sendAsGift && (!recipientName.trim() || !recipientPhone.trim())) {
+      setError("Recipient name and phone are required.");
+      return;
+    }
+    if (!selectedDeliveryDate || !deliveryTimeSlot) {
+      setError("Choose a delivery date and time slot.");
       return;
     }
 
     try {
       setSubmitting(true);
+      const resolvedRecipientName = sendAsGift
+        ? recipientName.trim()
+        : user.username || "Recipient";
+      const resolvedRecipientPhone = sendAsGift
+        ? recipientPhone.trim()
+        : phone.trim();
       const order = await createOrder({
-        shipping_address: shippingAddress.trim(),
+        shipping_address: deliveryLocation.address.trim(),
         phone: phone.trim(),
+        payment_method: paymentMethod,
+        delivery_address: deliveryLocation.address.trim(),
+        delivery_lat: deliveryLocation.lat,
+        delivery_lng: deliveryLocation.lng,
+        delivery_date: selectedDeliveryDate,
+        delivery_time_slot: deliveryTimeSlot,
+        recipient_name: resolvedRecipientName,
+        recipient_phone: resolvedRecipientPhone,
+        gift_note: giftNote.trim(),
+        call_recipient_before_delivery:
+          sendAsGift && callRecipientBeforeDelivery,
         notes: notes.trim(),
       });
       clearCart();
@@ -70,7 +145,15 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="absolute right-0 top-[calc(100%+14px)] z-50 w-[min(20rem,calc(100vw-2rem))] animate-fade-up rounded-[1.75rem] border border-line bg-card p-4 shadow-lift">
+    <div
+      className={`absolute right-0 top-[calc(100%+14px)] z-50 max-h-[calc(100vh-6rem)] animate-fade-up overflow-y-auto rounded-[1.75rem] border border-line bg-card p-4 shadow-lift ${
+        checkoutOpen
+          ? showMapPicker
+            ? "w-[min(34rem,calc(100vw-2rem))]"
+            : "w-[min(28rem,calc(100vw-2rem))]"
+          : "w-[min(20rem,calc(100vw-2rem))]"
+      }`}
+    >
       <p className="font-display text-lg font-bold">{t.title}</p>
 
       {cartLines.length === 0 ? (
@@ -169,26 +252,208 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
               </Link>
             )
           ) : (
-            <form onSubmit={onCheckout} className="mt-3 grid gap-2.5">
-              <input
-                value={shippingAddress}
-                onChange={(event) => setShippingAddress(event.target.value)}
-                placeholder="Delivery address"
-                className="rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
-              />
-              <input
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                placeholder="+998 90 123 45 67"
-                className="rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
-              />
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                rows={2}
-                placeholder="Delivery notes"
-                className="resize-none rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
-              />
+            <form onSubmit={onCheckout} className="mt-3 grid gap-3">
+              <div>
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <label className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                    Delivery address
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowMapPicker((open) => !open)}
+                    className="text-xs font-extrabold text-blossomdeep transition hover:text-raspberry"
+                  >
+                    {showMapPicker ? "Use simple address" : "Choose on map"}
+                  </button>
+                </div>
+                {showMapPicker ? (
+                  <DeliveryMapPicker
+                    value={deliveryLocation}
+                    onChange={setDeliveryLocation}
+                  />
+                ) : (
+                  <input
+                    value={deliveryLocation.address}
+                    onChange={(event) =>
+                      setDeliveryLocation({
+                        address: event.target.value,
+                        lat: null,
+                        lng: null,
+                      })
+                    }
+                    placeholder="Street, building, apartment"
+                    className="min-w-0 flex-1 rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
+                  Contact phone
+                </label>
+                <input
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  placeholder="+998 90 123 45 67"
+                  className="rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                />
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
+                    Day
+                  </span>
+                  <select
+                    value={deliveryDayMode}
+                    onChange={(event) =>
+                      setDeliveryDayMode(event.target.value as DeliveryDayMode)
+                    }
+                    className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm font-bold outline-none transition focus:border-blossomdeep"
+                  >
+                    <option value="today">Today</option>
+                    <option value="tomorrow">Tomorrow</option>
+                    <option value="custom">Choose date</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
+                    Time
+                  </span>
+                  <select
+                    value={deliveryTimeSlot}
+                    onChange={(event) =>
+                      setDeliveryTimeSlot(event.target.value as DeliveryTimeSlot)
+                    }
+                    className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm font-bold outline-none transition focus:border-blossomdeep"
+                  >
+                    {deliveryTimeSlots.map((slot) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {deliveryDayMode === "custom" && (
+                  <input
+                    type="date"
+                    min={minDeliveryDate}
+                    value={customDeliveryDate}
+                    onChange={(event) => setCustomDeliveryDate(event.target.value)}
+                    className="rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition focus:border-blossomdeep sm:col-span-2"
+                  />
+                )}
+              </div>
+
+              <div className="grid gap-2 rounded-2xl bg-paper p-3">
+                <label className="flex items-center gap-2 rounded-2xl bg-paper px-3.5 py-2.5 text-sm font-bold text-ink">
+                  <input
+                    type="checkbox"
+                    checked={sendAsGift}
+                    onChange={(event) => setSendAsGift(event.target.checked)}
+                    className="size-4 accent-blossomdeep"
+                  />
+                  Send to someone else
+                </label>
+
+                {sendAsGift && (
+                  <div className="grid gap-2">
+                    <input
+                      value={recipientName}
+                      onChange={(event) => setRecipientName(event.target.value)}
+                      placeholder="Recipient name"
+                      className="rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                    />
+                    <input
+                      value={recipientPhone}
+                      onChange={(event) => setRecipientPhone(event.target.value)}
+                      placeholder="Recipient phone"
+                      className="rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                    />
+                    <textarea
+                      value={giftNote}
+                      onChange={(event) => setGiftNote(event.target.value)}
+                      rows={2}
+                      placeholder="Gift note"
+                      className="resize-none rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                    />
+                    <label className="flex items-center gap-2 px-1 text-sm font-bold text-ink">
+                      <input
+                        type="checkbox"
+                        checked={callRecipientBeforeDelivery}
+                        onChange={(event) =>
+                          setCallRecipientBeforeDelivery(event.target.checked)
+                        }
+                        className="size-4 accent-blossomdeep"
+                      />
+                      Call recipient before delivery
+                    </label>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowExtraDetails((open) => !open)}
+                  className="rounded-2xl border border-line bg-white px-3.5 py-2.5 text-left text-sm font-extrabold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
+                >
+                  {showExtraDetails ? "Hide courier note" : "Add courier note"}
+                </button>
+                {showExtraDetails && (
+                  <textarea
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    rows={2}
+                    placeholder="Entrance, floor, landmark..."
+                    className="resize-none rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                  />
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 rounded-2xl bg-paper p-1">
+                {[
+                  { id: "cash", label: "Cash" },
+                  { id: "card", label: "Card" },
+                ].map((method) => {
+                  const active = paymentMethod === method.id;
+                  return (
+                    <button
+                      key={method.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() =>
+                        setPaymentMethod(method.id as "cash" | "card")
+                      }
+                      className={`rounded-xl px-3 py-2 text-sm font-extrabold transition ${
+                        active
+                          ? "bg-blossomdeep text-white shadow-glow"
+                          : "text-stone hover:bg-white"
+                      }`}
+                    >
+                      {method.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="rounded-2xl border border-line bg-paper p-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-stone">Flowers</span>
+                  <span className="font-bold">{formatPrice(total, currency)}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <span className="text-stone">Delivery</span>
+                  <span className="font-bold">
+                    {deliveryFee === 0 ? "Free" : formatPrice(deliveryFee, currency)}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3 border-t border-line pt-2">
+                  <span className="font-extrabold">Total</span>
+                  <span className="font-display text-lg font-bold">
+                    {formatPrice(finalTotal, currency)}
+                  </span>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"

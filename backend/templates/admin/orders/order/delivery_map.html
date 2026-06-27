@@ -1,0 +1,70 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIINfQka1PrjI5Jg6SHaUhl5xuP0F0OS6HM="
+    crossorigin=""
+  >
+  <style>
+    #delivery-map {
+      min-height: 620px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .delivery-map-summary {
+      margin: 0 0 1rem;
+      color: var(--body-quiet-color);
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div id="content-main">
+    <p class="delivery-map-summary">
+      {% blocktranslate count counter=orders_data|length %}
+        Showing {{ counter }} order with a delivery point.
+      {% plural %}
+        Showing {{ counter }} orders with delivery points.
+      {% endblocktranslate %}
+    </p>
+    <div id="delivery-map"></div>
+    {{ orders_data|json_script:"orders-data" }}
+  </div>
+{% endblock %}
+
+{% block footer %}
+  {{ block.super }}
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script>
+    const orders = JSON.parse(document.getElementById("orders-data").textContent);
+    const map = L.map("delivery-map");
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
+
+    const markers = [];
+    orders.forEach((order) => {
+      const marker = L.marker([order.lat, order.lng]).addTo(map);
+      marker.bindPopup(
+        `<strong>Order #${order.id}</strong><br>${order.customer}<br>${order.address}<br>${order.status}`,
+      );
+      markers.push(marker);
+    });
+
+    if (markers.length > 0) {
+      map.fitBounds(L.featureGroup(markers).getBounds().pad(0.2));
+    } else {
+      map.setView([41.311081, 69.240562], 12);
+    }
+  </script>
+{% endblock %}

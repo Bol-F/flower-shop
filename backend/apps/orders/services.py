@@ -4,10 +4,26 @@ from rest_framework.exceptions import ValidationError
 from apps.cart.services import get_or_create_cart, clear_cart
 from apps.products.models import Product
 from .models import Order, OrderItem
+from .pricing import calculate_delivery_fee
 
 
 @transaction.atomic
-def create_order_from_cart(user, shipping_address: str, phone: str, notes: str = '') -> Order:
+def create_order_from_cart(
+    user,
+    shipping_address: str,
+    phone: str,
+    delivery_address: str,
+    delivery_date,
+    delivery_time_slot: str,
+    recipient_name: str,
+    recipient_phone: str,
+    payment_method: str = Order.PaymentMethod.CASH,
+    delivery_lat=None,
+    delivery_lng=None,
+    gift_note: str = '',
+    call_recipient_before_delivery: bool = False,
+    notes: str = '',
+) -> Order:
     cart = get_or_create_cart(user)
     cart_items = list(cart.items.select_related('product').all())
 
@@ -26,11 +42,25 @@ def create_order_from_cart(user, shipping_address: str, phone: str, notes: str =
                 f'Only {product.stock} item(s) available for "{product.name}".'
             )
 
+    subtotal = cart.total_price
+    delivery_fee = calculate_delivery_fee(subtotal)
+
     order = Order.objects.create(
         user=user,
-        total_price=cart.total_price,
+        total_price=subtotal + delivery_fee,
         shipping_address=shipping_address,
         phone=phone,
+        payment_method=payment_method,
+        delivery_address=delivery_address,
+        delivery_lat=delivery_lat,
+        delivery_lng=delivery_lng,
+        delivery_date=delivery_date,
+        delivery_time_slot=delivery_time_slot,
+        recipient_name=recipient_name,
+        recipient_phone=recipient_phone,
+        gift_note=gift_note,
+        call_recipient_before_delivery=call_recipient_before_delivery,
+        delivery_fee=delivery_fee,
         notes=notes,
     )
 

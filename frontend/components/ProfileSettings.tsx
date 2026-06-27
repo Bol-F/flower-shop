@@ -16,7 +16,10 @@ import {
   login as apiLogin,
   register as apiRegister,
   type ApiOrder,
+  type ApiOrderStatus,
+  type ApiOrderStatusStep,
   type AdminSupportMessage,
+  updateOrderStatus,
   updateProfile,
 } from "@/lib/api";
 import { useStore } from "@/lib/store";
@@ -75,6 +78,52 @@ function formatAdminTime(value: string) {
   }).format(new Date(value));
 }
 
+const staffOrderStatuses: Array<{ id: ApiOrderStatus; label: string }> = [
+  { id: "pending", label: "Pending" },
+  { id: "confirmed", label: "Confirmed" },
+  { id: "preparing", label: "Preparing" },
+  { id: "courier_picked_up", label: "Courier picked up" },
+  { id: "delivered", label: "Delivered" },
+];
+
+function formatDeliveryDate(value: string | null) {
+  if (!value) return "Not selected";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(`${value}T00:00:00`));
+}
+
+function deliveryMapUrl(order: ApiOrder) {
+  if (!order.delivery_lat || !order.delivery_lng) return null;
+  return `https://www.openstreetmap.org/?mlat=${order.delivery_lat}&mlon=${order.delivery_lng}#map=16/${order.delivery_lat}/${order.delivery_lng}`;
+}
+
+function OrderStatusTimeline({ steps }: { steps: ApiOrderStatusStep[] }) {
+  if (steps.length === 0) return null;
+
+  return (
+    <ol className="mt-4 grid gap-2 sm:grid-cols-5">
+      {steps.map((step) => (
+        <li
+          key={step.id}
+          aria-current={step.active ? "step" : undefined}
+          className={`rounded-2xl border px-3 py-2 text-xs font-extrabold ${
+            step.active
+              ? "border-blossomdeep bg-blossomdeep text-white shadow-glow"
+              : step.completed
+                ? "border-[#bfe6cc] bg-mint text-leaf"
+                : "border-line bg-white text-stone"
+          }`}
+        >
+          {step.label}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function staffInitials(name: string, email: string) {
   const source = (name || email || "Admin").trim();
   return source.slice(0, 2).toUpperCase();
@@ -128,6 +177,14 @@ function AdminWorkspace() {
   const [messages, setMessages] = useState<AdminSupportMessage[]>([]);
   const [supportLoading, setSupportLoading] = useState(true);
   const [supportError, setSupportError] = useState("");
+  const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ApiOrderStatus | "all">("all");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "card">(
+    "all",
+  );
+  const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
@@ -146,6 +203,16 @@ function AdminWorkspace() {
   const unreadCount = conversations.reduce(
     (total, conversation) => total + conversation.unread,
     0,
+  );
+  const filteredOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+        const matchesPayment =
+          paymentFilter === "all" || order.payment_method === paymentFilter;
+        return matchesStatus && matchesPayment;
+      }),
+    [orders, paymentFilter, statusFilter],
   );
   const lastCustomerMessage = messages.find((message) => !message.is_from_admin);
   const displayName = name || user?.username || "Admin";
@@ -185,7 +252,53 @@ function AdminWorkspace() {
     };
   }, [user?.is_staff]);
 
+  useEffect(() => {
+    if (!user?.is_staff) return;
+    let active = true;
+
+    async function loadOrders(showSpinner = false) {
+      try {
+        if (showSpinner) setOrdersLoading(true);
+        const data = await fetchOrders();
+        if (active) {
+          setOrders(data);
+          setOrdersError("");
+        }
+      } catch (err) {
+        if (active) setOrdersError(firstApiMessage(err, "Could not load orders."));
+      } finally {
+        if (active) setOrdersLoading(false);
+      }
+    }
+
+    void loadOrders(true);
+    const timer = window.setInterval(() => {
+      void loadOrders(false);
+    }, 15000);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [user?.is_staff]);
+
   if (!user?.is_staff) return null;
+
+  async function onOrderStatusChange(orderId: number, nextStatus: ApiOrderStatus) {
+    setOrdersError("");
+    try {
+      setUpdatingOrderId(orderId);
+      const updated = await updateOrderStatus(orderId, nextStatus);
+      setOrders((current) =>
+        current.map((order) => (order.id === updated.id ? updated : order)),
+      );
+      showToast(`Order #${updated.id} marked ${updated.status_display}`);
+    } catch (err) {
+      setOrdersError(firstApiMessage(err, "Could not update order status."));
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  }
 
   async function onAdminProfileSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -257,9 +370,9 @@ function AdminWorkspace() {
       detail: "New customer messages",
     },
     {
-      label: "Catalog",
-      value: fallbackCatalogProducts.length,
-      detail: "Products visible online",
+      label: "Orders",
+      value: orders.length,
+      detail: ordersLoading ? "Syncing delivery queue" : "Delivery orders",
     },
   ];
 
@@ -319,6 +432,184 @@ function AdminWorkspace() {
             </section>
           ))}
         </div>
+
+        <section className="mt-5 rounded-[1.75rem] border border-line bg-white shadow-soft">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
+            <div>
+              <h2 className="font-display text-2xl font-extrabold text-ink">
+                Delivery orders
+              </h2>
+              <p className="mt-0.5 text-sm font-semibold text-stone">
+                {ordersError || "Filter and update active flower deliveries"}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as ApiOrderStatus | "all")
+                }
+                className="rounded-full border border-line bg-paper px-4 py-2 text-sm font-bold outline-none transition focus:border-blossomdeep"
+              >
+                <option value="all">All statuses</option>
+                {staffOrderStatuses.map((status) => (
+                  <option key={status.id} value={status.id}>
+                    {status.label}
+                  </option>
+                ))}
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <select
+                value={paymentFilter}
+                onChange={(event) =>
+                  setPaymentFilter(event.target.value as "all" | "cash" | "card")
+                }
+                className="rounded-full border border-line bg-paper px-4 py-2 text-sm font-bold outline-none transition focus:border-blossomdeep"
+              >
+                <option value="all">All payments</option>
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+              </select>
+              <a
+                href={`${API_BASE}/admin/orders/order/delivery-map/`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full bg-blush px-4 py-2 text-sm font-extrabold text-blossomdeep transition hover:bg-blushdeep"
+              >
+                Delivery map
+                <ArrowRightIcon className="size-4" />
+              </a>
+            </div>
+          </div>
+
+          <div className="divide-y divide-line">
+            {ordersLoading && orders.length === 0 && (
+              <p className="px-5 py-8 text-sm font-bold text-stone">
+                Loading delivery orders...
+              </p>
+            )}
+            {!ordersLoading && filteredOrders.length === 0 && (
+              <p className="px-5 py-8 text-sm font-bold text-stone">
+                No orders match these filters.
+              </p>
+            )}
+            {filteredOrders.slice(0, 8).map((order) => {
+              const subtotal = Number.parseFloat(order.subtotal_price) || 0;
+              const deliveryFee = Number.parseFloat(order.delivery_fee) || 0;
+              const total = Number.parseFloat(order.total_price) || 0;
+              const mapUrl = deliveryMapUrl(order);
+
+              return (
+                <article key={order.id} className="px-5 py-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-display text-xl font-bold text-ink">
+                        Order #{order.id}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-stone">
+                        {formatAdminTime(order.created_at)}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      <span className="rounded-full bg-blush px-3 py-1 text-xs font-extrabold text-blossomdeep">
+                        {order.status_display}
+                      </span>
+                      <span className="rounded-full bg-mint px-3 py-1 text-xs font-extrabold text-leaf">
+                        {order.payment_method_display}
+                      </span>
+                      <span className="rounded-full bg-ink px-3 py-1 text-xs font-extrabold text-white">
+                        {formatPrice(total, user.currency)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <OrderStatusTimeline steps={order.status_timeline} />
+
+                  <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+                    <div>
+                      <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                        Recipient
+                      </p>
+                      <p className="mt-1 font-bold text-ink">
+                        {order.recipient_name || "Not provided"}
+                      </p>
+                      <p className="text-stone">
+                        {order.recipient_phone || order.phone}
+                      </p>
+                      {order.call_recipient_before_delivery && (
+                        <p className="mt-1 text-xs font-bold text-leaf">
+                          Call before delivery
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                        Delivery
+                      </p>
+                      <p className="mt-1 font-bold text-ink">
+                        {formatDeliveryDate(order.delivery_date)}
+                      </p>
+                      <p className="text-stone">
+                        {order.delivery_time_slot_display || order.delivery_time_slot}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                        Totals
+                      </p>
+                      <p className="mt-1 text-stone">
+                        Items {formatPrice(subtotal, user.currency)}
+                      </p>
+                      <p className="text-stone">
+                        Delivery{" "}
+                        {deliveryFee === 0
+                          ? "Free"
+                          : formatPrice(deliveryFee, user.currency)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-sm text-stone">
+                    {order.delivery_address || order.shipping_address}
+                    {mapUrl && (
+                      <a
+                        href={mapUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-2 font-extrabold text-blossomdeep hover:text-raspberry"
+                      >
+                        Open map
+                      </a>
+                    )}
+                  </p>
+                  {order.gift_note && (
+                    <p className="mt-2 rounded-2xl bg-paper px-4 py-3 text-sm font-semibold text-ink">
+                      {order.gift_note}
+                    </p>
+                  )}
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {staffOrderStatuses
+                      .filter((status) => status.id !== "pending")
+                      .map((status) => (
+                        <button
+                          key={status.id}
+                          type="button"
+                          disabled={
+                            updatingOrderId === order.id || order.status === status.id
+                          }
+                          onClick={() => void onOrderStatusChange(order.id, status.id)}
+                          className="rounded-full border border-line px-3 py-1.5 text-xs font-extrabold text-stone transition hover:border-blossomdeep hover:text-blossomdeep disabled:cursor-not-allowed disabled:opacity-45"
+                        >
+                          {updatingOrderId === order.id ? "Updating..." : status.label}
+                        </button>
+                      ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
 
         <div className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
           <section className="rounded-[1.75rem] border border-line bg-white shadow-soft">
@@ -827,6 +1118,9 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
         <div className="mt-5 grid gap-3">
           {orders.map((order) => {
             const total = Number.parseFloat(order.total_price);
+            const subtotal = Number.parseFloat(order.subtotal_price) || 0;
+            const deliveryFee = Number.parseFloat(order.delivery_fee) || 0;
+            const mapUrl = deliveryMapUrl(order);
             return (
               <article
                 key={order.id}
@@ -842,14 +1136,21 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="rounded-full bg-blush px-3 py-1 text-xs font-extrabold text-blossomdeep">
-                      {order.status_display}
-                    </span>
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      <span className="rounded-full bg-blush px-3 py-1 text-xs font-extrabold text-blossomdeep">
+                        {order.status_display}
+                      </span>
+                      <span className="rounded-full bg-mint px-3 py-1 text-xs font-extrabold text-leaf">
+                        {order.payment_method_display}
+                      </span>
+                    </div>
                     <p className="mt-2 font-display text-lg font-bold">
                       {formatPrice(Number.isFinite(total) ? total : 0, currency)}
                     </p>
                   </div>
                 </div>
+
+                <OrderStatusTimeline steps={order.status_timeline} />
 
                 <ul className="mt-4 grid gap-2">
                   {order.items.map((item) => (
@@ -870,7 +1171,68 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                   ))}
                 </ul>
 
+                <div className="mt-4 grid gap-3 rounded-2xl bg-white p-4 text-sm md:grid-cols-3">
+                  <div>
+                    <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                      Delivery
+                    </p>
+                    <p className="mt-1 font-bold text-ink">
+                      {formatDeliveryDate(order.delivery_date)}
+                    </p>
+                    <p className="text-stone">
+                      {order.delivery_time_slot_display || order.delivery_time_slot}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                      Recipient
+                    </p>
+                    <p className="mt-1 font-bold text-ink">
+                      {order.recipient_name || "Not provided"}
+                    </p>
+                    <p className="text-stone">
+                      {order.recipient_phone || order.phone}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                      Summary
+                    </p>
+                    <p className="mt-1 text-stone">
+                      Items {formatPrice(subtotal, currency)}
+                    </p>
+                    <p className="text-stone">
+                      Delivery{" "}
+                      {deliveryFee === 0 ? "Free" : formatPrice(deliveryFee, currency)}
+                    </p>
+                  </div>
+                </div>
+
                 <p className="mt-4 text-sm text-stone">
+                  {order.delivery_address || order.shipping_address}
+                  {mapUrl && (
+                    <a
+                      href={mapUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ml-2 font-extrabold text-blossomdeep hover:text-raspberry"
+                    >
+                      Open map
+                    </a>
+                  )}
+                </p>
+                {order.gift_note && (
+                  <p className="mt-2 text-sm font-semibold text-ink">
+                    Gift note: {order.gift_note}
+                  </p>
+                )}
+                {order.call_recipient_before_delivery && (
+                  <p className="mt-1 text-sm font-semibold text-leaf">
+                    Recipient will be called before delivery.
+                  </p>
+                )}
+
+                <p className="hidden">
                   {order.shipping_address} · {order.phone}
                 </p>
                 {order.notes && (

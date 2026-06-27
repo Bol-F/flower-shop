@@ -1,4 +1,8 @@
 from django.contrib import admin
+from django.db.models import Count
+from django.template.response import TemplateResponse
+from django.urls import path
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from .models import Order, OrderItem
@@ -20,22 +24,128 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'status', 'total_price', 'item_count', 'created_at')
-    list_filter = ('status', 'created_at')
-    search_fields = ('id', 'user__email', 'user__username', 'phone', 'shipping_address')
+    change_list_template = 'admin/orders/order/change_list.html'
+    list_display = (
+        'id', 'user', 'status', 'payment_method',
+        'recipient_name', 'delivery_date', 'delivery_time_slot',
+        'delivery_fee', 'total_price', 'item_count', 'created_at',
+    )
+    list_filter = ('status', 'payment_method', 'delivery_date', 'delivery_time_slot', 'created_at')
+    search_fields = (
+        'id', 'user__email', 'user__username', 'phone', 'shipping_address',
+        'delivery_address', 'recipient_name', 'recipient_phone',
+    )
     list_editable = ('status',)
     list_select_related = ('user',)
     date_hierarchy = 'created_at'
     list_per_page = 25
-    readonly_fields = ('user', 'total_price', 'created_at', 'updated_at')
+    readonly_fields = (
+        'user', 'delivery_fee', 'total_price', 'map_preview',
+        'created_at', 'updated_at',
+    )
     inlines = [OrderItemInline]
+    actions = (
+        'mark_confirmed',
+        'mark_preparing',
+        'mark_courier_picked_up',
+        'mark_delivered',
+    )
 
     fieldsets = (
-        (None, {'fields': ('user', 'status', 'total_price')}),
-        (_('Delivery'), {'fields': ('shipping_address', 'phone', 'notes')}),
+        (None, {'fields': ('user', 'status', 'payment_method', 'delivery_fee', 'total_price')}),
+        (_('Delivery'), {
+            'fields': (
+                'delivery_date', 'delivery_time_slot', 'delivery_address',
+                ('delivery_lat', 'delivery_lng'), 'map_preview',
+                'shipping_address', 'phone', 'notes',
+            ),
+        }),
+        (_('Recipient'), {
+            'fields': (
+                'recipient_name', 'recipient_phone', 'gift_note',
+                'call_recipient_before_delivery',
+            ),
+        }),
         (_('Timestamps'), {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
     )
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_item_count=Count('items'))
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'delivery-map/',
+                self.admin_site.admin_view(self.delivery_map_view),
+                name='orders_order_delivery_map',
+            ),
+        ]
+        return custom_urls + urls
+
+    def delivery_map_view(self, request):
+        orders = (
+            Order.objects.select_related('user')
+            .exclude(delivery_lat__isnull=True)
+            .exclude(delivery_lng__isnull=True)
+            .order_by('-created_at')[:200]
+        )
+        orders_data = [
+            {
+                'id': order.id,
+                'customer': order.user.email,
+                'status': order.get_status_display(),
+                'address': order.delivery_address or order.shipping_address,
+                'lat': float(order.delivery_lat),
+                'lng': float(order.delivery_lng),
+            }
+            for order in orders
+        ]
+        context = {
+            **self.admin_site.each_context(request),
+            'title': _('Delivery map'),
+            'orders_data': orders_data,
+            'opts': self.model._meta,
+        }
+        return TemplateResponse(request, 'admin/orders/order/delivery_map.html', context)
+
+    @admin.display(description=_('Map'))
+    def map_preview(self, obj):
+        if obj.delivery_lat is None or obj.delivery_lng is None:
+            return _('No map point selected')
+
+        lat = float(obj.delivery_lat)
+        lng = float(obj.delivery_lng)
+        bbox = f'{lng - 0.01},{lat - 0.01},{lng + 0.01},{lat + 0.01}'
+        embed_url = (
+            'https://www.openstreetmap.org/export/embed.html'
+            f'?bbox={bbox}&layer=mapnik&marker={lat},{lng}'
+        )
+        open_url = f'https://www.openstreetmap.org/?mlat={lat}&mlon={lng}#map=16/{lat}/{lng}'
+        return format_html(
+            '<p><a href="{}" target="_blank" rel="noopener">Open in OpenStreetMap</a></p>'
+            '<iframe src="{}" width="100%" height="240" '
+            'style="border:1px solid #ddd;border-radius:8px"></iframe>',
+            open_url,
+            embed_url,
+        )
+
     @admin.display(description=_('Items'))
     def item_count(self, obj):
-        return obj.items.count()
+        return obj._item_count
+
+    @admin.action(description=_('Mark selected orders as confirmed'))
+    def mark_confirmed(self, request, queryset):
+        queryset.update(status=Order.Status.CONFIRMED)
+
+    @admin.action(description=_('Mark selected orders as preparing'))
+    def mark_preparing(self, request, queryset):
+        queryset.update(status=Order.Status.PREPARING)
+
+    @admin.action(description=_('Mark selected orders as courier picked up'))
+    def mark_courier_picked_up(self, request, queryset):
+        queryset.update(status=Order.Status.COURIER_PICKED_UP)
+
+    @admin.action(description=_('Mark selected orders as delivered'))
+    def mark_delivered(self, request, queryset):
+        queryset.update(status=Order.Status.DELIVERED)
