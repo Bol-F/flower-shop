@@ -160,6 +160,21 @@ By default the frontend calls `http://localhost:8000`. Set `NEXT_PUBLIC_API_URL`
 when the backend lives elsewhere. If the backend is unavailable, the catalog
 falls back to bundled demo products so the UI still renders.
 
+For phone testing on the same Wi-Fi, run both servers on LAN-accessible hosts:
+
+```bash
+# backend
+python manage.py runserver 0.0.0.0:8000
+
+# frontend
+npm run dev -- -H 0.0.0.0
+```
+
+Then open the frontend network URL on the phone, for example
+`http://192.168.0.105:3000`. The frontend will call
+`http://192.168.0.105:8000` automatically unless `NEXT_PUBLIC_API_URL` points to
+a different backend.
+
 > The previous Bloom & Petal storefront (React 18 + i18n + support chat,
 > wired to the Django API) was replaced by this design and lives in git
 > history up to commit `834f639`.

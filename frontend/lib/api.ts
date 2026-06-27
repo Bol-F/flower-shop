@@ -5,8 +5,27 @@
  * UI code can show field-level messages from DRF serializers.
  */
 
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+function resolveApiBase() {
+  const configured = process.env.NEXT_PUBLIC_API_URL;
+  if (
+    configured &&
+    configured !== "http://localhost:8000" &&
+    configured !== "http://127.0.0.1:8000"
+  ) {
+    return configured.replace(/\/$/, "");
+  }
+
+  if (typeof window !== "undefined") {
+    const { hostname, protocol } = window.location;
+    if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+      return `${protocol}//${hostname}:8000`;
+    }
+  }
+
+  return (configured ?? "http://localhost:8000").replace(/\/$/, "");
+}
+
+export const API_BASE = resolveApiBase();
 
 const AUTH_KEY = "bloompetal:auth";
 
