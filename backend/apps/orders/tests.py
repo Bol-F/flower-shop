@@ -9,6 +9,7 @@ from apps.users.models import User
 from apps.categories.models import Category
 from apps.products.models import Product
 from apps.cart.models import Cart, CartItem
+from apps.marketplace.models import Courier, PromoCode
 from apps.orders import notifications
 from apps.orders.models import DeliveryZone, NotificationLog, Order
 from apps.orders.pricing import FIXED_CITY_DELIVERY_FEE, OUTER_CITY_DELIVERY_FEE
@@ -35,6 +36,15 @@ def staff_user(db):
         email='staff-order@example.com',
         password='pass123',
         is_staff=True,
+    )
+
+
+@pytest.fixture
+def courier_user(db):
+    return User.objects.create_user(
+        username='courier',
+        email='courier@example.com',
+        password='pass123',
     )
 
 
@@ -135,6 +145,41 @@ class TestOrderCreation:
         assert response.data['payment_method'] == Order.PaymentMethod.ONLINE
         assert response.data['payment_status'] == Order.PaymentStatus.PENDING
         assert response.data['payment_provider'] == 'manual'
+
+    def test_create_order_applies_valid_promo_code(
+        self, api_client, user, cart_with_item
+    ):
+        PromoCode.objects.create(
+            code='SAVE5',
+            discount_type=PromoCode.DiscountType.FIXED_AMOUNT,
+            discount_value='5.00',
+            min_order_amount='10.00',
+        )
+
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            reverse('order-create'),
+            order_payload(promo_code='save5'),
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['discount_amount'] == '5.00'
+        assert response.data['total_price'] == '34.98'
+        assert PromoCode.objects.get(code='SAVE5').used_count == 1
+
+    def test_create_order_rejects_invalid_promo_code(
+        self, api_client, user, cart_with_item
+    ):
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            reverse('order-create'),
+            order_payload(promo_code='missing'),
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Order.objects.filter(user=user).count() == 0
 
     def test_create_order_adds_fixed_delivery_fee_below_free_threshold(
         self, api_client, user, product
@@ -290,6 +335,76 @@ class TestOrderCreation:
             log['event'] == NotificationLog.Event.COURIER_PICKED_UP
             for log in response.data['notification_logs']
         )
+        assert response.data['courier_picked_up_at'] is not None
+
+    def test_staff_can_assign_courier(
+        self, api_client, user, staff_user, courier_user, cart_with_item
+    ):
+        courier = Courier.objects.create(
+            user=courier_user,
+            phone='+998901111111',
+            current_status=Courier.Status.AVAILABLE,
+        )
+        api_client.force_authenticate(user=user)
+        create_response = api_client.post(
+            reverse('order-create'),
+            order_payload(),
+            format='json',
+        )
+
+        api_client.force_authenticate(user=staff_user)
+        response = api_client.patch(
+            reverse('order-courier-assign', args=[create_response.data['id']]),
+            {'courier_id': courier.id},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['assigned_courier_id'] == courier.id
+        assert response.data['courier_assigned_at'] is not None
+
+    def test_delivered_order_awards_loyalty_points(
+        self, api_client, user, staff_user, cart_with_item
+    ):
+        api_client.force_authenticate(user=user)
+        create_response = api_client.post(
+            reverse('order-create'),
+            order_payload(),
+            format='json',
+        )
+
+        api_client.force_authenticate(user=staff_user)
+        response = api_client.patch(
+            reverse('order-status-update', args=[create_response.data['id']]),
+            {'status': Order.Status.DELIVERED},
+            format='json',
+        )
+
+        user.refresh_from_db()
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['delivered_at'] is not None
+        assert response.data['loyalty_points_earned'] > 0
+        assert user.loyalty_points == response.data['loyalty_points_earned']
+
+    def test_customer_can_repeat_order_to_cart(
+        self, api_client, user, cart_with_item
+    ):
+        api_client.force_authenticate(user=user)
+        create_response = api_client.post(
+            reverse('order-create'),
+            order_payload(),
+            format='json',
+        )
+
+        response = api_client.post(
+            reverse('order-repeat', args=[create_response.data['id']]),
+            {},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['cart']['total_items'] == 2
+        assert response.data['skipped'] == []
 
     def test_staff_can_update_payment_status(self, api_client, user, staff_user, cart_with_item):
         api_client.force_authenticate(user=user)

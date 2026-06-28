@@ -321,6 +321,7 @@ npm run build
 
 ## Business Rules
 
+- Cities, vendors, couriers, promo codes, and wishlist live in `apps.marketplace` as the foundation for a multi-city marketplace.
 - Payment methods are `cash`, `card`, and `online`. Cash starts as `unpaid`; card and online orders start as `pending` until staff marks them `paid` or `failed`.
 - Orders store `payment_provider`, `payment_reference`, and `paid_at`. The current provider is manual/placeholder; a real Click, Payme, Stripe, or bank provider can be added in `backend/apps/orders/payments.py` without rewriting checkout.
 - Order notifications are stored in `NotificationLog`. Email and Telegram are placeholders for now; missing credentials fall back to console logs and never break checkout.
@@ -328,6 +329,14 @@ npm run build
 - Delivery zones are city-scoped and can store a future polygon/coordinates payload for automatic zone detection from `delivery_lat` and `delivery_lng`.
 - Zones that require manual confirmation still allow checkout, but the order is flagged so staff can confirm availability before fulfillment.
 - Inventory is validated again when an order is created. Stock decreases inside the same database transaction, and order items keep product name and price snapshots.
+- Promo code validation is backend-authoritative. The frontend may show an estimate, but final discount and totals are saved by the backend order service.
+- Loyalty points are a simple foundation: delivered eligible orders award points to the customer profile once.
+
+## API Documentation
+
+See [docs/API.md](docs/API.md) for the current API reference, including auth,
+catalog, checkout, marketplace foundation, staff dashboard, reviews, and
+support endpoints.
 
 ## Future Growth Plan
 

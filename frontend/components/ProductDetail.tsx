@@ -121,7 +121,7 @@ export default function ProductDetail({ product }: { product: Product }) {
               type="button"
               aria-label={liked ? t.favoriteRemove : t.favoriteAdd}
               aria-pressed={liked}
-              onClick={() => toggleFavorite(product.id)}
+              onClick={() => toggleFavorite(product)}
               className="absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-card/90 shadow-soft backdrop-blur transition hover:scale-110 active:scale-90"
             >
               <HeartIcon

@@ -41,6 +41,30 @@ class Order(models.Model):
         related_name='orders',
         verbose_name=_('user'),
     )
+    city = models.ForeignKey(
+        'marketplace.City',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders',
+        verbose_name=_('city'),
+    )
+    vendor = models.ForeignKey(
+        'marketplace.Vendor',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders',
+        verbose_name=_('vendor'),
+    )
+    assigned_courier = models.ForeignKey(
+        'marketplace.Courier',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders',
+        verbose_name=_('assigned courier'),
+    )
     status = models.CharField(_('status'), max_length=20, choices=Status.choices, default=Status.PENDING)
     total_price = models.DecimalField(_('total price'), max_digits=10, decimal_places=2)
     shipping_address = models.TextField(_('shipping address'))
@@ -70,6 +94,20 @@ class Order(models.Model):
         default='',
     )
     paid_at = models.DateTimeField(_('paid at'), null=True, blank=True)
+    promo_code = models.ForeignKey(
+        'marketplace.PromoCode',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders',
+        verbose_name=_('promo code'),
+    )
+    discount_amount = models.DecimalField(
+        _('discount amount'),
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+    )
     delivery_address = models.TextField(_('delivery address'), blank=True)
     delivery_lat = models.DecimalField(
         _('delivery latitude'),
@@ -104,6 +142,9 @@ class Order(models.Model):
         _('delivery requires confirmation'),
         default=False,
     )
+    courier_assigned_at = models.DateTimeField(_('courier assigned at'), null=True, blank=True)
+    courier_picked_up_at = models.DateTimeField(_('courier picked up at'), null=True, blank=True)
+    delivered_at = models.DateTimeField(_('delivered at'), null=True, blank=True)
     recipient_name = models.CharField(_('recipient name'), max_length=150, blank=True)
     recipient_phone = models.CharField(_('recipient phone'), max_length=20, blank=True)
     gift_note = models.TextField(_('gift note'), blank=True)
@@ -118,6 +159,7 @@ class Order(models.Model):
         default=0,
     )
     notes = models.TextField(_('notes'), blank=True)
+    loyalty_points_earned = models.PositiveIntegerField(_('loyalty points earned'), default=0)
     created_at = models.DateTimeField(_('created at'), auto_now_add=True)
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
 
@@ -140,7 +182,14 @@ class Order(models.Model):
 
 class DeliveryZone(models.Model):
     name = models.CharField(_('name'), max_length=120, unique=True)
-    city = models.CharField(_('city'), max_length=80, default='Tashkent')
+    city = models.ForeignKey(
+        'marketplace.City',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='delivery_zones',
+        verbose_name=_('city'),
+    )
     fee = models.DecimalField(_('fee'), max_digits=10, decimal_places=2, default=0)
     is_active = models.BooleanField(_('is active'), default=True)
     requires_manual_confirmation = models.BooleanField(

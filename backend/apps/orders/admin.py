@@ -2,12 +2,14 @@ from django.contrib import admin
 from django.db.models import Count
 from django.template.response import TemplateResponse
 from django.urls import path
+from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from . import notifications
 from .models import DeliveryZone, NotificationLog, Order, OrderItem
 from .payments import update_payment_status
+from apps.marketplace.services import award_loyalty_points_if_eligible
 
 
 class OrderItemInline(admin.TabularInline):
@@ -40,8 +42,9 @@ class NotificationLogInline(admin.TabularInline):
 class DeliveryZoneAdmin(admin.ModelAdmin):
     list_display = ('name', 'city', 'fee', 'is_active', 'requires_manual_confirmation')
     list_filter = ('city', 'is_active', 'requires_manual_confirmation')
-    search_fields = ('name', 'city', 'description')
+    search_fields = ('name', 'city__name', 'description')
     list_editable = ('city', 'fee', 'is_active', 'requires_manual_confirmation')
+    list_select_related = ('city',)
 
 
 @admin.register(NotificationLog)
@@ -61,28 +64,31 @@ class NotificationLogAdmin(admin.ModelAdmin):
 class OrderAdmin(admin.ModelAdmin):
     change_list_template = 'admin/orders/order/change_list.html'
     list_display = (
-        'id', 'user', 'status', 'payment_method', 'payment_status',
+        'id', 'user', 'city', 'vendor', 'status', 'payment_method', 'payment_status',
         'payment_provider', 'paid_at',
         'recipient_name', 'delivery_date', 'delivery_time_slot', 'delivery_zone',
+        'assigned_courier',
         'delivery_fee', 'delivery_requires_confirmation',
         'total_price', 'item_count', 'created_at',
     )
     list_filter = (
-        'status', 'payment_method', 'payment_status', 'payment_provider', 'delivery_zone',
+        'city', 'vendor', 'assigned_courier', 'status',
+        'payment_method', 'payment_status', 'payment_provider', 'delivery_zone',
         'delivery_requires_confirmation', 'delivery_date', 'delivery_time_slot',
         'created_at',
     )
     search_fields = (
         'id', 'user__email', 'user__username', 'phone', 'shipping_address',
         'delivery_address', 'recipient_name', 'recipient_phone',
-        'delivery_zone__name',
+        'delivery_zone__name', 'city__name', 'vendor__name',
     )
-    list_editable = ('status',)
-    list_select_related = ('user',)
+    list_editable = ('status', 'assigned_courier')
+    list_select_related = ('user', 'city', 'vendor', 'assigned_courier', 'delivery_zone')
     date_hierarchy = 'created_at'
     list_per_page = 25
     readonly_fields = (
-        'user', 'delivery_fee', 'total_price', 'map_preview',
+        'user', 'delivery_fee', 'discount_amount', 'total_price',
+        'loyalty_points_earned', 'map_preview',
         'created_at', 'updated_at',
     )
     inlines = [OrderItemInline, NotificationLogInline]
@@ -98,13 +104,16 @@ class OrderAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'user', 'status', 'payment_method', 'payment_status',
+                'user', 'city', 'vendor', 'status', 'payment_method', 'payment_status',
                 'payment_provider', 'payment_reference', 'paid_at',
-                'delivery_fee', 'total_price',
+                'promo_code', 'discount_amount', 'delivery_fee', 'total_price',
+                'loyalty_points_earned',
             ),
         }),
         (_('Delivery'), {
             'fields': (
+                'assigned_courier', 'courier_assigned_at',
+                'courier_picked_up_at', 'delivered_at',
                 'delivery_date', 'delivery_time_slot', 'delivery_address',
                 'delivery_zone', 'delivery_requires_confirmation',
                 ('delivery_lat', 'delivery_lng'), 'map_preview',
@@ -124,7 +133,7 @@ class OrderAdmin(admin.ModelAdmin):
         return (
             super()
             .get_queryset(request)
-            .select_related('delivery_zone')
+            .select_related('city', 'vendor', 'assigned_courier', 'delivery_zone')
             .annotate(_item_count=Count('items'))
         )
 
@@ -217,7 +226,15 @@ class OrderAdmin(admin.ModelAdmin):
     def _mark_status(self, queryset, status):
         for order in queryset:
             order.status = status
-            order.save(update_fields=['status', 'updated_at'])
+            update_fields = ['status', 'updated_at']
+            if status == Order.Status.COURIER_PICKED_UP and order.courier_picked_up_at is None:
+                order.courier_picked_up_at = timezone.now()
+                update_fields.append('courier_picked_up_at')
+            if status == Order.Status.DELIVERED and order.delivered_at is None:
+                order.delivered_at = timezone.now()
+                update_fields.append('delivered_at')
+            order.save(update_fields=update_fields)
+            award_loyalty_points_if_eligible(order)
             notifications.notify_order_status_changed(order)
 
     def _mark_payment_status(self, queryset, payment_status):

@@ -9,7 +9,7 @@ from .filters import ProductFilter
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.select_related('category').filter(is_available=True)
+    queryset = Product.objects.select_related('category', 'city', 'vendor').filter(is_available=True)
     permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'slug'
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -20,8 +20,8 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         if self.request.user and self.request.user.is_staff:
-            return Product.objects.select_related('category').all()
-        return Product.objects.select_related('category').filter(is_available=True)
+            return Product.objects.select_related('category', 'city', 'vendor').all()
+        return Product.objects.select_related('category', 'city', 'vendor').filter(is_available=True)
 
     def get_serializer_class(self):
         if self.action == 'list':

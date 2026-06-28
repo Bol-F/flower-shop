@@ -18,8 +18,12 @@ FREE_DELIVERY_MIN_AMOUNT = uzs_to_price_units(FREE_DELIVERY_MIN_AMOUNT_UZS)
 
 
 def calculate_delivery_fee(subtotal: Decimal, delivery_zone=None) -> Decimal:
-    if subtotal >= FREE_DELIVERY_MIN_AMOUNT:
+    city = getattr(delivery_zone, 'city', None)
+    free_threshold = getattr(city, 'free_delivery_threshold', FREE_DELIVERY_MIN_AMOUNT)
+    default_fee = getattr(city, 'default_delivery_fee', FIXED_CITY_DELIVERY_FEE)
+
+    if subtotal >= free_threshold:
         return Decimal('0.00')
     if delivery_zone is not None:
         return delivery_zone.fee
-    return FIXED_CITY_DELIVERY_FEE
+    return default_fee

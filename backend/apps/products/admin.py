@@ -8,21 +8,21 @@ from .models import Product
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
-        'thumbnail', 'name', 'category', 'price', 'stock',
+        'thumbnail', 'name', 'category', 'city', 'vendor', 'price', 'stock',
         'low_stock_threshold', 'stock_status', 'is_available', 'created_at',
     )
     list_display_links = ('thumbnail', 'name')
-    list_filter = ('category', 'is_available', 'created_at')
-    search_fields = ('name', 'description', 'slug')
+    list_filter = ('category', 'city', 'vendor', 'is_available', 'created_at')
+    search_fields = ('name', 'description', 'slug', 'vendor__name')
     prepopulated_fields = {'slug': ('name',)}
     list_editable = ('price', 'stock', 'low_stock_threshold', 'is_available')
-    list_select_related = ('category',)
+    list_select_related = ('category', 'city', 'vendor')
     date_hierarchy = 'created_at'
     list_per_page = 25
     readonly_fields = ('preview', 'created_at', 'updated_at')
 
     fieldsets = (
-        (None, {'fields': ('name', 'slug', 'category', 'description')}),
+        (None, {'fields': ('name', 'slug', 'category', 'city', 'vendor', 'description')}),
         (_('Pricing & stock'), {
             'fields': ('price', 'stock', 'low_stock_threshold', 'is_available'),
         }),

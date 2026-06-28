@@ -104,8 +104,10 @@ export function apiProductToProduct(
       slug: product.slug,
       description: detail?.description || mock.description,
       price,
-      category: categorySlug,
-      image: product.image,
+    category: categorySlug,
+    city: product.city_slug,
+    vendor: product.vendor_slug,
+    image: product.image,
       stock,
       isAvailable: product.is_available,
       isInStock: product.is_in_stock,
@@ -126,6 +128,8 @@ export function apiProductToProduct(
     rating: Math.min(5, 4.5 + (product.id % 6) / 10),
     reviews: 24 + ((product.id * 17) % 220),
     category: categorySlug,
+    city: product.city_slug,
+    vendor: product.vendor_slug,
     deliveryMins: 60 + (product.id % 5) * 15,
     deliveryToday: product.is_in_stock && product.id % 3 !== 0,
     isNew: product.id % 4 === 0,
@@ -149,10 +153,10 @@ export async function loadCatalogCategories(): Promise<Category[]> {
   return categories.map(apiCategoryToCategory);
 }
 
-export async function loadCatalogProducts(): Promise<Product[]> {
+export async function loadCatalogProducts(city?: string | null): Promise<Product[]> {
   const [categories, products] = await Promise.all([
     fetchCategories(),
-    fetchProducts({ page_size: 100 }),
+    fetchProducts({ page_size: 100, city }),
   ]);
   const categoryById = new Map(categories.map((category) => [category.id, category]));
   return products.map((product) => apiProductToProduct(product, categoryById));

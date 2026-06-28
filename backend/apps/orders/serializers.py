@@ -5,10 +5,13 @@ from .models import DeliveryZone, NotificationLog, Order, OrderItem
 
 
 class DeliveryZoneSerializer(serializers.ModelSerializer):
+    city = serializers.CharField(source='city.name', read_only=True)
+    city_slug = serializers.CharField(source='city.slug', read_only=True)
+
     class Meta:
         model = DeliveryZone
         fields = (
-            'id', 'name', 'city', 'fee', 'is_active',
+            'id', 'name', 'city', 'city_slug', 'fee', 'is_active',
             'requires_manual_confirmation', 'description',
         )
 
@@ -37,6 +40,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     user_email = serializers.EmailField(source='user.email', read_only=True)
     user_username = serializers.CharField(source='user.username', read_only=True)
+    city_name = serializers.CharField(source='city.name', read_only=True)
+    city_slug = serializers.CharField(source='city.slug', read_only=True)
+    vendor_name = serializers.CharField(source='vendor.name', read_only=True)
+    vendor_slug = serializers.CharField(source='vendor.slug', read_only=True)
+    assigned_courier_id = serializers.IntegerField(source='assigned_courier.id', read_only=True)
+    assigned_courier_name = serializers.CharField(
+        source='assigned_courier.user.username',
+        read_only=True,
+    )
     items = OrderItemSerializer(many=True, read_only=True)
     delivery_zone = DeliveryZoneSerializer(read_only=True)
     notification_logs = NotificationLogSerializer(many=True, read_only=True)
@@ -60,24 +72,32 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = (
             'id', 'status', 'status_display', 'status_timeline',
-            'user_email', 'user_username',
+            'user_email', 'user_username', 'city_name', 'city_slug',
+            'vendor_name', 'vendor_slug',
             'subtotal_price', 'total_price',
             'shipping_address', 'phone', 'payment_method',
             'payment_method_display', 'payment_status',
             'payment_status_display', 'payment_provider',
-            'payment_reference', 'paid_at', 'delivery_address',
+            'payment_reference', 'paid_at', 'promo_code',
+            'discount_amount', 'loyalty_points_earned',
+            'delivery_address',
             'delivery_lat', 'delivery_lng', 'delivery_date',
             'delivery_time_slot', 'delivery_time_slot_display',
             'delivery_zone', 'delivery_requires_confirmation',
+            'assigned_courier_id', 'assigned_courier_name',
+            'courier_assigned_at', 'courier_picked_up_at', 'delivered_at',
             'recipient_name', 'recipient_phone', 'gift_note',
             'call_recipient_before_delivery', 'delivery_fee',
             'notes', 'items', 'notification_logs',
             'created_at', 'updated_at',
         )
-        read_only_fields = ('id', 'status', 'total_price', 'created_at', 'updated_at')
+        read_only_fields = (
+            'id', 'status', 'total_price', 'created_at', 'updated_at',
+            'discount_amount', 'loyalty_points_earned',
+        )
 
     def get_subtotal_price(self, obj):
-        subtotal = obj.total_price - obj.delivery_fee
+        subtotal = obj.total_price - obj.delivery_fee + obj.discount_amount
         return f'{subtotal:.2f}'
 
     def get_status_timeline(self, obj):
@@ -145,6 +165,8 @@ class CreateOrderSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
     )
+    city_slug = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    promo_code = serializers.CharField(max_length=40, required=False, allow_blank=True)
     recipient_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     recipient_phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
     gift_note = serializers.CharField(max_length=1000, required=False, allow_blank=True)
@@ -202,3 +224,7 @@ class UpdatePaymentStatusSerializer(serializers.Serializer):
     payment_status = serializers.ChoiceField(choices=Order.PaymentStatus.choices)
     payment_provider = serializers.CharField(max_length=60, required=False, allow_blank=True)
     payment_reference = serializers.CharField(max_length=120, required=False, allow_blank=True)
+
+
+class AssignCourierSerializer(serializers.Serializer):
+    courier_id = serializers.IntegerField(required=False, allow_null=True)

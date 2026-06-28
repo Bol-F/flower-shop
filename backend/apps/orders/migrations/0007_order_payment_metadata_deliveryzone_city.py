@@ -1,20 +1,14 @@
 from django.db import migrations, models
 
 
-def backfill_payment_metadata_and_zone_city(apps, schema_editor):
+def backfill_payment_metadata(apps, schema_editor):
     Order = apps.get_model('orders', 'Order')
-    DeliveryZone = apps.get_model('orders', 'DeliveryZone')
 
     for order in Order.objects.all().only('id', 'payment_method', 'payment_provider'):
         if order.payment_provider:
             continue
         order.payment_provider = 'cash' if order.payment_method == 'cash' else 'manual'
         order.save(update_fields=['payment_provider'])
-
-    DeliveryZone.objects.filter(name__in=['Tashkent Center', 'Outer Tashkent']).update(
-        city='Tashkent'
-    )
-    DeliveryZone.objects.filter(name='Outside City').update(city='Outside city')
 
 
 class Migration(migrations.Migration):
@@ -24,15 +18,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='deliveryzone',
-            name='city',
-            field=models.CharField(
-                default='Tashkent',
-                max_length=80,
-                verbose_name='city',
-            ),
-        ),
         migrations.AddField(
             model_name='order',
             name='paid_at',
@@ -59,7 +44,7 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.RunPython(
-            backfill_payment_metadata_and_zone_city,
+            backfill_payment_metadata,
             migrations.RunPython.noop,
         ),
     ]

@@ -7,9 +7,9 @@ from .models import User
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('email', 'username', 'is_staff', 'date_joined')
+    list_display = ('email', 'username', 'city', 'loyalty_points', 'is_staff', 'date_joined')
     search_fields = ('email', 'username')
     ordering = ('-date_joined',)
     fieldsets = BaseUserAdmin.fieldsets + (
-        (_('Extra info'), {'fields': ('phone', 'address')}),
+        (_('Extra info'), {'fields': ('phone', 'address', 'city', 'language', 'currency', 'loyalty_points')}),
     )

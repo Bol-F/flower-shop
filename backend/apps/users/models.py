@@ -39,6 +39,7 @@ class User(AbstractUser):
         choices=Currency.choices,
         default=Currency.USD,
     )
+    loyalty_points = models.PositiveIntegerField(_('loyalty points'), default=0)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']

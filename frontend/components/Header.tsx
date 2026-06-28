@@ -15,7 +15,10 @@ import { copy, languages } from "@/lib/i18n";
 import {
   createOrder,
   fetchAdminSupportMessages,
+  fetchCities,
   fetchDeliveryZones,
+  validatePromoCode,
+  type ApiCity,
   type ApiPaymentMethod,
 } from "@/lib/api";
 import { useStore } from "@/lib/store";
@@ -48,6 +51,14 @@ function relativeDeliveryDate(mode: Exclude<DeliveryDayMode, "custom">): string 
   return formatDateInput(date);
 }
 
+function cityToSlug(city: string) {
+  return city
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function CartDropdown({ onClose }: { onClose: () => void }) {
   const {
     cartLines,
@@ -56,6 +67,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
     setCartQty,
     removeFromCart,
     user,
+    city,
     clearCart,
     cartLoading,
     cartError,
@@ -70,6 +82,9 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
   });
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [paymentMethod, setPaymentMethod] = useState<ApiPaymentMethod>("cash");
+  const [promoCode, setPromoCode] = useState("");
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [promoLoading, setPromoLoading] = useState(false);
   const [deliveryZones, setDeliveryZones] =
     useState<DeliveryZoneOption[]>(fallbackDeliveryZones);
   const [selectedDeliveryZoneId, setSelectedDeliveryZoneId] = useState(
@@ -99,7 +114,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
     deliveryZones[0] ??
     null;
   const deliveryFee = calculateDeliveryFee(total, selectedDeliveryZone);
-  const finalTotal = total + deliveryFee;
+  const finalTotal = Math.max(total + deliveryFee - promoDiscount, 0);
   const selectedDeliveryDate =
     deliveryDayMode === "custom"
       ? customDeliveryDate
@@ -122,7 +137,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
 
     async function loadDeliveryZones() {
       try {
-        const zones = await fetchDeliveryZones();
+        const zones = await fetchDeliveryZones(cityToSlug(city));
         if (!active || zones.length === 0) return;
         const mappedZones = zones.map((zone) => ({
           id: zone.id,
@@ -148,7 +163,31 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
     return () => {
       active = false;
     };
-  }, [checkoutOpen]);
+  }, [checkoutOpen, city]);
+
+  async function onApplyPromo() {
+    const code = promoCode.trim();
+    setError("");
+    if (!code) {
+      setPromoDiscount(0);
+      return;
+    }
+
+    try {
+      setPromoLoading(true);
+      const result = await validatePromoCode({
+        code,
+        subtotal: total.toFixed(2),
+      });
+      setPromoCode(result.code);
+      setPromoDiscount(Number.parseFloat(result.discount_amount) || 0);
+    } catch (err) {
+      setPromoDiscount(0);
+      setError(err instanceof Error ? err.message : "Promo code is not valid.");
+    } finally {
+      setPromoLoading(false);
+    }
+  }
 
   async function onCheckout(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -191,6 +230,8 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
           selectedDeliveryZone && selectedDeliveryZone.id > 0
             ? selectedDeliveryZone.id
             : null,
+        city_slug: cityToSlug(city),
+        promo_code: promoCode.trim(),
         recipient_name: resolvedRecipientName,
         recipient_phone: resolvedRecipientPhone,
         gift_note: giftNote.trim(),
@@ -541,6 +582,26 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                 })}
               </div>
 
+              <div className="flex gap-2 rounded-2xl bg-paper p-2">
+                <input
+                  value={promoCode}
+                  onChange={(event) => {
+                    setPromoCode(event.target.value);
+                    setPromoDiscount(0);
+                  }}
+                  placeholder="Promo code"
+                  className="min-w-0 flex-1 rounded-xl border border-line bg-white px-3 py-2 text-sm font-bold uppercase outline-none transition placeholder:normal-case placeholder:text-stone focus:border-blossomdeep"
+                />
+                <button
+                  type="button"
+                  disabled={promoLoading}
+                  onClick={() => void onApplyPromo()}
+                  className="rounded-xl bg-ink px-4 py-2 text-sm font-extrabold text-white transition hover:bg-raspberry disabled:cursor-wait disabled:opacity-70"
+                >
+                  {promoLoading ? "..." : "Apply"}
+                </button>
+              </div>
+
               <div className="rounded-2xl border border-line bg-paper p-3 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-stone">Flowers</span>
@@ -555,6 +616,14 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                     {deliveryFee === 0 ? "Free" : formatPrice(deliveryFee, currency)}
                   </span>
                 </div>
+                {promoDiscount > 0 && (
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <span className="text-stone">Promo</span>
+                    <span className="font-bold text-leaf">
+                      -{formatPrice(promoDiscount, currency)}
+                    </span>
+                  </div>
+                )}
                 <div className="mt-2 flex items-center justify-between gap-3 border-t border-line pt-2">
                   <span className="font-extrabold">Total</span>
                   <span className="font-display text-lg font-bold">
@@ -610,6 +679,46 @@ function LanguageSwitch() {
         );
       })}
     </div>
+  );
+}
+
+function CitySwitch() {
+  const { city, setCity } = useStore();
+  const [cities, setCities] = useState<ApiCity[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadCities() {
+      try {
+        const data = await fetchCities();
+        if (active) setCities(data);
+      } catch {
+        if (active) setCities([]);
+      }
+    }
+    void loadCities();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const options = cities.length
+    ? cities.map((item) => item.name)
+    : ["Tashkent", "Samarkand", "Bukhara"];
+
+  return (
+    <select
+      value={city}
+      onChange={(event) => setCity(event.target.value)}
+      aria-label="Delivery city"
+      className="rounded-full border border-line bg-blush px-3 py-2 text-sm font-extrabold text-blossomdeep outline-none transition focus:border-blossomdeep"
+    >
+      {options.map((item) => (
+        <option key={item} value={item}>
+          {item}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -737,6 +846,7 @@ export default function Header() {
               </Link>
             </>
           ) : null}
+          <CitySwitch />
           <LanguageSwitch />
         </nav>
 
@@ -837,6 +947,9 @@ export default function Header() {
                 Sign out
               </button>
             )}
+            <div className="pt-1">
+              <CitySwitch />
+            </div>
             <div className="pt-1">
               <LanguageSwitch />
             </div>

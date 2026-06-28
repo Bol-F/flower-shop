@@ -12,11 +12,14 @@ import {
 } from "react";
 import {
   addCartItem,
+  addWishlistItem,
   clearRemoteCart,
   fetchCart,
+  fetchWishlist,
   loadAuth,
   logout as apiLogout,
   removeCartItem,
+  removeWishlistItem,
   updateCartItem,
   type ApiCart,
   type AuthUser,
@@ -78,7 +81,7 @@ interface StoreValue extends PersistedState {
   setName: (n: string) => void;
   setCity: (c: string) => void;
   /* favorites */
-  toggleFavorite: (id: string) => void;
+  toggleFavorite: (product: Product | string) => void;
   /* cart */
   addToCart: (product: Product | string, qty?: number) => void;
   setCartQty: (id: string, qty: number) => void;
@@ -180,13 +183,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [applyRemoteCart, user]);
 
+  const reloadWishlist = useCallback(async () => {
+    if (!user) return;
+    try {
+      const products = await fetchWishlist();
+      setPersisted((prev) => ({
+        ...prev,
+        favorites: products.map((product) => product.slug),
+      }));
+    } catch {
+      /* local favorites remain usable if the wishlist API is unavailable */
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!hydrated || !user) return;
     const timer = window.setTimeout(() => {
       void reloadCart();
+      void reloadWishlist();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [hydrated, reloadCart, user]);
+  }, [hydrated, reloadCart, reloadWishlist, user]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -270,13 +287,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setLanguage: (language) => update({ language }),
       setName: (name) => update({ name }),
       setCity: (city) => update({ city }),
-      toggleFavorite: (id) =>
+      toggleFavorite: (productOrId) => {
+        const product = productFor(productOrId);
+        const id = typeof productOrId === "string" ? productOrId : productOrId.id;
+        const willRemove = persisted.favorites.includes(id);
+
         setPersisted((prev) => ({
           ...prev,
-          favorites: prev.favorites.includes(id)
+          favorites: willRemove
             ? prev.favorites.filter((f) => f !== id)
             : [...prev.favorites, id],
-        })),
+        }));
+
+        if (user && product?.backendId) {
+          const action = willRemove
+            ? removeWishlistItem(product.backendId)
+            : addWishlistItem(product.backendId);
+          void action.catch(() => {
+            showToast("Could not sync wishlist with the server.");
+          });
+        }
+      },
       addToCart: (productOrId, qty = 1) => {
         const product = productFor(productOrId);
         if (!product) return;

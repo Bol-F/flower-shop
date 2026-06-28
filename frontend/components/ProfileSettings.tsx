@@ -10,16 +10,20 @@ import {
   API_BASE,
   ApiError,
   OfflineError,
+  assignCourier,
   changePassword,
   fetchAdminDashboard,
+  fetchCouriers,
   fetchAdminSupportMessages,
   fetchOrders,
   login as apiLogin,
+  repeatOrder,
   register as apiRegister,
   type ApiOrder,
   type ApiOrderStatus,
   type ApiOrderStatusStep,
   type ApiAdminDashboard,
+  type ApiCourier,
   type ApiPaymentStatus,
   type AdminSupportMessage,
   updatePaymentStatus,
@@ -190,6 +194,7 @@ function AdminWorkspace() {
   const [supportLoading, setSupportLoading] = useState(true);
   const [supportError, setSupportError] = useState("");
   const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [couriers, setCouriers] = useState<ApiCourier[]>([]);
   const [dashboard, setDashboard] = useState<ApiAdminDashboard | null>(null);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState("");
@@ -200,8 +205,11 @@ function AdminWorkspace() {
     useState<ApiPaymentStatus | "all">("all");
   const [deliveryZoneFilter, setDeliveryZoneFilter] = useState("all");
   const [deliveryDateFilter, setDeliveryDateFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("all");
+  const [courierFilter, setCourierFilter] = useState("all");
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
   const [updatingPaymentId, setUpdatingPaymentId] = useState<number | null>(null);
+  const [assigningCourierOrderId, setAssigningCourierOrderId] = useState<number | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
@@ -228,15 +236,24 @@ function AdminWorkspace() {
           String(order.delivery_zone?.id ?? "none") === deliveryZoneFilter;
         const matchesDeliveryDate =
           !deliveryDateFilter || order.delivery_date === deliveryDateFilter;
+        const matchesCity =
+          cityFilter === "all" || (order.city_slug ?? "none") === cityFilter;
+        const matchesCourier =
+          courierFilter === "all" ||
+          String(order.assigned_courier_id ?? "none") === courierFilter;
         return (
           matchesStatus &&
           matchesPayment &&
           matchesPaymentStatus &&
           matchesZone &&
-          matchesDeliveryDate
+          matchesDeliveryDate &&
+          matchesCity &&
+          matchesCourier
         );
       }),
     [
+      cityFilter,
+      courierFilter,
       deliveryDateFilter,
       deliveryZoneFilter,
       orders,
@@ -255,6 +272,17 @@ function AdminWorkspace() {
               String(order.delivery_zone?.id),
               order.delivery_zone?.name ?? "",
             ]),
+        ).entries(),
+      ),
+    [orders],
+  );
+  const cityOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          orders
+            .filter((order) => order.city_slug)
+            .map((order) => [order.city_slug ?? "", order.city_name ?? ""]),
         ).entries(),
       ),
     [orders],
@@ -304,13 +332,15 @@ function AdminWorkspace() {
     async function loadOrders(showSpinner = false) {
       try {
         if (showSpinner) setOrdersLoading(true);
-        const [data, dashboardData] = await Promise.all([
+        const [data, dashboardData, courierData] = await Promise.all([
           fetchOrders(),
           fetchAdminDashboard(),
+          fetchCouriers(),
         ]);
         if (active) {
           setOrders(data);
           setDashboard(dashboardData);
+          setCouriers(courierData);
           setOrdersError("");
         }
       } catch (err) {
@@ -365,6 +395,26 @@ function AdminWorkspace() {
       setOrdersError(firstApiMessage(err, "Could not update payment status."));
     } finally {
       setUpdatingPaymentId(null);
+    }
+  }
+
+  async function onCourierAssign(orderId: number, courierId: number | null) {
+    setOrdersError("");
+    try {
+      setAssigningCourierOrderId(orderId);
+      const updated = await assignCourier(orderId, courierId);
+      setOrders((current) =>
+        current.map((order) => (order.id === updated.id ? updated : order)),
+      );
+      showToast(
+        courierId
+          ? `Courier assigned to order #${updated.id}`
+          : `Courier removed from order #${updated.id}`,
+      );
+    } catch (err) {
+      setOrdersError(firstApiMessage(err, "Could not assign courier."));
+    } finally {
+      setAssigningCourierOrderId(null);
     }
   }
 
@@ -571,6 +621,32 @@ function AdminWorkspace() {
                   </option>
                   ))}
               </select>
+              <select
+                value={cityFilter}
+                onChange={(event) => setCityFilter(event.target.value)}
+                className="rounded-full border border-line bg-paper px-4 py-2 text-sm font-bold outline-none transition focus:border-blossomdeep"
+              >
+                <option value="all">All cities</option>
+                <option value="none">No city</option>
+                {cityOptions.map(([slug, name]) => (
+                  <option key={slug} value={slug}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={courierFilter}
+                onChange={(event) => setCourierFilter(event.target.value)}
+                className="rounded-full border border-line bg-paper px-4 py-2 text-sm font-bold outline-none transition focus:border-blossomdeep"
+              >
+                <option value="all">All couriers</option>
+                <option value="none">Unassigned courier</option>
+                {couriers.map((courier) => (
+                  <option key={courier.id} value={courier.id}>
+                    {courier.user_username || courier.user_email}
+                  </option>
+                ))}
+              </select>
               <input
                 type="date"
                 value={deliveryDateFilter}
@@ -678,6 +754,12 @@ function AdminWorkspace() {
                       <p className="mt-1 text-stone">
                         {order.delivery_zone?.name || "No zone selected"}
                       </p>
+                      <p className="mt-1 text-stone">
+                        {order.city_name || "No city"} · {order.vendor_name || "No vendor"}
+                      </p>
+                      <p className="mt-1 text-stone">
+                        Courier {order.assigned_courier_name || "unassigned"}
+                      </p>
                       {order.delivery_requires_confirmation && (
                         <p className="mt-1 text-xs font-bold text-[#9a6410]">
                           Manual delivery confirmation
@@ -734,6 +816,25 @@ function AdminWorkspace() {
                   )}
 
                   <div className="mt-4 flex flex-wrap gap-2">
+                    <select
+                      value={order.assigned_courier_id ?? "none"}
+                      disabled={assigningCourierOrderId === order.id}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        void onCourierAssign(
+                          order.id,
+                          next === "none" ? null : Number(next),
+                        );
+                      }}
+                      className="rounded-full border border-line px-3 py-1.5 text-xs font-extrabold text-stone outline-none transition hover:border-blossomdeep hover:text-blossomdeep disabled:cursor-wait disabled:opacity-45"
+                    >
+                      <option value="none">Assign courier</option>
+                      {couriers.map((courier) => (
+                        <option key={courier.id} value={courier.id}>
+                          {courier.user_username || courier.user_email}
+                        </option>
+                      ))}
+                    </select>
                     {staffOrderStatuses
                       .filter((status) => status.id !== "pending")
                       .map((status) => (
@@ -852,6 +953,75 @@ function AdminWorkspace() {
                   No sales data yet.
                 </p>
               )}
+            </div>
+          </section>
+        </div>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-4">
+          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+            <h2 className="font-display text-xl font-extrabold text-ink">
+              Revenue by day
+            </h2>
+            <div className="mt-4 grid gap-2">
+              {(dashboard?.revenue_by_day ?? []).slice(0, 5).map((item) => (
+                <div key={item.date ?? "unknown"} className="flex justify-between text-sm">
+                  <span className="font-semibold text-stone">{item.date ?? "Unknown"}</span>
+                  <span className="font-extrabold text-ink">
+                    {formatPrice(Number.parseFloat(item.revenue) || 0, user.currency)}
+                  </span>
+                </div>
+              ))}
+              {(dashboard?.revenue_by_day ?? []).length === 0 && (
+                <p className="text-sm font-semibold text-stone">No revenue yet.</p>
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+            <h2 className="font-display text-xl font-extrabold text-ink">
+              Payment status
+            </h2>
+            <div className="mt-4 grid gap-2">
+              {(dashboard?.payment_status_summary ?? []).map((item) => (
+                <div key={item.payment_status} className="flex justify-between text-sm">
+                  <span className="font-semibold capitalize text-stone">
+                    {item.payment_status}
+                  </span>
+                  <span className="font-extrabold text-ink">{item.count}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+            <h2 className="font-display text-xl font-extrabold text-ink">
+              Cities
+            </h2>
+            <div className="mt-4 grid gap-2">
+              {(dashboard?.city_order_summary ?? []).map((item) => (
+                <div key={item.city} className="flex justify-between text-sm">
+                  <span className="font-semibold text-stone">{item.city}</span>
+                  <span className="font-extrabold text-ink">{item.count}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+            <h2 className="font-display text-xl font-extrabold text-ink">
+              Top customers
+            </h2>
+            <div className="mt-4 grid gap-2">
+              {(dashboard?.top_customers ?? []).slice(0, 5).map((item) => (
+                <div key={item.email} className="min-w-0 text-sm">
+                  <p className="truncate font-extrabold text-ink">
+                    {item.username || item.email}
+                  </p>
+                  <p className="text-stone">
+                    {item.orders} orders · {formatPrice(Number.parseFloat(item.revenue) || 0, user.currency)}
+                  </p>
+                </div>
+              ))}
             </div>
           </section>
         </div>
@@ -1296,9 +1466,11 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
 }
 
 function CustomerOrderHistory({ currency }: { currency: Currency }) {
+  const { showToast, reloadCart } = useStore();
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [repeatingId, setRepeatingId] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -1322,6 +1494,21 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
       active = false;
     };
   }, []);
+
+  async function onRepeatOrder(orderId: number) {
+    setError("");
+    try {
+      setRepeatingId(orderId);
+      const result = await repeatOrder(orderId);
+      await reloadCart();
+      const skipped = result.skipped.length ? ` (${result.skipped.length} skipped)` : "";
+      showToast(`Added ${result.cart.total_items} item(s) to cart${skipped}`);
+    } catch (err) {
+      setError(firstApiMessage(err, "Could not repeat this order."));
+    } finally {
+      setRepeatingId(null);
+    }
+  }
 
   return (
     <section className="mt-10 rounded-3xl bg-card p-6 shadow-soft">
@@ -1388,6 +1575,9 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                       <span className="rounded-full bg-mint px-3 py-1 text-xs font-extrabold text-leaf">
                         {order.payment_method_display}
                       </span>
+                      <span className="rounded-full bg-[#fff3d8] px-3 py-1 text-xs font-extrabold text-[#9a6410]">
+                        {order.payment_status_display}
+                      </span>
                     </div>
                     <p className="mt-2 font-display text-lg font-bold">
                       {formatPrice(Number.isFinite(total) ? total : 0, currency)}
@@ -1430,6 +1620,9 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                     <p className="mt-1 text-stone">
                       {order.delivery_zone?.name || "No zone selected"}
                     </p>
+                    <p className="mt-1 text-stone">
+                      {order.city_name || "No city"}
+                    </p>
                     {order.delivery_requires_confirmation && (
                       <p className="mt-1 text-xs font-bold text-[#9a6410]">
                         Staff will confirm this delivery zone.
@@ -1458,6 +1651,16 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                       Delivery{" "}
                       {deliveryFee === 0 ? "Free" : formatPrice(deliveryFee, currency)}
                     </p>
+                    {Number.parseFloat(order.discount_amount) > 0 && (
+                      <p className="text-leaf">
+                        Discount -{formatPrice(Number.parseFloat(order.discount_amount), currency)}
+                      </p>
+                    )}
+                    {order.loyalty_points_earned > 0 && (
+                      <p className="text-stone">
+                        Earned {order.loyalty_points_earned} points
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1491,6 +1694,14 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                 {order.notes && (
                   <p className="mt-1 text-sm text-stone">{order.notes}</p>
                 )}
+                <button
+                  type="button"
+                  disabled={repeatingId === order.id}
+                  onClick={() => void onRepeatOrder(order.id)}
+                  className="mt-4 rounded-full border border-line px-5 py-2.5 text-sm font-extrabold text-stone transition hover:border-blossomdeep hover:text-blossomdeep disabled:cursor-wait disabled:opacity-60"
+                >
+                  {repeatingId === order.id ? "Adding..." : "Repeat order"}
+                </button>
               </article>
             );
           })}
@@ -1613,6 +1824,9 @@ export default function ProfileSettings({
           </h1>
           <p className="mt-1 text-sm text-stone">
             Preferences are saved on this device.
+          </p>
+          <p className="mt-2 inline-flex rounded-full bg-mint px-3 py-1 text-xs font-extrabold text-leaf">
+            {user.loyalty_points} loyalty points
           </p>
         </div>
         <button

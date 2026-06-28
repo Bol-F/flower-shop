@@ -20,8 +20,16 @@ const sortOptions: SortKey[] = ["popular", "price-asc", "price-desc", "new", "ra
 /** Cards shown before "Show more" — two rows on the widest (4-col) grid. */
 const PAGE_SIZE = 8;
 
+function cityToSlug(city: string) {
+  return city
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export default function Catalog() {
-  const { query, setQuery, category, setCategory, language } = useStore();
+  const { query, setQuery, category, setCategory, language, city } = useStore();
   const t = copy[language].catalog;
   const [allProducts, setAllProducts] = useState<Product[]>(fallbackCatalogProducts);
   const [allCategories, setAllCategories] = useState<Category[]>(
@@ -39,7 +47,7 @@ export default function Catalog() {
     async function load() {
       try {
         const [products, categories] = await Promise.all([
-          loadCatalogProducts(),
+          loadCatalogProducts(cityToSlug(city)),
           loadCatalogCategories(),
         ]);
         if (cancelled) return;
@@ -60,7 +68,7 @@ export default function Catalog() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [city]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();

@@ -22,6 +22,8 @@ export interface Product {
   rating: number;
   reviews: number;
   category: CategoryId;
+  city?: string | null;
+  vendor?: string | null;
   /** courier estimate when ordering now */
   deliveryMins: number;
   deliveryToday: boolean;

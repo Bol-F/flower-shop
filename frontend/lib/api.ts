@@ -39,6 +39,7 @@ export interface AuthUser {
   city: string;
   language: "EN" | "RU" | "UZ";
   currency: "USD" | "UZS";
+  loyalty_points: number;
   is_staff: boolean;
   date_joined: string;
 }
@@ -82,6 +83,10 @@ export interface ApiProductBase {
   price: string;
   image: string | null;
   category_name: string | null;
+  city_name: string | null;
+  city_slug: string | null;
+  vendor_name: string | null;
+  vendor_slug: string | null;
   stock_quantity: number;
   is_available: boolean;
   is_in_stock: boolean;
@@ -155,6 +160,7 @@ export interface ApiDeliveryZone {
   id: number;
   name: string;
   city: string;
+  city_slug: string;
   fee: string;
   is_active: boolean;
   requires_manual_confirmation: boolean;
@@ -181,6 +187,10 @@ export interface ApiOrder {
   status_timeline: ApiOrderStatusStep[];
   user_email: string;
   user_username: string;
+  city_name: string | null;
+  city_slug: string | null;
+  vendor_name: string | null;
+  vendor_slug: string | null;
   subtotal_price: string;
   total_price: string;
   shipping_address: string;
@@ -192,6 +202,9 @@ export interface ApiOrder {
   payment_provider: string;
   payment_reference: string;
   paid_at: string | null;
+  promo_code: number | null;
+  discount_amount: string;
+  loyalty_points_earned: number;
   delivery_address: string;
   delivery_lat: string | null;
   delivery_lng: string | null;
@@ -200,6 +213,11 @@ export interface ApiOrder {
   delivery_time_slot_display: string;
   delivery_zone: ApiDeliveryZone | null;
   delivery_requires_confirmation: boolean;
+  assigned_courier_id: number | null;
+  assigned_courier_name: string | null;
+  courier_assigned_at: string | null;
+  courier_picked_up_at: string | null;
+  delivered_at: string | null;
   recipient_name: string;
   recipient_phone: string;
   gift_note: string;
@@ -228,6 +246,49 @@ export interface ApiBestSellingProduct {
   revenue: string;
 }
 
+export interface ApiCity {
+  id: number;
+  name: string;
+  slug: string;
+  country: string;
+  currency: "UZS" | "USD";
+  is_active: boolean;
+  default_delivery_fee: string;
+  free_delivery_threshold: string;
+}
+
+export interface ApiCourier {
+  id: number;
+  user: number;
+  user_email: string;
+  user_username: string;
+  phone: string;
+  city: ApiCity | null;
+  is_active: boolean;
+  current_status: "available" | "busy" | "offline";
+  created_at: string;
+}
+
+export interface ApiDashboardCount {
+  status?: string;
+  payment_status?: string;
+  city?: string;
+  count: number;
+}
+
+export interface ApiRevenueByDay {
+  date: string | null;
+  revenue: string;
+  orders: number;
+}
+
+export interface ApiTopCustomer {
+  email: string;
+  username: string;
+  orders: number;
+  revenue: string;
+}
+
 export interface ApiAdminDashboard {
   today_orders: number;
   pending_orders: number;
@@ -240,6 +301,11 @@ export interface ApiAdminDashboard {
   out_of_stock_products: ApiAdminProductSummary[];
   unavailable_products: ApiAdminProductSummary[];
   best_selling_products: ApiBestSellingProduct[];
+  revenue_by_day: ApiRevenueByDay[];
+  orders_by_status: ApiDashboardCount[];
+  payment_status_summary: ApiDashboardCount[];
+  city_order_summary: ApiDashboardCount[];
+  top_customers: ApiTopCustomer[];
   delivery_queue: ApiOrder[];
 }
 
@@ -397,7 +463,7 @@ export async function updateProfile(
       AuthUser,
       "username" | "phone" | "address" | "bio" | "city" | "language" | "currency"
     >
-  >,
+>,
 ): Promise<AuthUser> {
   const user = await request<AuthUser>("/api/auth/profile/", {
     method: "PATCH",
@@ -476,9 +542,18 @@ export async function fetchCategories(): Promise<ApiCategory[]> {
   return Array.isArray(data) ? data : data.results;
 }
 
+export async function fetchCities(): Promise<ApiCity[]> {
+  const data = await request<ApiCity[] | PaginatedResponse<ApiCity>>(
+    "/api/marketplace/cities/?page_size=100",
+  );
+  return Array.isArray(data) ? data : data.results;
+}
+
 export async function fetchProducts(params: {
   search?: string;
   category?: string | null;
+  city?: string | null;
+  vendor?: string | null;
   ordering?: string;
   page_size?: number;
 } = {}): Promise<ApiProductListItem[]> {
@@ -486,6 +561,8 @@ export async function fetchProducts(params: {
   query.set("page_size", String(params.page_size ?? 100));
   if (params.search) query.set("search", params.search);
   if (params.category) query.set("category", params.category);
+  if (params.city) query.set("city", params.city);
+  if (params.vendor) query.set("vendor", params.vendor);
   if (params.ordering) query.set("ordering", params.ordering);
 
   const data = await request<
@@ -498,11 +575,37 @@ export async function fetchProduct(slug: string): Promise<ApiProductDetail> {
   return request<ApiProductDetail>(`/api/products/${encodeURIComponent(slug)}/`);
 }
 
-export async function fetchDeliveryZones(): Promise<ApiDeliveryZone[]> {
+export async function fetchDeliveryZones(city?: string | null): Promise<ApiDeliveryZone[]> {
+  const query = new URLSearchParams();
+  query.set("page_size", "100");
+  if (city) query.set("city", city);
   const data = await request<ApiDeliveryZone[] | PaginatedResponse<ApiDeliveryZone>>(
-    "/api/orders/delivery-zones/?page_size=100",
+    `/api/orders/delivery-zones/?${query.toString()}`,
   );
   return Array.isArray(data) ? data : data.results;
+}
+
+export async function fetchCouriers(): Promise<ApiCourier[]> {
+  const data = await request<ApiCourier[] | PaginatedResponse<ApiCourier>>(
+    "/api/marketplace/couriers/?page_size=100",
+    { auth: true },
+  );
+  return Array.isArray(data) ? data : data.results;
+}
+
+export async function validatePromoCode(payload: {
+  code: string;
+  subtotal: string;
+}): Promise<{
+  code: string;
+  discount_type: "fixed_amount" | "percent";
+  discount_value: string;
+  discount_amount: string;
+}> {
+  return request("/api/marketplace/promo-codes/validate/", {
+    method: "POST",
+    body: payload,
+  });
 }
 
 export async function fetchCart(): Promise<ApiCart> {
@@ -549,6 +652,8 @@ export async function createOrder(payload: {
   delivery_date?: string;
   delivery_time_slot?: string;
   delivery_zone_id?: number | null;
+  city_slug?: string;
+  promo_code?: string;
   recipient_name?: string;
   recipient_phone?: string;
   gift_note?: string;
@@ -568,6 +673,18 @@ export async function fetchOrders(): Promise<ApiOrder[]> {
     { auth: true },
   );
   return Array.isArray(data) ? data : data.results;
+}
+
+export async function repeatOrder(id: number): Promise<{
+  cart: ApiCart;
+  added: Array<{ product: string; quantity: number }>;
+  skipped: string[];
+}> {
+  return request(`/api/orders/${id}/repeat/`, {
+    method: "POST",
+    body: {},
+    auth: true,
+  });
 }
 
 export async function updateOrderStatus(
@@ -593,8 +710,42 @@ export async function updatePaymentStatus(
   });
 }
 
+export async function assignCourier(
+  id: number,
+  courierId: number | null,
+): Promise<ApiOrder> {
+  return request<ApiOrder>(`/api/orders/${id}/courier/`, {
+    method: "PATCH",
+    body: { courier_id: courierId },
+    auth: true,
+  });
+}
+
 export async function fetchAdminDashboard(): Promise<ApiAdminDashboard> {
   return request<ApiAdminDashboard>("/api/orders/dashboard/", { auth: true });
+}
+
+export async function fetchWishlist(): Promise<ApiCartItem["product"][]> {
+  const data = await request<
+    Array<{ product: ApiProductListItem }> | PaginatedResponse<{ product: ApiProductListItem }>
+  >("/api/marketplace/wishlist/?page_size=100", { auth: true });
+  const items = Array.isArray(data) ? data : data.results;
+  return items.map((item) => item.product);
+}
+
+export async function addWishlistItem(productId: number): Promise<void> {
+  await request("/api/marketplace/wishlist/", {
+    method: "POST",
+    body: { product_id: productId },
+    auth: true,
+  });
+}
+
+export async function removeWishlistItem(productId: number): Promise<void> {
+  await request<void>(`/api/marketplace/wishlist/${productId}/`, {
+    method: "DELETE",
+    auth: true,
+  });
 }
 
 /* ── reviews, ratings & likes (apps.reviews) ──────────────────── */

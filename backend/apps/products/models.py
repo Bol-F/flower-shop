@@ -18,6 +18,22 @@ class Product(models.Model):
         related_name='products',
         verbose_name=_('category'),
     )
+    city = models.ForeignKey(
+        'marketplace.City',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='products',
+        verbose_name=_('city'),
+    )
+    vendor = models.ForeignKey(
+        'marketplace.Vendor',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='products',
+        verbose_name=_('vendor'),
+    )
     image = models.ImageField(_('image'), upload_to='products/', blank=True, null=True)
     stock = models.PositiveIntegerField(_('stock'), default=0)
     low_stock_threshold = models.PositiveIntegerField(_('low stock threshold'), default=3)

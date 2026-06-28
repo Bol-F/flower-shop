@@ -5,6 +5,7 @@ from rest_framework.test import APIClient
 
 from apps.users.models import User
 from apps.categories.models import Category
+from apps.marketplace.models import City
 from apps.products.models import Product
 
 
@@ -62,6 +63,15 @@ class TestProductList:
     def test_filter_by_price(self, api_client, product):
         url = reverse('product-list')
         response = api_client.get(url, {'min_price': 10, 'max_price': 50})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] >= 1
+
+    def test_filter_by_city(self, api_client, product):
+        product.city = City.objects.get(slug='tashkent')
+        product.save(update_fields=['city'])
+
+        response = api_client.get(reverse('product-list'), {'city': 'tashkent'})
+
         assert response.status_code == status.HTTP_200_OK
         assert response.data['count'] >= 1
 
