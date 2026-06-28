@@ -94,7 +94,12 @@ class UpdatePaymentStatusView(APIView):
         order = get_object_or_404(Order, pk=pk)
         serializer = UpdatePaymentStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        update_payment_status(order, serializer.validated_data['payment_status'])
+        update_payment_status(
+            order,
+            serializer.validated_data['payment_status'],
+            payment_provider=serializer.validated_data.get('payment_provider', ''),
+            payment_reference=serializer.validated_data.get('payment_reference', ''),
+        )
         notifications.notify_payment_status_changed(order)
         order = order_queryset().get(pk=order.pk)
         return Response(OrderSerializer(order).data)

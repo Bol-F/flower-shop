@@ -17,6 +17,7 @@ export const FREE_DELIVERY_MIN_AMOUNT = roundMoney(
 export interface DeliveryZoneOption {
   id: number;
   name: string;
+  city: string;
   fee: number;
   requiresManualConfirmation: boolean;
   description: string;
@@ -26,6 +27,7 @@ export const fallbackDeliveryZones: DeliveryZoneOption[] = [
   {
     id: 0,
     name: "Tashkent Center",
+    city: "Tashkent",
     fee: FIXED_CITY_DELIVERY_FEE,
     requiresManualConfirmation: false,
     description: "Central Tashkent delivery.",
@@ -33,6 +35,7 @@ export const fallbackDeliveryZones: DeliveryZoneOption[] = [
   {
     id: -1,
     name: "Outer Tashkent",
+    city: "Tashkent",
     fee: roundMoney(45000 / UZS_PER_USD),
     requiresManualConfirmation: false,
     description: "Outer city delivery.",
@@ -40,6 +43,7 @@ export const fallbackDeliveryZones: DeliveryZoneOption[] = [
   {
     id: -2,
     name: "Outside City",
+    city: "Outside city",
     fee: 0,
     requiresManualConfirmation: true,
     description: "Staff will confirm delivery availability and final fee.",

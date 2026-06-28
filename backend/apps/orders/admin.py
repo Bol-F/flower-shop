@@ -38,10 +38,10 @@ class NotificationLogInline(admin.TabularInline):
 
 @admin.register(DeliveryZone)
 class DeliveryZoneAdmin(admin.ModelAdmin):
-    list_display = ('name', 'fee', 'is_active', 'requires_manual_confirmation')
-    list_filter = ('is_active', 'requires_manual_confirmation')
-    search_fields = ('name', 'description')
-    list_editable = ('fee', 'is_active', 'requires_manual_confirmation')
+    list_display = ('name', 'city', 'fee', 'is_active', 'requires_manual_confirmation')
+    list_filter = ('city', 'is_active', 'requires_manual_confirmation')
+    search_fields = ('name', 'city', 'description')
+    list_editable = ('city', 'fee', 'is_active', 'requires_manual_confirmation')
 
 
 @admin.register(NotificationLog)
@@ -62,12 +62,13 @@ class OrderAdmin(admin.ModelAdmin):
     change_list_template = 'admin/orders/order/change_list.html'
     list_display = (
         'id', 'user', 'status', 'payment_method', 'payment_status',
+        'payment_provider', 'paid_at',
         'recipient_name', 'delivery_date', 'delivery_time_slot', 'delivery_zone',
         'delivery_fee', 'delivery_requires_confirmation',
         'total_price', 'item_count', 'created_at',
     )
     list_filter = (
-        'status', 'payment_method', 'payment_status', 'delivery_zone',
+        'status', 'payment_method', 'payment_status', 'payment_provider', 'delivery_zone',
         'delivery_requires_confirmation', 'delivery_date', 'delivery_time_slot',
         'created_at',
     )
@@ -98,6 +99,7 @@ class OrderAdmin(admin.ModelAdmin):
         (None, {
             'fields': (
                 'user', 'status', 'payment_method', 'payment_status',
+                'payment_provider', 'payment_reference', 'paid_at',
                 'delivery_fee', 'total_price',
             ),
         }),

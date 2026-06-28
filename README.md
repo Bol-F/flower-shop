@@ -238,6 +238,12 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_ADMIN_CHAT_ID=
 ```
 
+Set `ALLOWED_HOSTS` to the backend hostnames that may serve Django, and set
+`CORS_ALLOWED_ORIGINS` to the exact Vercel/frontend origins allowed to call the
+API. Product/media files still use local filesystem storage by default; move
+media to S3, Cloudinary, or Supabase Storage before accepting customer uploads
+at scale.
+
 > ⚠️ `DJANGO_SETTINGS_MODULE` must be a real environment variable on the platform — putting it in `.env` has no effect, because Django chooses the settings module before `.env` is read.
 
 **Build command:**
@@ -316,9 +322,10 @@ npm run build
 ## Business Rules
 
 - Payment methods are `cash`, `card`, and `online`. Cash starts as `unpaid`; card and online orders start as `pending` until staff marks them `paid` or `failed`.
-- Payment workflow code lives in `backend/apps/orders/payments.py`, so a real Click, Payme, Stripe, or bank provider can be added without rewriting checkout.
+- Orders store `payment_provider`, `payment_reference`, and `paid_at`. The current provider is manual/placeholder; a real Click, Payme, Stripe, or bank provider can be added in `backend/apps/orders/payments.py` without rewriting checkout.
 - Order notifications are stored in `NotificationLog`. Email and Telegram are placeholders for now; missing credentials fall back to console logs and never break checkout.
 - Delivery fees are calculated in `backend/apps/orders/pricing.py`. Orders above the free-delivery threshold have a zero fee; otherwise the selected active delivery zone controls the fee.
+- Delivery zones are city-scoped and can store a future polygon/coordinates payload for automatic zone detection from `delivery_lat` and `delivery_lng`.
 - Zones that require manual confirmation still allow checkout, but the order is flagged so staff can confirm availability before fulfillment.
 - Inventory is validated again when an order is created. Stock decreases inside the same database transaction, and order items keep product name and price snapshots.
 
@@ -379,7 +386,7 @@ All responses are paginated (`count` / `next` / `previous` / `results`, 12 per p
 | POST | `/api/orders/create/` | Place order from cart with `shipping_address`, `phone`, and `payment_method`; optional delivery fields include `delivery_zone_id`, `delivery_address`, `delivery_lat`/`delivery_lng`, `delivery_date`, `delivery_time_slot`, `recipient_name`, `recipient_phone`, `gift_note`, `call_recipient_before_delivery`, and `notes` | ✅ |
 | GET | `/api/orders/{id}/` | Detail | ✅ owner |
 | PATCH | `/api/orders/{id}/status/` | Update status | 👑 Admin |
-| PATCH | `/api/orders/{id}/payment-status/` | Update manual payment status | 👑 Admin |
+| PATCH | `/api/orders/{id}/payment-status/` | Update manual payment status; accepts optional `payment_provider` and `payment_reference` | 👑 Admin |
 
 ### Contact
 | Method | Endpoint | Description | Auth |
@@ -397,7 +404,7 @@ All responses are paginated (`count` / `next` / `previous` / `results`, 12 per p
 - `IsAdminOrReadOnly` / `IsOwnerOrAdmin` permissions shared via `apps/common`
 - Slug-based URLs for products and categories
 - Orders snapshot `product_name` / `product_price` at purchase time — later price changes never rewrite history
-- Payment status workflow is isolated in `apps/orders/payments.py`; real Click/Payme/Stripe providers can replace the manual placeholder later
+- Payment status workflow is isolated in `apps/orders/payments.py`; real Click/Payme/Stripe providers can replace the manual placeholder later while preserving provider/reference/paid timestamp fields
 - Notification placeholders live in `apps/orders/notifications.py`; missing email/Telegram credentials fall back to console notification logs
 - Delivery pricing is isolated in `apps/orders/pricing.py`; delivery zones are stored in the database and can later use polygons/coordinates for automatic detection
 - Products expose `low_stock_threshold` and `stock_status` so staff can track low-stock, out-of-stock, and unavailable inventory

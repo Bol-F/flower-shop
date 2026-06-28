@@ -84,6 +84,7 @@ class TestProductDetail:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['is_low_stock'] is True
         assert response.data['stock_status'] == 'low_stock'
+        assert response.data['stock_quantity'] == 2
 
     def test_create_product_anonymous_unauthorized(self, api_client, category):
         url = reverse('product-list')

@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.products.models import Product
@@ -56,6 +57,19 @@ class Order(models.Model):
         choices=PaymentStatus.choices,
         default=PaymentStatus.UNPAID,
     )
+    payment_provider = models.CharField(
+        _('payment provider'),
+        max_length=60,
+        blank=True,
+        default='',
+    )
+    payment_reference = models.CharField(
+        _('payment reference'),
+        max_length=120,
+        blank=True,
+        default='',
+    )
+    paid_at = models.DateTimeField(_('paid at'), null=True, blank=True)
     delivery_address = models.TextField(_('delivery address'), blank=True)
     delivery_lat = models.DecimalField(
         _('delivery latitude'),
@@ -115,9 +129,18 @@ class Order(models.Model):
     def __str__(self):
         return f"Order #{self.id} by {self.user.email}"
 
+    def save(self, *args, **kwargs):
+        if self.payment_status == self.PaymentStatus.PAID and self.paid_at is None:
+            self.paid_at = timezone.now()
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None:
+                kwargs['update_fields'] = set(update_fields) | {'paid_at'}
+        super().save(*args, **kwargs)
+
 
 class DeliveryZone(models.Model):
     name = models.CharField(_('name'), max_length=120, unique=True)
+    city = models.CharField(_('city'), max_length=80, default='Tashkent')
     fee = models.DecimalField(_('fee'), max_digits=10, decimal_places=2, default=0)
     is_active = models.BooleanField(_('is active'), default=True)
     requires_manual_confirmation = models.BooleanField(
@@ -136,6 +159,10 @@ class DeliveryZone(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def has_polygon(self):
+        return bool(self.polygon)
 
 
 class NotificationLog(models.Model):

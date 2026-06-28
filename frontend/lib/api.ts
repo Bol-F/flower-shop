@@ -82,6 +82,7 @@ export interface ApiProductBase {
   price: string;
   image: string | null;
   category_name: string | null;
+  stock_quantity: number;
   is_available: boolean;
   is_in_stock: boolean;
   is_low_stock: boolean;
@@ -153,6 +154,7 @@ export type ApiPaymentStatus =
 export interface ApiDeliveryZone {
   id: number;
   name: string;
+  city: string;
   fee: string;
   is_active: boolean;
   requires_manual_confirmation: boolean;
@@ -177,6 +179,8 @@ export interface ApiOrder {
   status: ApiOrderStatus;
   status_display: string;
   status_timeline: ApiOrderStatusStep[];
+  user_email: string;
+  user_username: string;
   subtotal_price: string;
   total_price: string;
   shipping_address: string;
@@ -185,6 +189,9 @@ export interface ApiOrder {
   payment_method_display: string;
   payment_status: ApiPaymentStatus;
   payment_status_display: string;
+  payment_provider: string;
+  payment_reference: string;
+  paid_at: string | null;
   delivery_address: string;
   delivery_lat: string | null;
   delivery_lng: string | null;
@@ -577,10 +584,11 @@ export async function updateOrderStatus(
 export async function updatePaymentStatus(
   id: number,
   paymentStatus: ApiPaymentStatus,
+  metadata: { payment_provider?: string; payment_reference?: string } = {},
 ): Promise<ApiOrder> {
   return request<ApiOrder>(`/api/orders/${id}/payment-status/`, {
     method: "PATCH",
-    body: { payment_status: paymentStatus },
+    body: { payment_status: paymentStatus, ...metadata },
     auth: true,
   });
 }

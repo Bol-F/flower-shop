@@ -5,7 +5,7 @@ from apps.cart.services import get_or_create_cart, clear_cart
 from apps.products.models import Product
 from . import notifications
 from .models import Order, OrderItem
-from .payments import initial_payment_status
+from .payments import initial_payment_provider, initial_payment_status
 from .pricing import calculate_delivery_fee
 
 
@@ -58,6 +58,7 @@ def create_order_from_cart(
         phone=phone,
         payment_method=payment_method,
         payment_status=initial_payment_status(payment_method),
+        payment_provider=initial_payment_provider(payment_method),
         delivery_address=delivery_address,
         delivery_lat=delivery_lat,
         delivery_lng=delivery_lng,

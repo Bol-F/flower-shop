@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from .models import Order
@@ -29,6 +30,12 @@ def initial_payment_status(payment_method: str) -> str:
     return Order.PaymentStatus.PENDING
 
 
+def initial_payment_provider(payment_method: str) -> str:
+    if payment_method == Order.PaymentMethod.CASH:
+        return 'cash'
+    return 'manual'
+
+
 def calculate_payment_amount(order: Order):
     return order.total_price
 
@@ -39,7 +46,8 @@ def create_test_payment(order: Order) -> dict:
         'amount': str(calculate_payment_amount(order)),
         'payment_method': order.payment_method,
         'payment_status': order.payment_status,
-        'provider': 'manual',
+        'provider': order.payment_provider or initial_payment_provider(order.payment_method),
+        'reference': order.payment_reference,
     }
 
 
@@ -53,8 +61,31 @@ def validate_payment_status_transition(current_status: str, next_status: str) ->
         )
 
 
-def update_payment_status(order: Order, next_status: str) -> Order:
+def update_payment_status(
+    order: Order,
+    next_status: str,
+    *,
+    payment_provider: str = '',
+    payment_reference: str = '',
+) -> Order:
     validate_payment_status_transition(order.payment_status, next_status)
     order.payment_status = next_status
-    order.save(update_fields=['payment_status', 'updated_at'])
+    update_fields = ['payment_status', 'updated_at']
+
+    if payment_provider:
+        order.payment_provider = payment_provider
+        update_fields.append('payment_provider')
+    elif not order.payment_provider:
+        order.payment_provider = initial_payment_provider(order.payment_method)
+        update_fields.append('payment_provider')
+
+    if payment_reference:
+        order.payment_reference = payment_reference
+        update_fields.append('payment_reference')
+
+    if next_status == Order.PaymentStatus.PAID and order.paid_at is None:
+        order.paid_at = timezone.now()
+        update_fields.append('paid_at')
+
+    order.save(update_fields=update_fields)
     return order

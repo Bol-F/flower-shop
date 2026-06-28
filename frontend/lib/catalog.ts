@@ -94,7 +94,7 @@ export function apiProductToProduct(
   const categorySlug = category?.slug ?? labelToSlug(product.category_name);
   const mock = fallbackProducts.find((item) => item.id === product.slug);
   const price = numberFromPrice(product.price);
-  const stock = detail?.stock;
+  const stock = detail?.stock ?? product.stock_quantity;
 
   if (mock) {
     return {

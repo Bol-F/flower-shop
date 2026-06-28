@@ -8,7 +8,7 @@ class DeliveryZoneSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryZone
         fields = (
-            'id', 'name', 'fee', 'is_active',
+            'id', 'name', 'city', 'fee', 'is_active',
             'requires_manual_confirmation', 'description',
         )
 
@@ -35,6 +35,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_username = serializers.CharField(source='user.username', read_only=True)
     items = OrderItemSerializer(many=True, read_only=True)
     delivery_zone = DeliveryZoneSerializer(read_only=True)
     notification_logs = NotificationLogSerializer(many=True, read_only=True)
@@ -58,10 +60,12 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = (
             'id', 'status', 'status_display', 'status_timeline',
+            'user_email', 'user_username',
             'subtotal_price', 'total_price',
             'shipping_address', 'phone', 'payment_method',
             'payment_method_display', 'payment_status',
-            'payment_status_display', 'delivery_address',
+            'payment_status_display', 'payment_provider',
+            'payment_reference', 'paid_at', 'delivery_address',
             'delivery_lat', 'delivery_lng', 'delivery_date',
             'delivery_time_slot', 'delivery_time_slot_display',
             'delivery_zone', 'delivery_requires_confirmation',
@@ -196,3 +200,5 @@ class UpdateOrderStatusSerializer(serializers.ModelSerializer):
 
 class UpdatePaymentStatusSerializer(serializers.Serializer):
     payment_status = serializers.ChoiceField(choices=Order.PaymentStatus.choices)
+    payment_provider = serializers.CharField(max_length=60, required=False, allow_blank=True)
+    payment_reference = serializers.CharField(max_length=120, required=False, allow_blank=True)

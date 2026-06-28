@@ -199,6 +199,7 @@ function AdminWorkspace() {
   const [paymentStatusFilter, setPaymentStatusFilter] =
     useState<ApiPaymentStatus | "all">("all");
   const [deliveryZoneFilter, setDeliveryZoneFilter] = useState("all");
+  const [deliveryDateFilter, setDeliveryDateFilter] = useState("");
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
   const [updatingPaymentId, setUpdatingPaymentId] = useState<number | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -225,9 +226,24 @@ function AdminWorkspace() {
         const matchesZone =
           deliveryZoneFilter === "all" ||
           String(order.delivery_zone?.id ?? "none") === deliveryZoneFilter;
-        return matchesStatus && matchesPayment && matchesPaymentStatus && matchesZone;
+        const matchesDeliveryDate =
+          !deliveryDateFilter || order.delivery_date === deliveryDateFilter;
+        return (
+          matchesStatus &&
+          matchesPayment &&
+          matchesPaymentStatus &&
+          matchesZone &&
+          matchesDeliveryDate
+        );
       }),
-    [deliveryZoneFilter, orders, paymentFilter, paymentStatusFilter, statusFilter],
+    [
+      deliveryDateFilter,
+      deliveryZoneFilter,
+      orders,
+      paymentFilter,
+      paymentStatusFilter,
+      statusFilter,
+    ],
   );
   const deliveryZoneOptions = useMemo(
     () =>
@@ -553,8 +569,24 @@ function AdminWorkspace() {
                   <option key={id} value={id}>
                     {name}
                   </option>
-                ))}
+                  ))}
               </select>
+              <input
+                type="date"
+                value={deliveryDateFilter}
+                onChange={(event) => setDeliveryDateFilter(event.target.value)}
+                className="rounded-full border border-line bg-paper px-4 py-2 text-sm font-bold outline-none transition focus:border-blossomdeep"
+                aria-label="Filter by delivery date"
+              />
+              {deliveryDateFilter && (
+                <button
+                  type="button"
+                  onClick={() => setDeliveryDateFilter("")}
+                  className="rounded-full border border-line px-4 py-2 text-sm font-extrabold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
+                >
+                  Clear date
+                </button>
+              )}
               <a
                 href={`${API_BASE}/admin/orders/order/delivery-map/`}
                 target="_blank"
@@ -594,6 +626,9 @@ function AdminWorkspace() {
                       <p className="mt-1 text-xs font-semibold text-stone">
                         {formatAdminTime(order.created_at)}
                       </p>
+                      <p className="mt-1 text-xs font-semibold text-stone">
+                        {order.user_username || "Customer"} · {order.user_email}
+                      </p>
                     </div>
                     <div className="flex flex-wrap justify-end gap-1.5">
                       <span className="rounded-full bg-blush px-3 py-1 text-xs font-extrabold text-blossomdeep">
@@ -601,9 +636,6 @@ function AdminWorkspace() {
                       </span>
                       <span className="rounded-full bg-mint px-3 py-1 text-xs font-extrabold text-leaf">
                         {order.payment_method_display}
-                      </span>
-                      <span className="rounded-full bg-[#fff3d8] px-3 py-1 text-xs font-extrabold text-[#9a6410]">
-                        {order.payment_status_display}
                       </span>
                       <span className="rounded-full bg-[#fff3d8] px-3 py-1 text-xs font-extrabold text-[#9a6410]">
                         {order.payment_status_display}
@@ -654,9 +686,23 @@ function AdminWorkspace() {
                     </div>
                     <div>
                       <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
-                        Totals
+                        Payment
                       </p>
                       <p className="mt-1 text-stone">
+                        {order.payment_method_display} · {order.payment_status_display}
+                      </p>
+                      <p className="text-stone">
+                        Provider {order.payment_provider || "manual"}
+                      </p>
+                      {order.payment_reference && (
+                        <p className="text-stone">
+                          Ref {order.payment_reference}
+                        </p>
+                      )}
+                      <p className="mt-2 text-xs font-extrabold uppercase tracking-wider text-stone">
+                        Totals
+                      </p>
+                      <p className="text-stone">
                         Items {formatPrice(subtotal, user.currency)}
                       </p>
                       <p className="text-stone">

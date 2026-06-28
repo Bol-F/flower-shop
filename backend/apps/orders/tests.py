@@ -9,6 +9,7 @@ from apps.users.models import User
 from apps.categories.models import Category
 from apps.products.models import Product
 from apps.cart.models import Cart, CartItem
+from apps.orders import notifications
 from apps.orders.models import DeliveryZone, NotificationLog, Order
 from apps.orders.pricing import FIXED_CITY_DELIVERY_FEE, OUTER_CITY_DELIVERY_FEE
 
@@ -99,6 +100,9 @@ class TestOrderCreation:
         assert response.data['payment_method_display'] == 'Cash'
         assert response.data['payment_status'] == Order.PaymentStatus.UNPAID
         assert response.data['payment_status_display'] == 'Unpaid'
+        assert response.data['payment_provider'] == 'cash'
+        assert response.data['payment_reference'] == ''
+        assert response.data['paid_at'] is None
         assert response.data['status_timeline'][0]['id'] == Order.Status.PENDING
         assert response.data['status_timeline'][0]['active'] is True
         assert response.data['notification_logs'][0]['event'] == (
@@ -118,6 +122,7 @@ class TestOrderCreation:
         assert response.data['payment_method'] == Order.PaymentMethod.CARD
         assert response.data['payment_method_display'] == 'Card'
         assert response.data['payment_status'] == Order.PaymentStatus.PENDING
+        assert response.data['payment_provider'] == 'manual'
 
     def test_create_order_accepts_online_payment(self, api_client, user, cart_with_item):
         api_client.force_authenticate(user=user)
@@ -129,6 +134,7 @@ class TestOrderCreation:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['payment_method'] == Order.PaymentMethod.ONLINE
         assert response.data['payment_status'] == Order.PaymentStatus.PENDING
+        assert response.data['payment_provider'] == 'manual'
 
     def test_create_order_adds_fixed_delivery_fee_below_free_threshold(
         self, api_client, user, product
@@ -165,6 +171,7 @@ class TestOrderCreation:
         expected_total = Decimal(product.price) + OUTER_CITY_DELIVERY_FEE
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['delivery_zone']['name'] == 'Outer Tashkent'
+        assert response.data['delivery_zone']['city'] == 'Tashkent'
         assert response.data['delivery_fee'] == f'{OUTER_CITY_DELIVERY_FEE:.2f}'
         assert response.data['total_price'] == f'{expected_total:.2f}'
 
@@ -295,12 +302,19 @@ class TestOrderCreation:
         api_client.force_authenticate(user=staff_user)
         response = api_client.patch(
             reverse('order-payment-status-update', args=[create_response.data['id']]),
-            {'payment_status': Order.PaymentStatus.PAID},
+            {
+                'payment_status': Order.PaymentStatus.PAID,
+                'payment_provider': 'manual',
+                'payment_reference': 'staff-receipt-001',
+            },
             format='json',
         )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data['payment_status'] == Order.PaymentStatus.PAID
+        assert response.data['payment_provider'] == 'manual'
+        assert response.data['payment_reference'] == 'staff-receipt-001'
+        assert response.data['paid_at'] is not None
         assert any(
             log['event'] == NotificationLog.Event.PAYMENT_STATUS_CHANGED
             for log in response.data['notification_logs']
@@ -351,6 +365,50 @@ class TestOrderCreation:
         assert response.data['pending_orders'] == 1
         assert response.data['low_stock_products'][0]['name'] == product.name
         assert response.data['delivery_queue'][0]['id']
+
+    def test_notification_service_logs_console_without_credentials(
+        self, settings, user, cart_with_item
+    ):
+        settings.EMAIL_HOST_USER = ''
+        settings.TELEGRAM_BOT_TOKEN = ''
+        settings.TELEGRAM_ADMIN_CHAT_ID = ''
+        order = Order.objects.create(
+            user=user,
+            total_price='10.00',
+            shipping_address='123 Street',
+            phone='+123456789',
+        )
+
+        logs = notifications.notify_order_created(order)
+
+        assert len(logs) == 1
+        assert logs[0].channel == NotificationLog.Channel.CONSOLE
+        assert logs[0].status == NotificationLog.Status.SUCCESS
+
+    def test_notification_service_skips_placeholder_channels_with_credentials(
+        self, settings, user
+    ):
+        settings.EMAIL_HOST_USER = 'orders@example.com'
+        settings.TELEGRAM_BOT_TOKEN = 'fake-token'
+        settings.TELEGRAM_ADMIN_CHAT_ID = '123'
+        order = Order.objects.create(
+            user=user,
+            total_price='10.00',
+            shipping_address='123 Street',
+            phone='+123456789',
+        )
+
+        logs = notifications.notify_order_created(order)
+
+        assert {log.channel for log in logs} == {
+            NotificationLog.Channel.CONSOLE,
+            NotificationLog.Channel.EMAIL,
+            NotificationLog.Channel.TELEGRAM,
+        }
+        assert all(
+            log.status in [NotificationLog.Status.SUCCESS, NotificationLog.Status.SKIPPED]
+            for log in logs
+        )
 
     def test_order_requires_auth(self, api_client):
         response = api_client.post(reverse('order-create'), {})

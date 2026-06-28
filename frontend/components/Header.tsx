@@ -127,6 +127,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
         const mappedZones = zones.map((zone) => ({
           id: zone.id,
           name: zone.name,
+          city: zone.city,
           fee: Number.parseFloat(zone.fee) || 0,
           requiresManualConfirmation: zone.requires_manual_confirmation,
           description: zone.description,

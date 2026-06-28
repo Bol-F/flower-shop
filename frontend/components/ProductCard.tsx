@@ -51,6 +51,11 @@ export default function ProductCard({ product }: { product: Product }) {
               {t.new}
             </span>
           )}
+          {!purchasable && (
+            <span className="rounded-full bg-ink px-2.5 py-1 text-[11px] font-bold text-white">
+              Out of stock
+            </span>
+          )}
         </div>
 
         {/* favorite */}
