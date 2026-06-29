@@ -228,7 +228,20 @@ For Supabase, copy the PostgreSQL connection string and set it as
 `DATABASE_URL` in Render or in `backend/.env` for a local Supabase-backed run.
 If Supabase requires SSL, include `?sslmode=require` in the URL.
 
-Seed demo catalog data after migrations:
+Seed a complete demo environment after migrations:
+
+```bash
+cd backend
+python manage.py seed_demo
+```
+
+`seed_demo` is idempotent. It creates or updates demo users, categories,
+products, placeholder product images, delivery zones, promo codes, reviews,
+support messages, and sample orders with different order/payment statuses.
+Running it more than once should not create endless duplicate records.
+
+If you only want the larger catalog fixture from the older product seed command,
+you can still run:
 
 ```bash
 cd backend
@@ -395,21 +408,22 @@ Full deployment instructions are in `docs/DEPLOYMENT.md`.
 
 ## Demo Accounts
 
-No real demo passwords are committed to the repository.
+Run `python manage.py seed_demo` to create these local/demo accounts:
 
-For local testing:
+| Role | Email | Password | Notes |
+| --- | --- | --- | --- |
+| Customer | `customer@example.com` | `demo12345` | Use for storefront, cart, checkout, order history, reviews, and support messages |
+| Staff | `staff@example.com` | `demo12345` | Has `is_staff=True` for the staff dashboard |
 
-1. Create a superuser with `python manage.py createsuperuser`.
-2. Register a customer through the frontend.
-3. Use Django admin to mark the customer as staff if you want to test staff flows.
+These passwords are for local development and controlled demo environments
+only. Do not use demo passwords in production.
 
-Suggested local accounts:
+For Django admin access, create a separate superuser:
 
-| Role | Email | How to create |
-| --- | --- | --- |
-| Admin | `admin@example.com` | `python manage.py createsuperuser` |
-| Customer | `customer@example.com` | Register in the frontend |
-| Staff | `staff@example.com` | Register, then set `is_staff=True` in Django admin |
+```bash
+cd backend
+python manage.py createsuperuser
+```
 
 ## Screenshots
 
