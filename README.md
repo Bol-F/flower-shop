@@ -234,8 +234,20 @@ EMAIL_HOST=
 EMAIL_PORT=587
 EMAIL_HOST_USER=
 EMAIL_HOST_PASSWORD=
+EMAIL_USE_TLS=true
+DEFAULT_FROM_EMAIL=
+NOTIFICATIONS_ENABLED=true
+EMAIL_NOTIFICATIONS_ENABLED=false
+TELEGRAM_NOTIFICATIONS_ENABLED=false
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_ADMIN_CHAT_ID=
+PAYMENT_PROVIDER=test
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+CLICK_SERVICE_ID=
+CLICK_SECRET_KEY=
+PAYME_MERCHANT_ID=
+PAYME_SECRET_KEY=
 ```
 
 Set `ALLOWED_HOSTS` to the backend hostnames that may serve Django, and set
@@ -319,12 +331,203 @@ npm run build
 
 ---
 
+## Payments
+
+Bloom & Petal has an internal payment workflow and a provider abstraction, but
+does not connect to real payment networks yet.
+
+### Current payment flow
+
+- Supported payment methods are `cash`, `card`, and `online`.
+- Cash orders are created with `payment_status=unpaid` and
+  `payment_provider=cash`.
+- Card and online orders are created with `payment_status=pending` and use the
+  configured backend `PAYMENT_PROVIDER`.
+- Staff/admin users can manually mark payments as `paid` or `failed` from the
+  staff dashboard or `PATCH /api/orders/{id}/payment-status/`.
+- `paid_at` is set by the backend when a payment becomes `paid`.
+
+### Test payment flow
+
+`PAYMENT_PROVIDER=test` is the default and the only fully implemented provider.
+For card/online orders, the backend creates a fake reference such as
+`TEST-ABC123...` and stores `payment_provider=test`. The customer sees a test
+payment warning and can click `Pay test order`, which calls:
+
+```http
+POST /api/orders/{id}/pay-test/
+```
+
+That endpoint is owner-only, does not accept card details, does not save card
+data, and marks the order `paid` for demo purposes.
+
+### Payment statuses
+
+| Status | Meaning |
+|---|---|
+| `unpaid` | Payment is still due, usually cash on delivery |
+| `pending` | Provider or staff confirmation is pending |
+| `paid` | Payment is complete; `paid_at` is set |
+| `failed` | Payment attempt failed or was rejected |
+| `refunded` | Payment was returned to the customer |
+
+### Payment environment variables
+
+Set these only on the backend. Never expose provider secrets through frontend
+`NEXT_PUBLIC_*` variables.
+
+```env
+PAYMENT_PROVIDER=test
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+CLICK_SERVICE_ID=
+CLICK_SECRET_KEY=
+PAYME_MERCHANT_ID=
+PAYME_SECRET_KEY=
+```
+
+### Provider architecture
+
+Provider classes live in `backend/apps/orders/payment_providers/` and implement:
+
+- `create_payment(order)`
+- `verify_payment(payment_reference)`
+- `handle_webhook(payload)`
+- `refund_payment(order)`
+
+Implemented provider:
+
+- `TestPaymentProvider` for safe demo/test payments.
+
+Placeholders:
+
+- `StripePaymentProvider`
+- `ClickPaymentProvider`
+- `PaymePaymentProvider`
+
+The placeholders deliberately do not call provider APIs. If selected without
+the required backend credentials, checkout returns a clear provider-not-configured
+error. Even with credentials present, real integration still requires official
+documentation, signature/webhook verification, idempotency, refund handling, and
+provider-specific test coverage before production use.
+
+### Switching providers
+
+Set `PAYMENT_PROVIDER` in the backend environment:
+
+```env
+PAYMENT_PROVIDER=test    # current safe default
+PAYMENT_PROVIDER=stripe  # placeholder only
+PAYMENT_PROVIDER=click   # placeholder only
+PAYMENT_PROVIDER=payme   # placeholder only
+```
+
+Keep `test` until official Click, Payme, or Stripe documentation and valid
+merchant/test credentials are available.
+
+---
+
+## Notifications
+
+Order, payment, and support events are recorded in `NotificationLog` and are
+visible in Django admin. Console logging is always safe for local development.
+
+Supported notification events:
+
+- `order_created`
+- `order_confirmed`
+- `order_preparing`
+- `courier_picked_up`
+- `order_delivered`
+- `payment_paid`
+- `payment_failed`
+- `support_message_created`
+
+### Customer email notifications
+
+Email sends simple text updates to customers for order and payment events:
+
+- order created
+- order confirmed
+- order preparing
+- courier picked up
+- order delivered
+- payment paid
+- payment failed
+
+Set these backend environment variables when SMTP credentials are available:
+
+```env
+NOTIFICATIONS_ENABLED=true
+EMAIL_NOTIFICATIONS_ENABLED=true
+EMAIL_HOST=<smtp host>
+EMAIL_PORT=587
+EMAIL_HOST_USER=<smtp username>
+EMAIL_HOST_PASSWORD=<smtp password>
+EMAIL_USE_TLS=true
+DEFAULT_FROM_EMAIL=orders@example.com
+```
+
+In local development, keep `EMAIL_NOTIFICATIONS_ENABLED=false`. The app still
+creates `NotificationLog` rows with `status=skipped`, and checkout continues
+normally. If email is enabled but credentials or the customer email are missing,
+the email log is skipped. If SMTP raises an error, the log is marked `failed`
+and the order/payment update still succeeds.
+
+Safe local test:
+
+1. Use a sandbox SMTP service or Django's console email backend in development.
+2. Set the email variables in `backend/.env`.
+3. Restart the backend.
+4. Create an order or update order/payment status.
+5. Check the customer inbox and Django admin `Notification logs`.
+
+### Telegram admin notifications
+
+Telegram sends admin notifications for important business events:
+
+- new order
+- payment paid or failed
+- order confirmed
+- courier picked up
+- order delivered
+- new support message
+
+Create a bot with Telegram's BotFather, copy the bot token, then send a message
+to the bot from the admin account or add it to an admin chat. Get the chat id
+from Telegram's `getUpdates` response or another trusted admin tool, then set
+the backend environment:
+
+```env
+NOTIFICATIONS_ENABLED=true
+TELEGRAM_NOTIFICATIONS_ENABLED=true
+TELEGRAM_BOT_TOKEN=<bot token from BotFather>
+TELEGRAM_ADMIN_CHAT_ID=<admin chat id>
+```
+
+Keep these values backend-only. Do not expose them through frontend
+`NEXT_PUBLIC_*` variables and do not commit real tokens.
+
+Local test:
+
+1. Set the Telegram variables in `backend/.env`.
+2. Restart the backend.
+3. Place a test order or send a support message.
+4. Check the admin Telegram chat and the Django admin `Notification logs`.
+
+If Telegram is disabled or credentials are missing, the app does not crash.
+The Telegram `NotificationLog` row is marked `skipped`. If Telegram returns an
+error or the HTTP request fails, the row is marked `failed`; the bot token is
+not written to logs.
+
+---
+
 ## Business Rules
 
 - Cities, vendors, couriers, promo codes, and wishlist live in `apps.marketplace` as the foundation for a multi-city marketplace.
-- Payment methods are `cash`, `card`, and `online`. Cash starts as `unpaid`; card and online orders start as `pending` until staff marks them `paid` or `failed`.
-- Orders store `payment_provider`, `payment_reference`, and `paid_at`. The current provider is manual/placeholder; a real Click, Payme, Stripe, or bank provider can be added in `backend/apps/orders/payments.py` without rewriting checkout.
-- Order notifications are stored in `NotificationLog`. Email and Telegram are placeholders for now; missing credentials fall back to console logs and never break checkout.
+- Payment methods are `cash`, `card`, and `online`. Cash starts as `unpaid`; card and online orders start as `pending` until the configured provider or staff marks them `paid` or `failed`.
+- Orders store `payment_provider`, `payment_reference`, and `paid_at`. Provider-specific code belongs in `backend/apps/orders/payment_providers/`, not views or serializers.
+- Order and support notifications are stored in `NotificationLog`. Console logs are the development fallback; customer email and Telegram admin notifications are sent when enabled and configured. Missing credentials never break checkout.
 - Delivery fees are calculated in `backend/apps/orders/pricing.py`. Orders above the free-delivery threshold have a zero fee; otherwise the selected active delivery zone controls the fee.
 - Delivery zones are city-scoped and can store a future polygon/coordinates payload for automatic zone detection from `delivery_lat` and `delivery_lng`.
 - Zones that require manual confirmation still allow checkout, but the order is flagged so staff can confirm availability before fulfillment.
@@ -394,6 +597,7 @@ All responses are paginated (`count` / `next` / `previous` / `results`, 12 per p
 | GET | `/api/orders/` | Own orders (admin sees all) | ✅ |
 | POST | `/api/orders/create/` | Place order from cart with `shipping_address`, `phone`, and `payment_method`; optional delivery fields include `delivery_zone_id`, `delivery_address`, `delivery_lat`/`delivery_lng`, `delivery_date`, `delivery_time_slot`, `recipient_name`, `recipient_phone`, `gift_note`, `call_recipient_before_delivery`, and `notes` | ✅ |
 | GET | `/api/orders/{id}/` | Detail | ✅ owner |
+| POST | `/api/orders/{id}/pay-test/` | Complete a fake/test card or online payment for the order owner | ✅ owner |
 | PATCH | `/api/orders/{id}/status/` | Update status | 👑 Admin |
 | PATCH | `/api/orders/{id}/payment-status/` | Update manual payment status; accepts optional `payment_provider` and `payment_reference` | 👑 Admin |
 
@@ -413,8 +617,8 @@ All responses are paginated (`count` / `next` / `previous` / `results`, 12 per p
 - `IsAdminOrReadOnly` / `IsOwnerOrAdmin` permissions shared via `apps/common`
 - Slug-based URLs for products and categories
 - Orders snapshot `product_name` / `product_price` at purchase time — later price changes never rewrite history
-- Payment status workflow is isolated in `apps/orders/payments.py`; real Click/Payme/Stripe providers can replace the manual placeholder later while preserving provider/reference/paid timestamp fields
-- Notification placeholders live in `apps/orders/notifications.py`; missing email/Telegram credentials fall back to console notification logs
+- Payment status workflow is coordinated in `apps/orders/payments.py`; provider-specific behavior lives in `apps/orders/payment_providers/`
+- Notification orchestration lives in `apps/orders/notification_services.py`; customer email uses Django's email backend, Telegram uses safe HTTP requests with timeout/error logging, and missing credentials fall back to skipped log rows
 - Delivery pricing is isolated in `apps/orders/pricing.py`; delivery zones are stored in the database and can later use polygons/coordinates for automatic detection
 - Products expose `low_stock_threshold` and `stock_status` so staff can track low-stock, out-of-stock, and unavailable inventory
 - `@transaction.atomic` order creation: the cart is cleared only if the order commits
