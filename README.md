@@ -1,324 +1,296 @@
-<div align="center">
+# Bloom & Petal Flower Delivery Marketplace
 
-# 🌸 Bloom & Petal
+Bloom & Petal is a full-stack flower delivery marketplace. It includes a
+customer storefront, product catalog, cart, checkout, order tracking, staff
+dashboard, stock checks, fake/test payments, notification logs, and support
+messages.
 
-**Flower delivery marketplace — Django REST Framework API + Next.js frontend**
+The project is designed for a practical production path:
 
-A trilingual Django admin & REST API (products, cart, orders, support chat) paired with **Gulora** — a premium Tashkent flower-marketplace UI with original illustrated bouquets.
+- Frontend: Next.js app deployed on Vercel.
+- Backend: Django REST Framework API deployed on Render.
+- Database: PostgreSQL, commonly Supabase in production.
+- CI/CD: GitHub Actions for backend and frontend checks.
 
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
-![Django](https://img.shields.io/badge/Django-4.2-092E20?logo=django&logoColor=white)
-![DRF](https://img.shields.io/badge/DRF-3.14-A30000?logo=django&logoColor=white)
-![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)
-[![CI](https://github.com/Bol-F/flower-shop/actions/workflows/ci.yml/badge.svg)](https://github.com/Bol-F/flower-shop/actions/workflows/ci.yml)
-![License](https://img.shields.io/badge/license-MIT-blue)
+## Tech Stack
 
-</div>
+| Area | Technology |
+| --- | --- |
+| Frontend | Next.js, React, TypeScript, Tailwind CSS, Leaflet |
+| Backend | Python 3.12, Django 4.2, Django REST Framework |
+| Auth | JWT with `djangorestframework-simplejwt` |
+| Database | PostgreSQL / Supabase |
+| Async-ready services | Redis, Celery, Django Channels, Daphne |
+| Static files | WhiteNoise |
+| Notifications | Console logs, email channel, Telegram admin channel |
+| Payments | Internal workflow, fake/test provider, real-provider placeholders |
+| Tests | pytest, pytest-django, Vitest, ESLint |
+| Deployment | Render backend, Vercel frontend, GitHub Actions CI |
 
----
+## Main Features
 
-## ✨ Features
+- Product catalog with categories, search, filtering, sorting, and product detail pages.
+- Customer cart and checkout with delivery details, recipient fields, gift notes, and delivery zones.
+- Order history with order status timeline and payment status.
+- Internal payment workflow with `cash`, `card`, and `online` methods.
+- Safe fake/test payment flow for card and online demo orders.
+- Provider abstraction prepared for future Click, Payme, or Stripe test-mode integration.
+- Staff dashboard for orders, payment status updates, inventory alerts, support messages, and reviews.
+- Stock validation during checkout so unavailable quantities cannot be oversold.
+- Notification log foundation with console, email, and Telegram channels.
+- Customer support messages and staff replies.
+- Product reviews.
+- Django admin with operational access to products, orders, users, and notification logs.
 
-### 🌸 Gulora marketplace UI (frontend)
-- Premium one-page marketplace: trust bar, sticky header with search / location / currency, hero with floating proof cards
-- Horizontally scrollable category chips loaded from the API, catalog with **working sort & delivery-today filter**
-- Product cards with API photos when available, illustrated bouquet fallback, ratings, favorites, and quick add
-- Backend-synced cart for signed-in customers, cash/card/online checkout, delivery zones, optional Leaflet map picker, and profile order history
-- Support chat, product reviews, profile settings, and staff support inbox wired to the Django API
-- Offline demo fallback catalog so the frontend can still render while the backend is unavailable
+## Architecture Overview
 
-### 🔌 REST API (backend)
-- Products & categories with search / filter / sort / pagination — 28 seeded flowers with **real photos**
-- Registration & JWT auth with refresh, server-synced cart, stock-checked checkout with delivery zones, payment status, notification logs, and order history
-- Customer↔support messaging with admin replies
+The backend is the source of truth for catalog data, cart sync, checkout,
+payments, notifications, stock validation, users, and staff operations. Views
+validate API input and delegate business rules to service modules.
 
-### 🛠️ Admin
-- **Trilingual Django admin**: `/admin/` (English), `/ru/admin/`, `/uz/admin/` + a language switcher in the header
-- Product list with photo thumbnails, inline price/stock/low-stock editing, image preview
-- Orders with read-only item inlines, payment status, delivery zones, map previews, filters, notification logs, and one-click status updates
-- Category product counts, customer messages with reply workflow
-- React admin dashboard at `/admin` (frontend) with revenue, order, delivery queue, best-selling, and inventory alert stats
+Important backend modules:
 
-### ⚙️ Infrastructure
-- Celery + Celery Beat for background tasks (admin notifications, daily summaries)
-- Django Channels (ASGI via Daphne) ready for real-time features
-- Docker Compose for one-command startup
-- 76 pytest tests covering auth, products, cart, orders, categories, contact, reviews, and admin i18n
+- `backend/apps/orders/services.py` creates orders, validates stock, snapshots order items, and triggers payment/notification behavior.
+- `backend/apps/orders/payments.py` owns payment status rules and fake/test payment completion.
+- `backend/apps/orders/payment_providers/` contains the provider interface, the implemented test provider, and placeholders for real providers.
+- `backend/apps/orders/notification_services.py` creates `NotificationLog` rows and sends console/email/Telegram notifications safely.
+- `backend/apps/contact/` handles support messages and staff replies.
 
----
+The frontend is a Next.js storefront and profile/staff interface. It talks to
+the Django API through `frontend/lib/api.ts`, stores shared UI state in
+`frontend/lib/store.tsx`, and keeps checkout/customer flows inside reusable
+components.
 
-## 🧰 Tech Stack
+## Folder Structure
 
-| Layer | Technology |
-|---|---|
-| Backend | Python 3.12 · Django 4.2 · DRF 3.14 · SimpleJWT · django-filter |
-| Frontend | Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · Leaflet |
-| Database | PostgreSQL 15 |
-| Queue / Realtime | Redis · Celery 5 · Celery Beat · Django Channels (Daphne) |
-| i18n | Lightweight frontend copy map · Django locale + gettext catalogs (admin) |
-| Testing | pytest + pytest-django · Vitest |
-| Deployment | Docker + Docker Compose |
-
----
-
-## 📁 Project Structure
-
-```
+```text
 flower-shop/
-├── backend/
-│   ├── config/
-│   │   ├── settings/            # base / development / production (django-environ)
-│   │   ├── urls.py              # API routes + i18n_patterns for the admin
-│   │   ├── celery.py            # Celery app & beat schedule
-│   │   └── asgi.py / wsgi.py
-│   ├── apps/
-│   │   ├── common/              # Shared permissions & pagination
-│   │   ├── users/               # Custom User (email login), register/login/profile
-│   │   ├── categories/          # Category ViewSet (slug lookup)
-│   │   ├── products/            # Product ViewSet + filters + search
-│   │   │   └── management/commands/
-│   │   │       ├── seed_flowers.py            # 7 categories, 28 products
-│   │   │       └── download_flower_images.py  # real photos, no API key needed
-│   │   ├── cart/                # Cart + CartItem + service layer
-│   │   ├── orders/              # Order + OrderItem + service layer
-│   │   └── contact/             # Customer → admin messages + Celery notifications
-│   ├── locale/                  # ru / uz translation catalogs for the admin
-│   ├── scripts/
-│   │   └── compile_messages.py  # pure-Python .po → .mo (no GNU gettext needed)
-│   ├── templates/admin/         # base_site override: branding + language switcher
-│   ├── tests/                   # cross-app tests (admin i18n)
-│   └── manage.py · requirements.txt · pytest.ini · Dockerfile
-│
-├── frontend/                    # "Gulora" — Next.js 16 marketplace UI
-│   ├── app/                     # App Router: layout, page, global theme tokens
-│   ├── components/              # Header, Hero, CategoryRail, Catalog, ProductCard,
-│   │                            # ProductDetail, Reviews, SupportChat, Admin inbox
-│   └── lib/                     # API client, catalog adapter, store, copy, fallback data
-│
-├── docker-compose.yml           # db + backend + frontend
-└── README.md
+  backend/
+    apps/
+      cart/                 Cart models, serializers, views, services
+      categories/           Category API
+      contact/              Support/contact messages
+      marketplace/          Cities, vendors, couriers, promo/wishlist foundation
+      orders/               Checkout, orders, payments, notifications
+      products/             Product catalog and seed commands
+      reviews/              Product reviews
+      users/                Custom user model and auth endpoints
+    config/
+      settings/             base, development, production settings
+      urls.py               API, admin, media routes
+      asgi.py / wsgi.py
+    locale/                 Admin translation catalogs
+    manage.py
+    requirements.txt
+    pytest.ini
+  frontend/
+    app/                    Next.js App Router
+    components/             Storefront, checkout, profile, staff components
+    lib/                    API client, store, adapters, i18n, fallback data
+    package.json
+  docs/
+    API.md                  API reference
+    DEPLOYMENT.md           Render, Supabase, Vercel deployment guide
+  .github/workflows/
+    ci.yml                  Backend and frontend CI
+  docker-compose.yml
+  README.md
 ```
 
----
+## Prerequisites
 
-## 🚀 Quick Start
+- Python 3.12
+- Node.js 22 recommended for CI parity
+- PostgreSQL 15 or a Supabase PostgreSQL database
+- Redis 7 if you want Celery/Channels locally
+- Git
 
-### Option A — Docker (recommended)
+Docker Compose is also available for a local stack, but the manual setup below
+is the clearest way to understand the project.
 
-```bash
-git clone https://github.com/Bol-F/flower-shop.git
-cd flower-shop
+## Backend Setup
 
-cp backend/.env.example backend/.env   # set SECRET_KEY and DB_PASSWORD
-
-docker-compose up --build
-```
-
-| Service | URL |
-|---|---|
-| 🌸 Storefront | http://localhost:3000 |
-| 🔌 API | http://localhost:8000/api/ |
-| 🛠️ Django Admin | http://localhost:8000/admin/ |
-
-### Option B — Manual setup
-
-**Prerequisites:** Python 3.12, Node.js 18+, PostgreSQL 15+. Redis 7 is optional — only needed for Celery tasks and Channels.
-
-<details>
-<summary><b>Backend</b></summary>
+From the repository root:
 
 ```bash
 cd backend
-
-py -3.12 -m venv .venv
-.venv\Scripts\activate          # Windows
-# source .venv/bin/activate     # Mac/Linux
-
-pip install -r requirements.txt
-
-cp .env.example .env            # fill in SECRET_KEY, DB_* values
-
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py runserver      # http://localhost:8000
+python -m venv .venv
 ```
-</details>
 
-<details>
-<summary><b>Frontend (Gulora marketplace UI)</b></summary>
+Activate the virtual environment:
+
+```bash
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+
+# macOS/Linux
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Create the backend environment file:
+
+```bash
+cp .env.example .env
+```
+
+Edit `backend/.env` and set at least:
+
+```env
+SECRET_KEY=replace-with-a-local-secret
+DEBUG=True
+DB_NAME=flower_shop_db
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_HOST=localhost
+DB_PORT=5432
+CORS_ALLOWED_ORIGINS=http://localhost:3000
+```
+
+Run migrations and start the API:
+
+```bash
+python manage.py migrate
+python manage.py runserver
+```
+
+Backend URLs:
+
+- API root: `http://localhost:8000/api/`
+- Django admin: `http://localhost:8000/admin/`
+
+## Frontend Setup
+
+Open a second terminal:
 
 ```bash
 cd frontend
-
 npm install
-npm run dev                     # http://localhost:3000
+cp .env.example .env.local
+npm run dev
 ```
 
-By default the frontend calls `http://localhost:8000`. Set `NEXT_PUBLIC_API_URL`
-when the backend lives elsewhere. If the backend is unavailable, the catalog
-falls back to bundled demo products so the UI still renders.
+Frontend URL:
 
-For phone testing on the same Wi-Fi, run both servers on LAN-accessible hosts:
+- Storefront: `http://localhost:3000`
 
-```bash
-# backend
-python manage.py runserver 0.0.0.0:8000
+The frontend reads `NEXT_PUBLIC_API_URL`. For local development this should
+usually be:
 
-# frontend
-npm run dev -- -H 0.0.0.0
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
-Then open the frontend network URL on the phone, for example
-`http://192.168.0.105:3000`. The frontend will call
-`http://192.168.0.105:8000` automatically unless `NEXT_PUBLIC_API_URL` points to
-a different backend.
+## Environment Variables
 
-> The previous Bloom & Petal storefront (React 18 + i18n + support chat,
-> wired to the Django API) was replaced by this design and lives in git
-> history up to commit `834f639`.
-</details>
+Example files are committed for safe local setup:
 
-### 🌷 Seed demo data
+- `backend/.env.example`
+- `frontend/.env.example`
+
+Do not commit real `.env` files or secrets.
+
+Backend variable groups:
+
+- Django: `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`
+- Database: `DATABASE_URL` or `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`
+- Browser security: `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS`
+- Redis: `REDIS_URL`
+- Notifications: `NOTIFICATIONS_ENABLED`, `EMAIL_NOTIFICATIONS_ENABLED`, SMTP variables, Telegram variables
+- Payments: `PAYMENT_PROVIDER`, Stripe/Click/Payme placeholder credentials
+- Optional media/storage: Cloudinary, S3, or Supabase Storage placeholders
+
+Frontend variables must be public-safe because `NEXT_PUBLIC_*` values can be
+exposed in browser JavaScript:
+
+- `NEXT_PUBLIC_API_URL`
+- `NEXT_PUBLIC_SITE_URL`
+- Optional public display flags only
+
+Provider secrets, Telegram tokens, SMTP passwords, and Django secrets belong in
+the backend environment only.
+
+## Database Setup
+
+For local PostgreSQL, create a database that matches `backend/.env`:
+
+```sql
+CREATE DATABASE flower_shop_db;
+```
+
+For Supabase, copy the PostgreSQL connection string and set it as
+`DATABASE_URL` in Render or in `backend/.env` for a local Supabase-backed run.
+If Supabase requires SSL, include `?sslmode=require` in the URL.
+
+Seed demo catalog data after migrations:
 
 ```bash
 cd backend
-
-# 7 categories + 28 products
 python manage.py seed_flowers
-
-# Download a real photo for every product (Wikimedia Commons, no API key).
-# Resumable — if some downloads hit a rate limit, wait a minute and re-run.
 python manage.py download_flower_images
 ```
 
----
+`download_flower_images` stores files in local media storage. In production,
+use external media storage before accepting important uploads.
 
-## 🌍 Languages
+## Migrations
 
-English is the default. The Django admin is fully trilingual:
-
-| Where | How to switch |
-|---|---|
-| Django admin | URL prefix — `/admin/` (EN), `/ru/admin/`, `/uz/admin/` — or the **EN / RU / UZ** switcher next to the logout link |
-| Gulora frontend | Header language switcher — EN / RU / UZ copy is available for the storefront |
-
-**Editing admin translations:** edit `backend/locale/{ru,uz}/LC_MESSAGES/django.po`, then compile and restart:
+Run migrations locally:
 
 ```bash
 cd backend
-python scripts/compile_messages.py   # pure Python, GNU gettext not required
+python manage.py migrate
 ```
 
----
-
-## 🚀 Deployment
-
-The backend runs on any PaaS (Render, Railway, Fly) with a managed PostgreSQL (e.g. Supabase). Static files are served by WhiteNoise — no nginx needed.
-
-> 🐍 The repo pins **Python 3.12** via `.python-version` (Render reads it automatically; or set `PYTHON_VERSION=3.12.10` in the dashboard). The pinned dependencies are not compatible with Python 3.13/3.14.
-
-**Environment variables to set on the platform:**
-
-```
-DJANGO_SETTINGS_MODULE=config.settings.production
-SECRET_KEY=<a long random string>
-DEBUG=False
-ALLOWED_HOSTS=your-backend.example.com
-DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DBNAME
-CORS_ALLOWED_ORIGINS=https://your-frontend.example.com
-CSRF_TRUSTED_ORIGINS=https://your-backend.example.com
-REDIS_URL=<only if you run Celery / Channels>
-EMAIL_HOST=
-EMAIL_PORT=587
-EMAIL_HOST_USER=
-EMAIL_HOST_PASSWORD=
-EMAIL_USE_TLS=true
-DEFAULT_FROM_EMAIL=
-NOTIFICATIONS_ENABLED=true
-EMAIL_NOTIFICATIONS_ENABLED=false
-TELEGRAM_NOTIFICATIONS_ENABLED=false
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_ADMIN_CHAT_ID=
-PAYMENT_PROVIDER=test
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
-CLICK_SERVICE_ID=
-CLICK_SECRET_KEY=
-PAYME_MERCHANT_ID=
-PAYME_SECRET_KEY=
-```
-
-Set `ALLOWED_HOSTS` to the backend hostnames that may serve Django, and set
-`CORS_ALLOWED_ORIGINS` to the exact Vercel/frontend origins allowed to call the
-API. Product/media files still use local filesystem storage by default; move
-media to S3, Cloudinary, or Supabase Storage before accepting customer uploads
-at scale.
-
-> ⚠️ `DJANGO_SETTINGS_MODULE` must be a real environment variable on the platform — putting it in `.env` has no effect, because Django chooses the settings module before `.env` is read.
-
-**Build command:**
+Check that model changes have migrations:
 
 ```bash
-pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+python manage.py makemigrations --check
 ```
 
-**Start command** (Daphne serves both HTTP and WebSockets):
+Create a new migration only when models change:
 
 ```bash
-daphne -b 0.0.0.0 -p $PORT config.asgi:application
+python manage.py makemigrations
 ```
 
-**First deploy:** seed the production database once —
+## Creating a Superuser
 
 ```bash
+cd backend
 python manage.py createsuperuser
-python manage.py seed_flowers
-python manage.py download_flower_images
 ```
 
-> ⚠️ On most PaaS free tiers the filesystem is ephemeral — uploaded media (product photos) disappears on redeploy. Re-run `download_flower_images` after deploys, or move media to S3/Cloudinary for permanence.
+Or promote an existing account:
 
-For the Gulora frontend (Vercel / Netlify): set `NEXT_PUBLIC_API_URL` to the
-deployed backend origin. The app can render with fallback demo products, but
-auth, cart, checkout, support chat, and order history need the backend.
+```bash
+python manage.py shell
+```
 
-### 🔄 CI/CD
+```python
+from apps.users.models import User
+user = User.objects.get(email="you@example.com")
+user.is_staff = True
+user.is_superuser = True
+user.save()
+```
 
-Every push and pull request runs the GitHub Actions pipeline ([.github/workflows/ci.yml](.github/workflows/ci.yml)):
+## Running Tests
 
-- **Backend** — Python 3.12 (from `.python-version`) + PostgreSQL 15 + Redis 7: missing-migrations check, then the full pytest suite
-- **Frontend** — Node 22: ESLint, then a production `next build`
-
-Deploys are gated on CI by the platforms themselves:
-
-- **Backend** — Render's *Settings → Build & Deploy → Auto-Deploy* is set to **After CI Checks Pass**, so a push to `main` only deploys once every GitHub Actions job is green.
-- **Frontend** — Vercel's Git integration deploys `main` to production and gives every PR its own preview URL.
-
----
-
-## 🧪 Tests
-
-Backend: 76 pytest tests across users, products, categories, cart, orders,
-contact, reviews, and admin i18n.
+Backend:
 
 ```bash
 cd backend
-
-pytest                               # whole suite
-pytest -v                            # verbose
-pytest apps/orders                   # one app
-pytest tests/test_admin_i18n.py      # admin language tests
-pytest -k "permission"               # by keyword
-pytest -x                            # stop at first failure
-
-# coverage report
-pip install pytest-cov
-pytest --cov=apps --cov-report=term-missing
+python manage.py makemigrations --check
+python manage.py migrate
+pytest
 ```
-
-> PostgreSQL must be running — pytest creates and destroys its own test database.
 
 Frontend:
 
@@ -329,330 +301,141 @@ npm run test
 npm run build
 ```
 
----
+GitHub Actions runs the same core backend and frontend checks on pushes and
+pull requests.
+
+## Running With Docker
+
+Copy the backend env file first:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Then run:
+
+```bash
+docker-compose up --build
+```
+
+Services:
+
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:8000/api/`
+- Django admin: `http://localhost:8000/admin/`
+- PostgreSQL: `localhost:5432`
 
 ## Payments
 
-Bloom & Petal has an internal payment workflow and a provider abstraction, but
-does not connect to real payment networks yet.
+The project does not integrate real payment providers yet.
 
-### Current payment flow
+Current behavior:
 
-- Supported payment methods are `cash`, `card`, and `online`.
-- Cash orders are created with `payment_status=unpaid` and
-  `payment_provider=cash`.
-- Card and online orders are created with `payment_status=pending` and use the
-  configured backend `PAYMENT_PROVIDER`.
-- Staff/admin users can manually mark payments as `paid` or `failed` from the
-  staff dashboard or `PATCH /api/orders/{id}/payment-status/`.
-- `paid_at` is set by the backend when a payment becomes `paid`.
+- `cash` orders are created without a provider charge and remain `unpaid` unless staff changes them.
+- `card` and `online` orders use the configured provider and start as `pending`.
+- `PAYMENT_PROVIDER=test` is the safe default.
+- The test provider creates a fake payment reference and lets the customer click `Pay test order`.
+- Staff can manually mark payment status as `paid` or `failed`.
+- `paid_at` is set by the backend when payment becomes `paid`.
 
-### Test payment flow
-
-`PAYMENT_PROVIDER=test` is the default and the only fully implemented provider.
-For card/online orders, the backend creates a fake reference such as
-`TEST-ABC123...` and stores `payment_provider=test`. The customer sees a test
-payment warning and can click `Pay test order`, which calls:
-
-```http
-POST /api/orders/{id}/pay-test/
-```
-
-That endpoint is owner-only, does not accept card details, does not save card
-data, and marks the order `paid` for demo purposes.
-
-### Payment statuses
-
-| Status | Meaning |
-|---|---|
-| `unpaid` | Payment is still due, usually cash on delivery |
-| `pending` | Provider or staff confirmation is pending |
-| `paid` | Payment is complete; `paid_at` is set |
-| `failed` | Payment attempt failed or was rejected |
-| `refunded` | Payment was returned to the customer |
-
-### Payment environment variables
-
-Set these only on the backend. Never expose provider secrets through frontend
-`NEXT_PUBLIC_*` variables.
-
-```env
-PAYMENT_PROVIDER=test
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
-CLICK_SERVICE_ID=
-CLICK_SECRET_KEY=
-PAYME_MERCHANT_ID=
-PAYME_SECRET_KEY=
-```
-
-### Provider architecture
-
-Provider classes live in `backend/apps/orders/payment_providers/` and implement:
-
-- `create_payment(order)`
-- `verify_payment(payment_reference)`
-- `handle_webhook(payload)`
-- `refund_payment(order)`
-
-Implemented provider:
-
-- `TestPaymentProvider` for safe demo/test payments.
-
-Placeholders:
-
-- `StripePaymentProvider`
-- `ClickPaymentProvider`
-- `PaymePaymentProvider`
-
-The placeholders deliberately do not call provider APIs. If selected without
-the required backend credentials, checkout returns a clear provider-not-configured
-error. Even with credentials present, real integration still requires official
-documentation, signature/webhook verification, idempotency, refund handling, and
-provider-specific test coverage before production use.
-
-### Switching providers
-
-Set `PAYMENT_PROVIDER` in the backend environment:
-
-```env
-PAYMENT_PROVIDER=test    # current safe default
-PAYMENT_PROVIDER=stripe  # placeholder only
-PAYMENT_PROVIDER=click   # placeholder only
-PAYMENT_PROVIDER=payme   # placeholder only
-```
-
-Keep `test` until official Click, Payme, or Stripe documentation and valid
-merchant/test credentials are available.
-
----
+Real Click, Payme, or Stripe work should be added only with official docs,
+test credentials, webhook signature validation, idempotency, and provider tests.
 
 ## Notifications
 
-Order, payment, and support events are recorded in `NotificationLog` and are
-visible in Django admin. Console logging is always safe for local development.
+Important order, payment, and support events create `NotificationLog` rows.
 
-Supported notification events:
+Supported channels:
 
-- `order_created`
-- `order_confirmed`
-- `order_preparing`
-- `courier_picked_up`
-- `order_delivered`
-- `payment_paid`
-- `payment_failed`
-- `support_message_created`
+- Console/log fallback for development.
+- Customer email notifications when SMTP is enabled and configured.
+- Telegram admin notifications when a bot token and admin chat id are configured.
 
-### Customer email notifications
+Missing email or Telegram credentials never block checkout. Notification rows
+are marked `skipped` or `failed`, and the order/support action continues.
 
-Email sends simple text updates to customers for order and payment events:
+## API Overview
 
-- order created
-- order confirmed
-- order preparing
-- courier picked up
-- order delivered
-- payment paid
-- payment failed
+See `docs/API.md` for more detail.
 
-Set these backend environment variables when SMTP credentials are available:
+Common endpoints:
 
-```env
-NOTIFICATIONS_ENABLED=true
-EMAIL_NOTIFICATIONS_ENABLED=true
-EMAIL_HOST=<smtp host>
-EMAIL_PORT=587
-EMAIL_HOST_USER=<smtp username>
-EMAIL_HOST_PASSWORD=<smtp password>
-EMAIL_USE_TLS=true
-DEFAULT_FROM_EMAIL=orders@example.com
+| Area | Endpoint |
+| --- | --- |
+| Auth | `POST /api/auth/register/`, `POST /api/auth/login/`, `GET /api/auth/profile/` |
+| Catalog | `GET /api/categories/`, `GET /api/products/`, `GET /api/products/{slug}/` |
+| Cart | `GET /api/cart/`, `POST /api/cart/items/`, `PATCH /api/cart/items/{product_id}/` |
+| Checkout | `POST /api/orders/create/` |
+| Orders | `GET /api/orders/`, `GET /api/orders/{id}/` |
+| Test payment | `POST /api/orders/{id}/pay-test/` |
+| Staff | `GET /api/orders/dashboard/`, `PATCH /api/orders/{id}/status/`, `PATCH /api/orders/{id}/payment-status/` |
+| Support | `POST /api/contact/send/`, `GET /api/contact/admin/messages/` |
+| Reviews | `GET /api/reviews/products/{product_id}/`, `POST /api/reviews/products/{product_id}/review/` |
+
+## Deployment Overview
+
+Recommended production setup:
+
+- Supabase PostgreSQL for the database.
+- Render web service for the Django backend.
+- Vercel project for the Next.js frontend.
+- GitHub Actions for CI before deployment.
+
+Short version:
+
+1. Create a Supabase PostgreSQL database.
+2. Deploy `backend/` to Render with `DJANGO_SETTINGS_MODULE=config.settings.production`.
+3. Set backend env variables on Render.
+4. Run migrations on Render.
+5. Deploy `frontend/` to Vercel.
+6. Set `NEXT_PUBLIC_API_URL` on Vercel to the Render backend URL.
+7. Add the Vercel URL to backend `CORS_ALLOWED_ORIGINS`.
+
+Full deployment instructions are in `docs/DEPLOYMENT.md`.
+
+## Demo Accounts
+
+No real demo passwords are committed to the repository.
+
+For local testing:
+
+1. Create a superuser with `python manage.py createsuperuser`.
+2. Register a customer through the frontend.
+3. Use Django admin to mark the customer as staff if you want to test staff flows.
+
+Suggested local accounts:
+
+| Role | Email | How to create |
+| --- | --- | --- |
+| Admin | `admin@example.com` | `python manage.py createsuperuser` |
+| Customer | `customer@example.com` | Register in the frontend |
+| Staff | `staff@example.com` | Register, then set `is_staff=True` in Django admin |
+
+## Screenshots
+
+Add screenshots when the UI is ready for the public README:
+
+- Storefront catalog
+- Product detail page
+- Cart and checkout
+- Test payment confirmation
+- Customer order history
+- Staff dashboard
+- Notification logs in Django admin
+
+Recommended folder:
+
+```text
+docs/screenshots/
 ```
 
-In local development, keep `EMAIL_NOTIFICATIONS_ENABLED=false`. The app still
-creates `NotificationLog` rows with `status=skipped`, and checkout continues
-normally. If email is enabled but credentials or the customer email are missing,
-the email log is skipped. If SMTP raises an error, the log is marked `failed`
-and the order/payment update still succeeds.
+## Future Improvements
 
-Safe local test:
-
-1. Use a sandbox SMTP service or Django's console email backend in development.
-2. Set the email variables in `backend/.env`.
-3. Restart the backend.
-4. Create an order or update order/payment status.
-5. Check the customer inbox and Django admin `Notification logs`.
-
-### Telegram admin notifications
-
-Telegram sends admin notifications for important business events:
-
-- new order
-- payment paid or failed
-- order confirmed
-- courier picked up
-- order delivered
-- new support message
-
-Create a bot with Telegram's BotFather, copy the bot token, then send a message
-to the bot from the admin account or add it to an admin chat. Get the chat id
-from Telegram's `getUpdates` response or another trusted admin tool, then set
-the backend environment:
-
-```env
-NOTIFICATIONS_ENABLED=true
-TELEGRAM_NOTIFICATIONS_ENABLED=true
-TELEGRAM_BOT_TOKEN=<bot token from BotFather>
-TELEGRAM_ADMIN_CHAT_ID=<admin chat id>
-```
-
-Keep these values backend-only. Do not expose them through frontend
-`NEXT_PUBLIC_*` variables and do not commit real tokens.
-
-Local test:
-
-1. Set the Telegram variables in `backend/.env`.
-2. Restart the backend.
-3. Place a test order or send a support message.
-4. Check the admin Telegram chat and the Django admin `Notification logs`.
-
-If Telegram is disabled or credentials are missing, the app does not crash.
-The Telegram `NotificationLog` row is marked `skipped`. If Telegram returns an
-error or the HTTP request fails, the row is marked `failed`; the bot token is
-not written to logs.
-
----
-
-## Business Rules
-
-- Cities, vendors, couriers, promo codes, and wishlist live in `apps.marketplace` as the foundation for a multi-city marketplace.
-- Payment methods are `cash`, `card`, and `online`. Cash starts as `unpaid`; card and online orders start as `pending` until the configured provider or staff marks them `paid` or `failed`.
-- Orders store `payment_provider`, `payment_reference`, and `paid_at`. Provider-specific code belongs in `backend/apps/orders/payment_providers/`, not views or serializers.
-- Order and support notifications are stored in `NotificationLog`. Console logs are the development fallback; customer email and Telegram admin notifications are sent when enabled and configured. Missing credentials never break checkout.
-- Delivery fees are calculated in `backend/apps/orders/pricing.py`. Orders above the free-delivery threshold have a zero fee; otherwise the selected active delivery zone controls the fee.
-- Delivery zones are city-scoped and can store a future polygon/coordinates payload for automatic zone detection from `delivery_lat` and `delivery_lng`.
-- Zones that require manual confirmation still allow checkout, but the order is flagged so staff can confirm availability before fulfillment.
-- Inventory is validated again when an order is created. Stock decreases inside the same database transaction, and order items keep product name and price snapshots.
-- Promo code validation is backend-authoritative. The frontend may show an estimate, but final discount and totals are saved by the backend order service.
-- Loyalty points are a simple foundation: delivered eligible orders award points to the customer profile once.
-
-## API Documentation
-
-See [docs/API.md](docs/API.md) for the current API reference, including auth,
-catalog, checkout, marketplace foundation, staff dashboard, reviews, and
-support endpoints.
-
-## Future Growth Plan
-
-- Promo codes: add a promotions app with code validation, usage limits, expiry dates, and order discount snapshots.
-- Wishlist and repeat order: keep these customer features near cart/profile APIs, reusing product serializers.
-- Loyalty points: add a ledger-style model so points are auditable instead of storing only one mutable balance.
-- Courier assignment: extend orders with a courier/user relation, delivery status timestamps, and staff filters.
-- Multi-city delivery: turn delivery zones into city-scoped zones, then use stored polygons for automatic zone detection from map coordinates.
-- Analytics: keep dashboard queries in dedicated service functions as reports grow, so views stay thin.
-
----
-
-## 📡 API Reference
-
-All responses are paginated (`count` / `next` / `previous` / `results`, 12 per page) unless noted.
-
-### Auth
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| POST | `/api/auth/register/` | Create account | — |
-| POST | `/api/auth/login/` | Get JWT access + refresh | — |
-| POST | `/api/auth/token/refresh/` | Refresh access token | — |
-| GET / PATCH | `/api/auth/profile/` | Get / update current user | ✅ |
-
-### Categories
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| GET | `/api/categories/` | List | — |
-| GET | `/api/categories/{slug}/` | Detail | — |
-| POST / PATCH / DELETE | `/api/categories/…` | Manage | 👑 Admin |
-
-### Products
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| GET | `/api/products/` | List with search & filters | — |
-| GET | `/api/products/{slug}/` | Detail | — |
-| POST / PATCH / DELETE | `/api/products/…` | Manage | 👑 Admin |
-
-**Query params:** `search` · `category` · `min_price` · `max_price` · `is_available` · `ordering` · `page` · `page_size`
-
-### Cart
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| GET | `/api/cart/` | Cart with items & totals | ✅ |
-| DELETE | `/api/cart/` | Clear cart | ✅ |
-| POST | `/api/cart/items/` | Add `{product_id, quantity}` | ✅ |
-| PATCH | `/api/cart/items/{productId}/` | Update `{quantity}` | ✅ |
-| DELETE | `/api/cart/items/{productId}/` | Remove item | ✅ |
-
-### Orders
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| GET | `/api/orders/dashboard/` | Staff dashboard stats, delivery queue, best sellers, and inventory alerts | 👑 Admin |
-| GET | `/api/orders/delivery-zones/` | Active delivery zones and fees | — |
-| GET | `/api/orders/` | Own orders (admin sees all) | ✅ |
-| POST | `/api/orders/create/` | Place order from cart with `shipping_address`, `phone`, and `payment_method`; optional delivery fields include `delivery_zone_id`, `delivery_address`, `delivery_lat`/`delivery_lng`, `delivery_date`, `delivery_time_slot`, `recipient_name`, `recipient_phone`, `gift_note`, `call_recipient_before_delivery`, and `notes` | ✅ |
-| GET | `/api/orders/{id}/` | Detail | ✅ owner |
-| POST | `/api/orders/{id}/pay-test/` | Complete a fake/test card or online payment for the order owner | ✅ owner |
-| PATCH | `/api/orders/{id}/status/` | Update status | 👑 Admin |
-| PATCH | `/api/orders/{id}/payment-status/` | Update manual payment status; accepts optional `payment_provider` and `payment_reference` | 👑 Admin |
-
-### Contact
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| POST | `/api/contact/send/` | Send a message to the shop | ✅ |
-| GET | `/api/contact/admin/messages/` | List incoming messages | 👑 Admin |
-| GET / PATCH | `/api/contact/admin/messages/{id}/` | Read (auto-marks read) / reply | 👑 Admin |
-
----
-
-## 🏗️ Architecture Notes
-
-**Backend**
-- Business logic lives in `services.py` (cart, orders) — views validate input and delegate
-- `IsAdminOrReadOnly` / `IsOwnerOrAdmin` permissions shared via `apps/common`
-- Slug-based URLs for products and categories
-- Orders snapshot `product_name` / `product_price` at purchase time — later price changes never rewrite history
-- Payment status workflow is coordinated in `apps/orders/payments.py`; provider-specific behavior lives in `apps/orders/payment_providers/`
-- Notification orchestration lives in `apps/orders/notification_services.py`; customer email uses Django's email backend, Telegram uses safe HTTP requests with timeout/error logging, and missing credentials fall back to skipped log rows
-- Delivery pricing is isolated in `apps/orders/pricing.py`; delivery zones are stored in the database and can later use polygons/coordinates for automatic detection
-- Products expose `low_stock_threshold` and `stock_status` so staff can track low-stock, out-of-stock, and unavailable inventory
-- `@transaction.atomic` order creation: the cart is cleared only if the order commits
-- Contact notifications go through Celery, wrapped so a down Redis never breaks the request
-
-**Frontend**
-- The fetch API client attaches JWTs and retries once on 401 with the refresh token
-- The catalog adapter maps Django product/category rows into the rich storefront card model
-- Signed-in cart actions sync to the Django cart API; guest carts stay local until sign-in
-- Checkout uses Leaflet + OpenStreetMap for delivery point selection, then creates backend orders and the customer profile reads `/api/orders/`
-- UI copy is kept in `frontend/lib/i18n.ts`; add a language by extending `Language`, `languages`, and `copy`
-
-**Admin i18n**
-- `i18n_patterns(prefix_default_language=False)` keeps `/admin/` English while `/ru/` and `/uz/` prefixes switch language
-- Django supplies its own admin chrome translations; project strings (models, fields, statuses) are marked with `gettext_lazy` and translated in `backend/locale/`
-- `scripts/compile_messages.py` is a minimal pure-Python msgfmt, so Windows machines without GNU gettext can still compile catalogs
-
----
-
-## 👑 Creating an Admin User
-
-```bash
-# during setup
-python manage.py createsuperuser
-
-# or promote an existing account
-python manage.py shell
->>> from apps.users.models import User
->>> u = User.objects.get(email='you@example.com')
->>> u.is_staff = True; u.is_superuser = True; u.save()
-```
-
----
-
-## 📄 License
-
-MIT
+- Add real payment providers with official Click, Payme, or Stripe documentation.
+- Add production media storage with Cloudinary, S3, or Supabase Storage.
+- Add webhook processing and audit logs for real payment providers.
+- Add richer HTML email templates.
+- Add customer notification preferences.
+- Add courier assignment and courier-facing delivery views.
+- Add stronger analytics and reporting for vendors and staff.
+- Add end-to-end browser tests for checkout and staff workflows.
