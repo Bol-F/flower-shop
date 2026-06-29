@@ -12,7 +12,12 @@ from apps.marketplace.services import (
 from apps.products.models import Product
 from . import notifications
 from .models import Order, OrderItem
-from .payments import initial_payment_provider, initial_payment_status
+from .payments import (
+    create_provider_payment,
+    initial_payment_provider,
+    initial_payment_reference,
+    initial_payment_status,
+)
 from .pricing import calculate_delivery_fee
 
 
@@ -81,6 +86,7 @@ def create_order_from_cart(
         payment_method=payment_method,
         payment_status=initial_payment_status(payment_method),
         payment_provider=initial_payment_provider(payment_method),
+        payment_reference=initial_payment_reference(payment_method),
         promo_code=promo,
         discount_amount=discount_amount,
         delivery_address=delivery_address,
@@ -97,6 +103,7 @@ def create_order_from_cart(
         delivery_fee=delivery_fee,
         notes=notes,
     )
+    create_provider_payment(order)
 
     order_items = [
         OrderItem(

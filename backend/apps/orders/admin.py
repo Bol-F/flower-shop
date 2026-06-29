@@ -30,7 +30,8 @@ class NotificationLogInline(admin.TabularInline):
     model = NotificationLog
     extra = 0
     readonly_fields = (
-        'event', 'channel', 'status', 'message', 'error', 'created_at',
+        'event_type', 'channel', 'recipient', 'subject', 'status',
+        'message', 'error_message', 'created_at', 'sent_at',
     )
     can_delete = False
 
@@ -49,11 +50,17 @@ class DeliveryZoneAdmin(admin.ModelAdmin):
 
 @admin.register(NotificationLog)
 class NotificationLogAdmin(admin.ModelAdmin):
-    list_display = ('id', 'order', 'event', 'channel', 'status', 'created_at')
-    list_filter = ('event', 'channel', 'status', 'created_at')
-    search_fields = ('order__id', 'message', 'error')
+    list_display = (
+        'id', 'related_order', 'event_type', 'channel', 'recipient',
+        'status', 'created_at', 'sent_at',
+    )
+    list_filter = ('event_type', 'channel', 'status', 'created_at')
+    search_fields = (
+        'related_order__id', 'recipient', 'subject', 'message', 'error_message',
+    )
     readonly_fields = (
-        'order', 'event', 'channel', 'status', 'message', 'error', 'created_at',
+        'related_order', 'event_type', 'channel', 'recipient', 'subject',
+        'status', 'message', 'error_message', 'created_at', 'sent_at',
     )
 
     def has_add_permission(self, request):

@@ -1,5 +1,7 @@
 import pytest
 from decimal import Decimal
+from unittest.mock import Mock, patch
+from django.test import override_settings
 from django.utils import timezone
 from django.urls import reverse
 from rest_framework import status
@@ -12,6 +14,8 @@ from apps.cart.models import Cart, CartItem
 from apps.marketplace.models import Courier, PromoCode
 from apps.orders import notifications
 from apps.orders.models import DeliveryZone, NotificationLog, Order
+from apps.orders.payment_providers import get_payment_provider
+from apps.orders.payment_providers.test_provider import TestPaymentProvider
 from apps.orders.pricing import FIXED_CITY_DELIVERY_FEE, OUTER_CITY_DELIVERY_FEE
 
 
@@ -89,6 +93,12 @@ def order_payload(**overrides):
 
 @pytest.mark.django_db
 class TestOrderCreation:
+    @override_settings(PAYMENT_PROVIDER='test')
+    def test_test_payment_provider_is_selected_by_default(self):
+        provider = get_payment_provider()
+
+        assert isinstance(provider, TestPaymentProvider)
+
     def test_create_order_success(self, api_client, user, cart_with_item):
         api_client.force_authenticate(user=user)
         url = reverse('order-create')
@@ -115,8 +125,11 @@ class TestOrderCreation:
         assert response.data['paid_at'] is None
         assert response.data['status_timeline'][0]['id'] == Order.Status.PENDING
         assert response.data['status_timeline'][0]['active'] is True
-        assert response.data['notification_logs'][0]['event'] == (
-            NotificationLog.Event.ORDER_CREATED
+        assert any(
+            log['event'] == NotificationLog.Event.ORDER_CREATED
+            and log['channel'] == NotificationLog.Channel.CONSOLE
+            and log['status'] == NotificationLog.Status.SENT
+            for log in response.data['notification_logs']
         )
         product = Product.objects.get(name='Tulip Bouquet')
         assert product.stock == 13
@@ -132,7 +145,8 @@ class TestOrderCreation:
         assert response.data['payment_method'] == Order.PaymentMethod.CARD
         assert response.data['payment_method_display'] == 'Card'
         assert response.data['payment_status'] == Order.PaymentStatus.PENDING
-        assert response.data['payment_provider'] == 'manual'
+        assert response.data['payment_provider'] == 'test'
+        assert response.data['payment_reference'].startswith('TEST-')
 
     def test_create_order_accepts_online_payment(self, api_client, user, cart_with_item):
         api_client.force_authenticate(user=user)
@@ -144,7 +158,138 @@ class TestOrderCreation:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['payment_method'] == Order.PaymentMethod.ONLINE
         assert response.data['payment_status'] == Order.PaymentStatus.PENDING
-        assert response.data['payment_provider'] == 'manual'
+        assert response.data['payment_provider'] == 'test'
+        assert response.data['payment_reference'].startswith('TEST-')
+
+    @override_settings(
+        PAYMENT_PROVIDER='stripe',
+        STRIPE_SECRET_KEY='',
+        STRIPE_WEBHOOK_SECRET='',
+    )
+    def test_missing_real_provider_config_returns_clear_error(
+        self, api_client, user, cart_with_item
+    ):
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            reverse('order-create'),
+            order_payload(payment_method=Order.PaymentMethod.CARD),
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'not configured' in str(response.data['payment_provider'])
+        assert Order.objects.filter(user=user).count() == 0
+        assert cart_with_item.items.count() == 1
+
+    @override_settings(
+        PAYMENT_PROVIDER='stripe',
+        STRIPE_SECRET_KEY='',
+        STRIPE_WEBHOOK_SECRET='',
+    )
+    def test_cash_order_does_not_require_configured_provider(
+        self, api_client, user, cart_with_item
+    ):
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            reverse('order-create'),
+            order_payload(payment_method=Order.PaymentMethod.CASH),
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['payment_method'] == Order.PaymentMethod.CASH
+        assert response.data['payment_status'] == Order.PaymentStatus.UNPAID
+        assert response.data['payment_provider'] == 'cash'
+
+    def test_owner_can_pay_test_order(self, api_client, user, cart_with_item):
+        api_client.force_authenticate(user=user)
+        create_response = api_client.post(
+            reverse('order-create'),
+            order_payload(payment_method=Order.PaymentMethod.CARD),
+            format='json',
+        )
+
+        response = api_client.post(
+            reverse('order-pay-test', args=[create_response.data['id']]),
+            {},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['payment_status'] == Order.PaymentStatus.PAID
+        assert response.data['payment_provider'] == 'test'
+        assert response.data['payment_reference'].startswith('TEST-')
+        assert response.data['paid_at'] is not None
+
+    def test_test_payment_changes_pending_order_to_paid(
+        self, api_client, user, cart_with_item
+    ):
+        api_client.force_authenticate(user=user)
+        create_response = api_client.post(
+            reverse('order-create'),
+            order_payload(payment_method=Order.PaymentMethod.ONLINE),
+            format='json',
+        )
+
+        assert create_response.data['payment_status'] == Order.PaymentStatus.PENDING
+        response = api_client.post(
+            reverse('order-pay-test', args=[create_response.data['id']]),
+            {},
+            format='json',
+        )
+
+        order = Order.objects.get(pk=create_response.data['id'])
+        assert response.status_code == status.HTTP_200_OK
+        assert order.payment_status == Order.PaymentStatus.PAID
+        assert order.paid_at is not None
+
+    def test_another_customer_cannot_pay_someone_elses_order(
+        self, api_client, user, cart_with_item
+    ):
+        other_user = User.objects.create_user(
+            username='other-customer',
+            email='other-customer@example.com',
+            password='pass123',
+        )
+        api_client.force_authenticate(user=user)
+        create_response = api_client.post(
+            reverse('order-create'),
+            order_payload(payment_method=Order.PaymentMethod.CARD),
+            format='json',
+        )
+
+        api_client.force_authenticate(user=other_user)
+        response = api_client.post(
+            reverse('order-pay-test', args=[create_response.data['id']]),
+            {},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        order = Order.objects.get(pk=create_response.data['id'])
+        assert order.payment_status == Order.PaymentStatus.PENDING
+        assert order.paid_at is None
+
+    def test_cash_order_does_not_use_test_payment(
+        self, api_client, user, cart_with_item
+    ):
+        api_client.force_authenticate(user=user)
+        create_response = api_client.post(
+            reverse('order-create'),
+            order_payload(payment_method=Order.PaymentMethod.CASH),
+            format='json',
+        )
+
+        response = api_client.post(
+            reverse('order-pay-test', args=[create_response.data['id']]),
+            {},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        order = Order.objects.get(pk=create_response.data['id'])
+        assert order.payment_status == Order.PaymentStatus.UNPAID
+        assert order.paid_at is None
 
     def test_create_order_applies_valid_promo_code(
         self, api_client, user, cart_with_item
@@ -431,7 +576,7 @@ class TestOrderCreation:
         assert response.data['payment_reference'] == 'staff-receipt-001'
         assert response.data['paid_at'] is not None
         assert any(
-            log['event'] == NotificationLog.Event.PAYMENT_STATUS_CHANGED
+            log['event'] == NotificationLog.Event.PAYMENT_PAID
             for log in response.data['notification_logs']
         )
 
@@ -455,6 +600,10 @@ class TestOrderCreation:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['payment_status'] == Order.PaymentStatus.FAILED
         assert response.data['paid_at'] is None
+        assert any(
+            log['event'] == NotificationLog.Event.PAYMENT_FAILED
+            for log in response.data['notification_logs']
+        )
 
     def test_customer_cannot_update_payment_status(
         self, api_client, user, cart_with_item
@@ -542,9 +691,12 @@ class TestOrderCreation:
         assert response.data['low_stock_products'][0]['name'] == product.name
         assert response.data['delivery_queue'][0]['id']
 
-    def test_notification_service_logs_console_without_credentials(
+    def test_telegram_disabled_creates_skipped_log(
         self, settings, user, cart_with_item
     ):
+        settings.NOTIFICATIONS_ENABLED = True
+        settings.EMAIL_NOTIFICATIONS_ENABLED = False
+        settings.TELEGRAM_NOTIFICATIONS_ENABLED = False
         settings.EMAIL_HOST_USER = ''
         settings.TELEGRAM_BOT_TOKEN = ''
         settings.TELEGRAM_ADMIN_CHAT_ID = ''
@@ -557,16 +709,246 @@ class TestOrderCreation:
 
         logs = notifications.notify_order_created(order)
 
-        assert len(logs) == 1
-        assert logs[0].channel == NotificationLog.Channel.CONSOLE
-        assert logs[0].status == NotificationLog.Status.SUCCESS
+        console_log = next(
+            log for log in logs if log.channel == NotificationLog.Channel.CONSOLE
+        )
+        telegram_log = next(
+            log for log in logs if log.channel == NotificationLog.Channel.TELEGRAM
+        )
+        assert console_log.status == NotificationLog.Status.SENT
+        assert console_log.event_type == NotificationLog.Event.ORDER_CREATED
+        assert console_log.subject == f'Order #{order.id} created'
+        assert console_log.recipient == user.email
+        assert console_log.related_order == order
+        assert console_log.sent_at is not None
+        assert telegram_log.status == NotificationLog.Status.SKIPPED
+        assert 'disabled' in telegram_log.error_message
 
-    def test_notification_service_skips_placeholder_channels_with_credentials(
+    def test_order_creation_creates_email_notification_log(
+        self, settings, api_client, user, cart_with_item
+    ):
+        settings.NOTIFICATIONS_ENABLED = True
+        settings.EMAIL_NOTIFICATIONS_ENABLED = False
+        settings.TELEGRAM_NOTIFICATIONS_ENABLED = False
+        api_client.force_authenticate(user=user)
+
+        response = api_client.post(
+            reverse('order-create'),
+            order_payload(),
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        email_log = NotificationLog.objects.get(
+            related_order_id=response.data['id'],
+            event_type=NotificationLog.Event.ORDER_CREATED,
+            channel=NotificationLog.Channel.EMAIL,
+        )
+        assert email_log.status == NotificationLog.Status.SKIPPED
+        assert 'disabled' in email_log.error_message
+
+    def test_email_disabled_creates_skipped_log(self, settings, user):
+        settings.NOTIFICATIONS_ENABLED = True
+        settings.EMAIL_NOTIFICATIONS_ENABLED = False
+        settings.TELEGRAM_NOTIFICATIONS_ENABLED = False
+        order = Order.objects.create(
+            user=user,
+            total_price='10.00',
+            shipping_address='123 Street',
+            phone='+123456789',
+        )
+
+        logs = notifications.notify_order_created(order)
+
+        email_log = next(
+            log for log in logs if log.channel == NotificationLog.Channel.EMAIL
+        )
+        assert email_log.status == NotificationLog.Status.SKIPPED
+        assert 'disabled' in email_log.error_message
+
+    def test_missing_customer_email_creates_skipped_log(self, settings, user):
+        settings.NOTIFICATIONS_ENABLED = True
+        settings.EMAIL_NOTIFICATIONS_ENABLED = True
+        settings.TELEGRAM_NOTIFICATIONS_ENABLED = False
+        settings.EMAIL_HOST = 'smtp.example.com'
+        settings.EMAIL_HOST_USER = 'orders@example.com'
+        settings.EMAIL_HOST_PASSWORD = 'fake-password'
+        settings.DEFAULT_FROM_EMAIL = 'orders@example.com'
+        order = Order.objects.create(
+            user=user,
+            total_price='10.00',
+            shipping_address='123 Street',
+            phone='+123456789',
+        )
+        order.user.email = ''
+
+        logs = notifications.notify_order_created(order)
+
+        email_log = next(
+            log for log in logs if log.channel == NotificationLog.Channel.EMAIL
+        )
+        assert email_log.status == NotificationLog.Status.SKIPPED
+        assert email_log.recipient == ''
+        assert 'Customer email is missing' in email_log.error_message
+
+    def test_successful_mocked_email_send_creates_sent_log(self, settings, user):
+        settings.NOTIFICATIONS_ENABLED = True
+        settings.EMAIL_NOTIFICATIONS_ENABLED = True
+        settings.TELEGRAM_NOTIFICATIONS_ENABLED = False
+        settings.EMAIL_HOST = 'smtp.example.com'
+        settings.EMAIL_HOST_USER = 'orders@example.com'
+        settings.EMAIL_HOST_PASSWORD = 'fake-password'
+        settings.DEFAULT_FROM_EMAIL = 'orders@example.com'
+        order = Order.objects.create(
+            user=user,
+            total_price='10.00',
+            shipping_address='123 Street',
+            phone='+123456789',
+        )
+
+        with patch('apps.orders.notification_services.send_mail', return_value=1) as send:
+            logs = notifications.notify_order_created(order)
+
+        email_log = next(
+            log for log in logs if log.channel == NotificationLog.Channel.EMAIL
+        )
+        assert email_log.status == NotificationLog.Status.SENT
+        assert email_log.recipient == user.email
+        assert email_log.sent_at is not None
+        assert email_log.subject == f'Bloom & Petal: Your order #{order.id} was created'
+        assert 'Order status:' in email_log.message
+        send.assert_called_once()
+        assert send.call_args.args[3] == ['order@example.com']
+
+    def test_failed_mocked_email_send_creates_failed_log(self, settings, user):
+        settings.NOTIFICATIONS_ENABLED = True
+        settings.EMAIL_NOTIFICATIONS_ENABLED = True
+        settings.TELEGRAM_NOTIFICATIONS_ENABLED = False
+        settings.EMAIL_HOST = 'smtp.example.com'
+        settings.EMAIL_HOST_USER = 'orders@example.com'
+        settings.EMAIL_HOST_PASSWORD = 'fake-password'
+        settings.DEFAULT_FROM_EMAIL = 'orders@example.com'
+        order = Order.objects.create(
+            user=user,
+            total_price='10.00',
+            shipping_address='123 Street',
+            phone='+123456789',
+        )
+
+        with patch(
+            'apps.orders.notification_services.send_mail',
+            side_effect=RuntimeError('SMTP unavailable'),
+        ):
+            logs = notifications.notify_order_created(order)
+
+        email_log = next(
+            log for log in logs if log.channel == NotificationLog.Channel.EMAIL
+        )
+        assert email_log.status == NotificationLog.Status.FAILED
+        assert 'SMTP unavailable' in email_log.error_message
+
+    def test_checkout_succeeds_if_email_sending_fails(
+        self, settings, api_client, user, cart_with_item
+    ):
+        settings.NOTIFICATIONS_ENABLED = True
+        settings.EMAIL_NOTIFICATIONS_ENABLED = True
+        settings.TELEGRAM_NOTIFICATIONS_ENABLED = False
+        settings.EMAIL_HOST = 'smtp.example.com'
+        settings.EMAIL_HOST_USER = 'orders@example.com'
+        settings.EMAIL_HOST_PASSWORD = 'fake-password'
+        settings.DEFAULT_FROM_EMAIL = 'orders@example.com'
+        api_client.force_authenticate(user=user)
+
+        with patch(
+            'apps.orders.notification_services.send_mail',
+            side_effect=RuntimeError('SMTP unavailable'),
+        ):
+            response = api_client.post(
+                reverse('order-create'),
+                order_payload(),
+                format='json',
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        email_log = NotificationLog.objects.get(
+            related_order_id=response.data['id'],
+            event_type=NotificationLog.Event.ORDER_CREATED,
+            channel=NotificationLog.Channel.EMAIL,
+        )
+        assert email_log.status == NotificationLog.Status.FAILED
+
+    def test_successful_mocked_telegram_send_creates_sent_log(
         self, settings, user
     ):
-        settings.EMAIL_HOST_USER = 'orders@example.com'
+        settings.NOTIFICATIONS_ENABLED = True
+        settings.EMAIL_NOTIFICATIONS_ENABLED = False
+        settings.TELEGRAM_NOTIFICATIONS_ENABLED = True
         settings.TELEGRAM_BOT_TOKEN = 'fake-token'
         settings.TELEGRAM_ADMIN_CHAT_ID = '123'
+        order = Order.objects.create(
+            user=user,
+            total_price='10.00',
+            shipping_address='123 Street',
+            phone='+123456789',
+        )
+        response = Mock(status_code=200, text='{"ok": true}')
+        response.json.return_value = {'ok': True, 'result': {'message_id': 1}}
+
+        with patch('apps.orders.notification_services.requests.post', return_value=response) as post:
+            logs = notifications.notify_order_created(order)
+
+        telegram_log = next(
+            log for log in logs if log.channel == NotificationLog.Channel.TELEGRAM
+        )
+        assert telegram_log.status == NotificationLog.Status.SENT
+        assert telegram_log.recipient == '123'
+        assert telegram_log.sent_at is not None
+        assert 'New order' in telegram_log.message
+        assert 'fake-token' not in telegram_log.error_message
+        post.assert_called_once()
+        request_payload = post.call_args.kwargs['json']
+        assert request_payload['chat_id'] == '123'
+        assert 'New order' in request_payload['text']
+
+    def test_failed_mocked_telegram_send_creates_failed_log(
+        self, settings, user
+    ):
+        settings.NOTIFICATIONS_ENABLED = True
+        settings.EMAIL_NOTIFICATIONS_ENABLED = False
+        settings.TELEGRAM_NOTIFICATIONS_ENABLED = True
+        settings.TELEGRAM_BOT_TOKEN = 'fake-token'
+        settings.TELEGRAM_ADMIN_CHAT_ID = '123'
+        order = Order.objects.create(
+            user=user,
+            total_price='10.00',
+            shipping_address='123 Street',
+            phone='+123456789',
+        )
+        response = Mock(status_code=400, text='{"ok": false, "description": "bad request"}')
+        response.json.return_value = {'ok': False, 'description': 'bad request'}
+
+        with patch('apps.orders.notification_services.requests.post', return_value=response):
+            logs = notifications.notify_order_created(order)
+
+        telegram_log = next(
+            log for log in logs if log.channel == NotificationLog.Channel.TELEGRAM
+        )
+        assert telegram_log.status == NotificationLog.Status.FAILED
+        assert 'HTTP 400' in telegram_log.error_message
+        assert 'fake-token' not in telegram_log.error_message
+
+    def test_notification_service_skips_missing_credentials_without_crashing(
+        self, settings, user
+    ):
+        settings.NOTIFICATIONS_ENABLED = True
+        settings.EMAIL_NOTIFICATIONS_ENABLED = True
+        settings.TELEGRAM_NOTIFICATIONS_ENABLED = True
+        settings.EMAIL_HOST = ''
+        settings.EMAIL_HOST_USER = ''
+        settings.EMAIL_HOST_PASSWORD = ''
+        settings.DEFAULT_FROM_EMAIL = ''
+        settings.TELEGRAM_BOT_TOKEN = ''
+        settings.TELEGRAM_ADMIN_CHAT_ID = ''
         order = Order.objects.create(
             user=user,
             total_price='10.00',
@@ -581,10 +963,57 @@ class TestOrderCreation:
             NotificationLog.Channel.EMAIL,
             NotificationLog.Channel.TELEGRAM,
         }
-        assert all(
-            log.status in [NotificationLog.Status.SUCCESS, NotificationLog.Status.SKIPPED]
-            for log in logs
+        assert [
+            log.status for log in logs
+            if log.channel in [NotificationLog.Channel.EMAIL, NotificationLog.Channel.TELEGRAM]
+        ] == [NotificationLog.Status.SKIPPED, NotificationLog.Status.SKIPPED]
+
+    def test_order_creation_triggers_telegram_notification_when_enabled(
+        self, settings, api_client, user, cart_with_item
+    ):
+        settings.NOTIFICATIONS_ENABLED = True
+        settings.EMAIL_NOTIFICATIONS_ENABLED = False
+        settings.TELEGRAM_NOTIFICATIONS_ENABLED = True
+        settings.TELEGRAM_BOT_TOKEN = 'fake-token'
+        settings.TELEGRAM_ADMIN_CHAT_ID = '123'
+        response = Mock(status_code=200, text='{"ok": true}')
+        response.json.return_value = {'ok': True, 'result': {'message_id': 1}}
+
+        api_client.force_authenticate(user=user)
+        with patch('apps.orders.notification_services.requests.post', return_value=response) as post:
+            create_response = api_client.post(
+                reverse('order-create'),
+                order_payload(),
+                format='json',
+            )
+
+        assert create_response.status_code == status.HTTP_201_CREATED
+        order = Order.objects.get(pk=create_response.data['id'])
+        telegram_log = NotificationLog.objects.get(
+            related_order=order,
+            event_type=NotificationLog.Event.ORDER_CREATED,
+            channel=NotificationLog.Channel.TELEGRAM,
         )
+        assert telegram_log.status == NotificationLog.Status.SENT
+        assert 'New order' in telegram_log.message
+        assert 'Recipient: Jane Recipient' in telegram_log.message
+        post.assert_called_once()
+
+    def test_disabled_notifications_are_skipped_cleanly(self, settings, user):
+        settings.NOTIFICATIONS_ENABLED = False
+        order = Order.objects.create(
+            user=user,
+            total_price='10.00',
+            shipping_address='123 Street',
+            phone='+123456789',
+        )
+
+        logs = notifications.notify_order_created(order)
+
+        assert len(logs) == 1
+        assert logs[0].channel == NotificationLog.Channel.CONSOLE
+        assert logs[0].status == NotificationLog.Status.SKIPPED
+        assert 'disabled' in logs[0].error_message
 
     def test_order_requires_auth(self, api_client):
         response = api_client.post(reverse('order-create'), {})

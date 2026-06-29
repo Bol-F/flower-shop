@@ -221,30 +221,39 @@ class NotificationLog(models.Model):
         ORDER_PREPARING = 'order_preparing', _('Order preparing')
         COURIER_PICKED_UP = 'courier_picked_up', _('Courier picked up')
         ORDER_DELIVERED = 'order_delivered', _('Order delivered')
+        PAYMENT_PAID = 'payment_paid', _('Payment paid')
+        PAYMENT_FAILED = 'payment_failed', _('Payment failed')
         PAYMENT_STATUS_CHANGED = 'payment_status_changed', _('Payment status changed')
+        SUPPORT_MESSAGE_CREATED = 'support_message_created', _('Support message created')
 
     class Channel(models.TextChoices):
+        CONSOLE = 'console', _('Console')
         EMAIL = 'email', _('Email')
         TELEGRAM = 'telegram', _('Telegram')
-        CONSOLE = 'console', _('Console')
 
     class Status(models.TextChoices):
-        SUCCESS = 'success', _('Success')
+        PENDING = 'pending', _('Pending')
+        SENT = 'sent', _('Sent')
         FAILED = 'failed', _('Failed')
         SKIPPED = 'skipped', _('Skipped')
 
-    order = models.ForeignKey(
+    related_order = models.ForeignKey(
         Order,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='notification_logs',
-        verbose_name=_('order'),
+        verbose_name=_('related order'),
     )
-    event = models.CharField(_('event'), max_length=40, choices=Event.choices)
+    event_type = models.CharField(_('event type'), max_length=40, choices=Event.choices)
     channel = models.CharField(_('channel'), max_length=20, choices=Channel.choices)
     status = models.CharField(_('status'), max_length=20, choices=Status.choices)
+    recipient = models.CharField(_('recipient'), max_length=255, blank=True)
+    subject = models.CharField(_('subject'), max_length=255, blank=True)
     message = models.TextField(_('message'), blank=True)
-    error = models.TextField(_('error'), blank=True)
+    error_message = models.TextField(_('error message'), blank=True)
     created_at = models.DateTimeField(_('created at'), auto_now_add=True)
+    sent_at = models.DateTimeField(_('sent at'), null=True, blank=True)
 
     class Meta:
         verbose_name = _('Notification log')
@@ -252,7 +261,19 @@ class NotificationLog(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f'{self.get_event_display()} via {self.get_channel_display()}'
+        return f'{self.get_event_type_display()} via {self.get_channel_display()}'
+
+    @property
+    def order(self):
+        return self.related_order
+
+    @property
+    def event(self):
+        return self.event_type
+
+    @property
+    def error(self):
+        return self.error_message
 
 
 class OrderItem(models.Model):

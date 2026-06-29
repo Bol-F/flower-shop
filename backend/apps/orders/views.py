@@ -15,7 +15,7 @@ from apps.marketplace.services import award_loyalty_points_if_eligible, repeat_o
 from apps.products.models import Product
 from . import services
 from . import notifications
-from .payments import update_payment_status
+from .payments import pay_test_order, update_payment_status
 from .models import DeliveryZone, Order, OrderItem
 from .serializers import (
     DeliveryZoneSerializer,
@@ -121,6 +121,17 @@ class UpdatePaymentStatusView(APIView):
             payment_reference=serializer.validated_data.get('payment_reference', ''),
         )
         award_loyalty_points_if_eligible(order)
+        notifications.notify_payment_status_changed(order)
+        order = order_queryset().get(pk=order.pk)
+        return Response(OrderSerializer(order).data)
+
+
+class PayTestOrderView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        order = get_object_or_404(Order, pk=pk, user=request.user)
+        pay_test_order(order)
         notifications.notify_payment_status_changed(order)
         order = order_queryset().get(pk=order.pk)
         return Response(OrderSerializer(order).data)

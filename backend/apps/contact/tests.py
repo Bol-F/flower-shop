@@ -5,6 +5,7 @@ from rest_framework.test import APIClient
 
 from apps.users.models import User
 from apps.contact.models import UserMessage
+from apps.orders.models import NotificationLog
 
 
 @pytest.fixture
@@ -55,6 +56,14 @@ class TestSendMessage:
         msg = UserMessage.objects.get(subject='Question')
         assert msg.user == user
         assert msg.is_read is False
+        log = NotificationLog.objects.get(
+            event_type=NotificationLog.Event.SUPPORT_MESSAGE_CREATED,
+            channel=NotificationLog.Channel.CONSOLE,
+        )
+        assert log.channel == NotificationLog.Channel.CONSOLE
+        assert log.status == NotificationLog.Status.SENT
+        assert log.related_order is None
+        assert 'Do you deliver on Sundays?' in log.message
 
     def test_subject_and_body_required(self, api_client, user):
         api_client.force_authenticate(user=user)

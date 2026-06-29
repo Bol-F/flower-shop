@@ -17,15 +17,20 @@ class DeliveryZoneSerializer(serializers.ModelSerializer):
 
 
 class NotificationLogSerializer(serializers.ModelSerializer):
-    event_display = serializers.CharField(source='get_event_display', read_only=True)
+    event = serializers.CharField(source='event_type', read_only=True)
+    error = serializers.CharField(source='error_message', read_only=True)
+    event_display = serializers.CharField(source='get_event_type_display', read_only=True)
     channel_display = serializers.CharField(source='get_channel_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    related_order_id = serializers.IntegerField(source='related_order.id', read_only=True)
 
     class Meta:
         model = NotificationLog
         fields = (
-            'id', 'event', 'event_display', 'channel', 'channel_display',
-            'status', 'status_display', 'message', 'error', 'created_at',
+            'id', 'event_type', 'event', 'event_display', 'channel',
+            'channel_display', 'recipient', 'subject', 'status',
+            'status_display', 'message', 'error_message', 'error',
+            'related_order_id', 'created_at', 'sent_at',
         )
 
 

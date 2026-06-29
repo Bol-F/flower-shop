@@ -3,6 +3,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 
 from apps.common.permissions import IsCustomer
+from apps.orders.notifications import notify_support_message_created
 from .models import UserMessage
 from .serializers import (
     AdminReplyCreateSerializer,
@@ -20,6 +21,7 @@ class SendMessageView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         msg = serializer.save(user=self.request.user)
+        notify_support_message_created(msg)
         try:
             notify_admin_new_message.delay(msg.id, self.request.user.email, msg.subject)
         except Exception:
