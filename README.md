@@ -427,21 +427,19 @@ python manage.py createsuperuser
 
 ## Screenshots
 
-Add screenshots when the UI is ready for the public README:
+Screenshot files are intentionally not generated in this repository. Capture
+real screenshots after running the app with `python manage.py seed_demo`, then
+save them under `docs/screenshots/`.
 
-- Storefront catalog
-- Product detail page
-- Cart and checkout
-- Test payment confirmation
-- Customer order history
-- Staff dashboard
-- Notification logs in Django admin
+See `docs/SCREENSHOTS.md` for the full capture checklist.
 
-Recommended folder:
+Portfolio placeholders:
 
-```text
-docs/screenshots/
-```
+![Homepage](docs/screenshots/homepage.png)
+![Checkout](docs/screenshots/checkout.png)
+![Order History](docs/screenshots/order-history.png)
+![Staff Dashboard](docs/screenshots/staff-dashboard.png)
+![Support Inbox](docs/screenshots/support-inbox.png)
 
 ## Future Improvements
 
