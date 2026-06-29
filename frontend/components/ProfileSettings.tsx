@@ -781,6 +781,11 @@ function AdminWorkspace() {
                           Ref {order.payment_reference}
                         </p>
                       )}
+                      {order.paid_at && (
+                        <p className="text-leaf">
+                          Paid {formatAdminTime(order.paid_at)}
+                        </p>
+                      )}
                       <p className="mt-2 text-xs font-extrabold uppercase tracking-wider text-stone">
                         Totals
                       </p>
@@ -1606,7 +1611,7 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                   ))}
                 </ul>
 
-                <div className="mt-4 grid gap-3 rounded-2xl bg-white p-4 text-sm md:grid-cols-3">
+                <div className="mt-4 grid gap-3 rounded-2xl bg-white p-4 text-sm md:grid-cols-4">
                   <div>
                     <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
                       Delivery
@@ -1639,6 +1644,22 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                     <p className="text-stone">
                       {order.recipient_phone || order.phone}
                     </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                      Payment
+                    </p>
+                    <p className="mt-1 font-bold text-ink">
+                      {order.payment_method_display}
+                    </p>
+                    <p className="text-stone">
+                      {order.payment_status_display}
+                    </p>
+                    {order.paid_at && (
+                      <p className="mt-1 text-xs font-bold text-leaf">
+                        Paid {formatAdminTime(order.paid_at)}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <p className="text-xs font-extrabold uppercase tracking-wider text-stone">

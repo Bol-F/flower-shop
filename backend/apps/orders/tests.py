@@ -435,6 +435,67 @@ class TestOrderCreation:
             for log in response.data['notification_logs']
         )
 
+    def test_staff_can_mark_payment_failed(
+        self, api_client, user, staff_user, cart_with_item
+    ):
+        api_client.force_authenticate(user=user)
+        create_response = api_client.post(
+            reverse('order-create'),
+            order_payload(),
+            format='json',
+        )
+
+        api_client.force_authenticate(user=staff_user)
+        response = api_client.patch(
+            reverse('order-payment-status-update', args=[create_response.data['id']]),
+            {'payment_status': Order.PaymentStatus.FAILED},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['payment_status'] == Order.PaymentStatus.FAILED
+        assert response.data['paid_at'] is None
+
+    def test_customer_cannot_update_payment_status(
+        self, api_client, user, cart_with_item
+    ):
+        api_client.force_authenticate(user=user)
+        create_response = api_client.post(
+            reverse('order-create'),
+            order_payload(),
+            format='json',
+        )
+
+        response = api_client.patch(
+            reverse('order-payment-status-update', args=[create_response.data['id']]),
+            {'payment_status': Order.PaymentStatus.PAID},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        order = Order.objects.get(pk=create_response.data['id'])
+        assert order.payment_status == Order.PaymentStatus.UNPAID
+        assert order.paid_at is None
+
+    def test_rejects_unknown_payment_status(
+        self, api_client, user, staff_user, cart_with_item
+    ):
+        api_client.force_authenticate(user=user)
+        create_response = api_client.post(
+            reverse('order-create'),
+            order_payload(),
+            format='json',
+        )
+
+        api_client.force_authenticate(user=staff_user)
+        response = api_client.patch(
+            reverse('order-payment-status-update', args=[create_response.data['id']]),
+            {'payment_status': 'captured'},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
     def test_rejects_invalid_payment_status_transition(
         self, api_client, user, staff_user, cart_with_item
     ):

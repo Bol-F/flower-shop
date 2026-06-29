@@ -4,6 +4,22 @@ from rest_framework.exceptions import ValidationError
 from .models import Order
 
 
+PAYMENT_METHOD_DEFAULTS = {
+    Order.PaymentMethod.CASH: {
+        'payment_status': Order.PaymentStatus.UNPAID,
+        'payment_provider': 'cash',
+    },
+    Order.PaymentMethod.CARD: {
+        'payment_status': Order.PaymentStatus.PENDING,
+        'payment_provider': 'manual',
+    },
+    Order.PaymentMethod.ONLINE: {
+        'payment_status': Order.PaymentStatus.PENDING,
+        'payment_provider': 'manual',
+    },
+}
+VALID_PAYMENT_STATUSES = {status for status, _ in Order.PaymentStatus.choices}
+
 PAYMENT_STATUS_TRANSITIONS = {
     Order.PaymentStatus.UNPAID: {
         Order.PaymentStatus.PENDING,
@@ -24,16 +40,19 @@ PAYMENT_STATUS_TRANSITIONS = {
 }
 
 
+def validate_payment_method(payment_method: str) -> None:
+    if payment_method not in PAYMENT_METHOD_DEFAULTS:
+        raise ValidationError({'payment_method': 'Unsupported payment method.'})
+
+
 def initial_payment_status(payment_method: str) -> str:
-    if payment_method == Order.PaymentMethod.CASH:
-        return Order.PaymentStatus.UNPAID
-    return Order.PaymentStatus.PENDING
+    validate_payment_method(payment_method)
+    return PAYMENT_METHOD_DEFAULTS[payment_method]['payment_status']
 
 
 def initial_payment_provider(payment_method: str) -> str:
-    if payment_method == Order.PaymentMethod.CASH:
-        return 'cash'
-    return 'manual'
+    validate_payment_method(payment_method)
+    return PAYMENT_METHOD_DEFAULTS[payment_method]['payment_provider']
 
 
 def calculate_payment_amount(order: Order):
@@ -52,6 +71,11 @@ def create_test_payment(order: Order) -> dict:
 
 
 def validate_payment_status_transition(current_status: str, next_status: str) -> None:
+    if current_status not in VALID_PAYMENT_STATUSES:
+        raise ValidationError({'payment_status': 'Current payment status is not valid.'})
+    if next_status not in VALID_PAYMENT_STATUSES:
+        raise ValidationError({'payment_status': 'Unsupported payment status.'})
+
     allowed = PAYMENT_STATUS_TRANSITIONS.get(current_status, set())
     if next_status == current_status:
         return

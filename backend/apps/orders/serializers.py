@@ -93,6 +93,8 @@ class OrderSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             'id', 'status', 'total_price', 'created_at', 'updated_at',
+            'payment_method', 'payment_status', 'payment_provider',
+            'payment_reference', 'paid_at',
             'discount_amount', 'loyalty_points_earned',
         )
 

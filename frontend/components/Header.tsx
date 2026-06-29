@@ -59,6 +59,16 @@ function cityToSlug(city: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+const paymentMethods: Array<{
+  id: ApiPaymentMethod;
+  label: string;
+  detail: string;
+}> = [
+  { id: "cash", label: "Cash", detail: "Unpaid until delivery" },
+  { id: "card", label: "Card", detail: "Pending staff confirmation" },
+  { id: "online", label: "Online", detail: "Pending internal payment" },
+];
+
 function CartDropdown({ onClose }: { onClose: () => void }) {
   const {
     cartLines,
@@ -555,32 +565,40 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-2 rounded-2xl bg-paper p-1">
-                {[
-                  { id: "cash", label: "Cash" },
-                  { id: "card", label: "Card" },
-                  { id: "online", label: "Online" },
-                ].map((method) => {
-                  const active = paymentMethod === method.id;
-                  return (
-                    <button
-                      key={method.id}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() =>
-                        setPaymentMethod(method.id as ApiPaymentMethod)
-                      }
-                      className={`rounded-xl px-3 py-2 text-sm font-extrabold transition ${
-                        active
-                          ? "bg-blossomdeep text-white shadow-glow"
-                          : "text-stone hover:bg-white"
-                      }`}
-                    >
-                      {method.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <fieldset className="rounded-2xl bg-paper p-2">
+                <legend className="px-1 text-xs font-extrabold uppercase tracking-wider text-stone">
+                  Payment method
+                </legend>
+                <div className="mt-1 grid gap-2 sm:grid-cols-3">
+                  {paymentMethods.map((method) => {
+                    const active = paymentMethod === method.id;
+                    return (
+                      <button
+                        key={method.id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setPaymentMethod(method.id)}
+                        className={`min-h-20 rounded-xl px-3 py-2 text-left transition ${
+                          active
+                            ? "bg-blossomdeep text-white shadow-glow"
+                            : "bg-white text-stone hover:text-ink"
+                        }`}
+                      >
+                        <span className="block text-sm font-extrabold">
+                          {method.label}
+                        </span>
+                        <span
+                          className={`mt-1 block text-xs font-bold leading-snug ${
+                            active ? "text-white/80" : "text-stone"
+                          }`}
+                        >
+                          {method.detail}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
 
               <div className="flex gap-2 rounded-2xl bg-paper p-2">
                 <input
