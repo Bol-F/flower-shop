@@ -35,6 +35,7 @@ const text = {
     admin: "Open admin chat",
     offline: "Backend is not available.",
     failed: "Could not send the message.",
+    sent: "Message sent. Support will reply here.",
   },
   RU: {
     title: "Служба поддержки",
@@ -49,6 +50,7 @@ const text = {
     admin: "Открыть админ-чат",
     offline: "Бэкенд недоступен.",
     failed: "Не удалось отправить сообщение.",
+    sent: "Сообщение отправлено. Поддержка ответит здесь.",
   },
   UZ: {
     title: "Yordam xizmati",
@@ -63,6 +65,7 @@ const text = {
     admin: "Admin chatni ochish",
     offline: "Backend ishlamayapti.",
     failed: "Xabar yuborilmadi.",
+    sent: "Xabar yuborildi. Yordam javobi shu yerda chiqadi.",
   },
 } as const;
 
@@ -92,6 +95,7 @@ export default function SupportChat() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const bodyInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -160,7 +164,9 @@ export default function SupportChat() {
       );
       setBody("");
       setError("");
+      setSuccess(t.sent);
     } catch (err) {
+      setSuccess("");
       setError(errorMessage(err, t.failed));
     } finally {
       setSending(false);
@@ -189,7 +195,9 @@ export default function SupportChat() {
           <header className="flex items-start justify-between bg-blossomdeep px-5 py-4 text-white">
             <div>
               <h2 className="text-xl font-extrabold leading-tight">
-                <span className="mr-2">💬</span>
+                <span className="mr-2 rounded-full bg-white/15 px-2 py-0.5 text-xs uppercase tracking-wider">
+                  Help
+                </span>
                 {t.title}
               </h2>
               <p className="mt-1 text-sm font-semibold text-white/85">
@@ -209,7 +217,9 @@ export default function SupportChat() {
           {!hydrated || !user ? (
             <div className="grid flex-1 place-items-center px-8 text-center">
               <div>
-                <div className="text-5xl">🔐</div>
+                <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush text-2xl font-extrabold text-blossomdeep">
+                  B
+                </div>
                 <p className="mt-6 text-xl leading-relaxed text-ink">
                   {t.loginText}
                 </p>
@@ -233,7 +243,9 @@ export default function SupportChat() {
           ) : user.is_staff ? (
             <div className="grid flex-1 place-items-center px-8 text-center">
               <div>
-                <div className="text-5xl">🧑‍💻</div>
+                <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush text-sm font-extrabold text-blossomdeep">
+                  Staff
+                </div>
                 <p className="mt-6 text-lg leading-relaxed text-ink">{t.staff}</p>
                 <Link
                   href="/admin"
@@ -300,6 +312,11 @@ export default function SupportChat() {
                   {error}
                 </p>
               )}
+              {success && !error && (
+                <p className="mx-4 mb-2 rounded-2xl bg-mint px-4 py-2 text-sm font-semibold text-leaf">
+                  {success}
+                </p>
+              )}
 
               <form onSubmit={onSubmit} className="border-t border-line bg-white p-3">
                 <div className="flex items-end gap-2">
@@ -331,9 +348,9 @@ export default function SupportChat() {
         aria-label={open ? "Close support chat" : "Open support chat"}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="ml-auto grid size-14 place-items-center rounded-full border-2 border-ink bg-blossomdeep text-3xl leading-none text-white shadow-[0_16px_44px_-16px_rgba(236,22,130,0.85)] transition hover:-translate-y-1 hover:bg-raspberry active:translate-y-0 sm:size-[68px] sm:text-4xl"
+        className="ml-auto grid size-14 place-items-center rounded-full border-2 border-ink bg-blossomdeep text-xs font-extrabold uppercase tracking-wider text-white shadow-[0_16px_44px_-16px_rgba(236,22,130,0.85)] transition hover:-translate-y-1 hover:bg-raspberry active:translate-y-0 sm:size-[68px]"
       >
-        {open ? "×" : "💬"}
+        {open ? "Close" : "Help"}
       </button>
     </div>
   );

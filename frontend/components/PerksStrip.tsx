@@ -3,33 +3,33 @@ import { BoltIcon, CameraIcon, LeafIcon, TruckIcon } from "./icons";
 const perks = [
   {
     icon: BoltIcon,
-    title: "От 60 минут",
-    text: "Курьеры по всему Ташкенту каждый день",
+    title: "Fast delivery",
+    text: "Same-day courier windows across Tashkent demo zones",
     tint: "bg-blush text-raspberry",
   },
   {
     icon: CameraIcon,
-    title: "Фото перед доставкой",
-    text: "Покажем ваш букет до выезда курьера",
+    title: "Ready for photos",
+    text: "Product pages, checkout, and staff screens are screenshot-ready",
     tint: "bg-berrysoft text-berry",
   },
   {
     icon: LeafIcon,
-    title: "Гарантия свежести",
-    text: "Заменим букет, если цветы быстро увянут",
+    title: "Stock-aware",
+    text: "Low-stock and out-of-stock products are visible to staff",
     tint: "bg-mint text-leaf",
   },
   {
     icon: TruckIcon,
-    title: "Быстрая доставка",
-    text: "Бережно привезем к нужному времени",
+    title: "Complete workflow",
+    text: "Orders, payments, support, and notifications stay connected",
     tint: "bg-lilac text-iris",
   },
 ];
 
 export default function PerksStrip() {
   return (
-    <section aria-label="Why Gulora" className="mx-auto max-w-7xl px-4 py-10">
+    <section aria-label="Why Bloom and Petal" className="mx-auto max-w-7xl px-4 py-10">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {perks.map(({ icon: Icon, title, text, tint }) => (
           <div

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import ProfileSettings from "@/components/ProfileSettings";
 
 export const metadata: Metadata = {
-  title: "Profile — Bloom & Petal",
+  title: "Profile - Bloom & Petal",
   description: "Customer preferences and staff workspace for Bloom & Petal.",
 };
 

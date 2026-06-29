@@ -6,10 +6,15 @@ import { useStore } from "@/lib/store";
 export default function Hero() {
   const { language } = useStore();
   const t = copy[language].hero;
+  const proofPoints = [
+    ["60-180 min", "city delivery windows"],
+    ["Test payments", "safe demo checkout"],
+    ["Staff tools", "orders, stock, support"],
+  ];
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-[#ffeaf4] via-[#fff2f8] to-white">
-      <div className="mx-auto flex min-h-[calc(100vh-66px)] max-w-[1180px] flex-col items-center justify-center px-5 py-16 text-center">
+      <div className="mx-auto flex min-h-[calc(100vh-66px)] max-w-[1180px] flex-col items-center justify-center px-5 py-12 text-center sm:py-16">
         <p className="w-full max-w-[330px] text-[11px] font-extrabold uppercase leading-6 tracking-[0.2em] text-blossomdeep sm:max-w-none sm:text-base sm:tracking-[0.34em]">
           {t.eyebrow}
         </p>
@@ -27,7 +32,20 @@ export default function Hero() {
           {t.text}
         </p>
 
-        <div className="mt-11 flex w-[calc(100vw-2.5rem)] max-w-[560px] flex-col justify-center gap-5 sm:w-full sm:flex-row">
+        <div className="mt-10 grid w-full max-w-3xl gap-2 rounded-[1.75rem] border border-line bg-white/65 p-2 text-left shadow-soft backdrop-blur sm:grid-cols-3">
+          {proofPoints.map(([value, label]) => (
+            <div key={value} className="rounded-[1.25rem] bg-white px-4 py-3">
+              <p className="font-display text-xl font-extrabold text-ink">
+                {value}
+              </p>
+              <p className="mt-0.5 text-xs font-bold uppercase tracking-[0.12em] text-stone">
+                {label}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 flex w-[calc(100vw-2.5rem)] max-w-[560px] flex-col justify-center gap-4 sm:w-full sm:flex-row">
           <a
             href="#catalog"
             className="rounded-full bg-blossomdeep px-8 py-3.5 text-base font-extrabold text-white shadow-glow transition hover:-translate-y-1 hover:bg-raspberry active:translate-y-0"
@@ -42,7 +60,6 @@ export default function Hero() {
           </a>
         </div>
       </div>
-
     </section>
   );
 }

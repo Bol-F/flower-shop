@@ -344,7 +344,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                 Order #{createdOrder.id}
               </p>
               <p className="mt-1 text-sm font-semibold text-stone">
-                {createdOrder.payment_method_display} ·{" "}
+                {createdOrder.payment_method_display} /{" "}
                 {createdOrder.payment_status_display}
               </p>
             </div>
@@ -426,11 +426,25 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       ) : cartLines.length === 0 ? (
-        <div className="py-6 text-center">
-          <p className="text-3xl">🌷</p>
-          <p className="mt-2 text-sm text-stone">
+        <div className="py-8 text-center">
+          <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush text-blossomdeep">
+            <CartIcon className="size-6" />
+          </span>
+          <p className="mt-3 font-display text-xl font-bold text-ink">
+            {cartLoading ? "Syncing cart" : "Your cart is empty"}
+          </p>
+          <p className="mt-1 text-sm text-stone">
             {cartLoading ? "Syncing cart..." : t.empty}
           </p>
+          {!cartLoading && (
+            <a
+              href="#catalog"
+              onClick={onClose}
+              className="mt-5 inline-flex rounded-full bg-blossomdeep px-5 py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
+            >
+              Browse flowers
+            </a>
+          )}
         </div>
       ) : (
         <>
@@ -522,6 +536,23 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
             )
           ) : (
             <form onSubmit={onCheckout} className="mt-3 grid gap-3">
+              <div className="rounded-2xl bg-ink px-4 py-3 text-white">
+                <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-white/60">
+                  Secure demo checkout
+                </p>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <span className="text-sm font-bold">
+                    {cartLines.length} item{cartLines.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="font-display text-lg font-extrabold">
+                    {formatPrice(finalTotal, currency)}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs font-semibold text-white/70">
+                  Card and online payments use the safe test provider.
+                </p>
+              </div>
+
               <div>
                 <div className="mb-1.5 flex items-center justify-between gap-3">
                   <label className="text-xs font-extrabold uppercase tracking-wider text-stone">
@@ -542,6 +573,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                   />
                 ) : (
                   <input
+                    required
                     value={deliveryLocation.address}
                     onChange={(event) =>
                       setDeliveryLocation({
@@ -561,6 +593,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                   Contact phone
                 </label>
                 <input
+                  required
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
                   placeholder="+998 90 123 45 67"
@@ -568,7 +601,11 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                 />
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div>
+                <p className="mb-1.5 text-xs font-extrabold uppercase tracking-wider text-stone">
+                  Delivery date and time
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
                     Day
@@ -628,6 +665,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                 )}
                 {deliveryDayMode === "custom" && (
                   <input
+                    required
                     type="date"
                     min={minDeliveryDate}
                     value={customDeliveryDate}
@@ -635,9 +673,18 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                     className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition focus:border-blossomdeep sm:col-span-2"
                   />
                 )}
+                </div>
               </div>
 
               <div className="grid gap-2 rounded-2xl bg-paper p-3">
+                <div>
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                    Recipient details
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-stone">
+                    Use gift details when the flowers are going to someone else.
+                  </p>
+                </div>
                 <label className="flex items-center gap-2 rounded-2xl bg-paper px-3.5 py-2.5 text-sm font-bold text-ink">
                   <input
                     type="checkbox"
@@ -651,12 +698,14 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                 {sendAsGift && (
                   <div className="grid gap-2">
                     <input
+                      required={sendAsGift}
                       value={recipientName}
                       onChange={(event) => setRecipientName(event.target.value)}
                       placeholder="Recipient name"
                       className="w-full rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
                     />
                     <input
+                      required={sendAsGift}
                       value={recipientPhone}
                       onChange={(event) => setRecipientPhone(event.target.value)}
                       placeholder="Recipient phone"
@@ -757,9 +806,18 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
               </div>
 
               <div className="rounded-2xl border border-line bg-paper p-3 text-sm">
+                <p className="mb-2 text-xs font-extrabold uppercase tracking-wider text-stone">
+                  Order summary
+                </p>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-stone">Flowers</span>
                   <span className="font-bold">{formatPrice(total, currency)}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <span className="text-stone">Payment</span>
+                  <span className="font-bold">
+                    {paymentMethods.find((method) => method.id === paymentMethod)?.label}
+                  </span>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-3">
                   <span className="text-stone">

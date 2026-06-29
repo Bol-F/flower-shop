@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { fallbackCatalogProducts } from "@/lib/catalog";
 import { formatPrice, toUzs } from "@/lib/currency";
 import { copy, languages } from "@/lib/i18n";
@@ -138,6 +138,66 @@ function OrderStatusTimeline({ steps }: { steps: ApiOrderStatusStep[] }) {
         </li>
       ))}
     </ol>
+  );
+}
+
+const badgeBase = "rounded-full px-3 py-1 text-xs font-extrabold";
+
+function orderStatusBadgeClass(status: ApiOrderStatus) {
+  if (status === "delivered") return "bg-mint text-leaf";
+  if (status === "cancelled") return "bg-berrysoft text-berry";
+  if (status === "courier_picked_up") return "bg-lilac text-iris";
+  if (status === "preparing") return "bg-[#fff3d8] text-[#9a6410]";
+  if (status === "confirmed") return "bg-skywash text-ink";
+  return "bg-blush text-blossomdeep";
+}
+
+function paymentStatusBadgeClass(status: ApiPaymentStatus) {
+  if (status === "paid") return "bg-mint text-leaf";
+  if (status === "failed") return "bg-berrysoft text-berry";
+  if (status === "refunded") return "bg-lilac text-iris";
+  if (status === "pending") return "bg-[#fff3d8] text-[#9a6410]";
+  return "bg-paper text-stone";
+}
+
+function LoadingRows({ label = "Loading" }: { label?: string }) {
+  return (
+    <div className="grid gap-3 px-5 py-5">
+      {[0, 1, 2].map((item) => (
+        <div key={item} className="animate-pulse rounded-3xl border border-line p-4">
+          <div className="h-4 w-36 rounded-full bg-line" />
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <div className="h-3 rounded-full bg-line" />
+            <div className="h-3 rounded-full bg-line" />
+            <div className="h-3 rounded-full bg-line" />
+          </div>
+        </div>
+      ))}
+      <p className="sr-only">{label}</p>
+    </div>
+  );
+}
+
+function EmptyPanel({
+  title,
+  text,
+  action,
+}: {
+  title: string;
+  text: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="px-5 py-8 text-center">
+      <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-blush text-lg font-extrabold text-blossomdeep">
+        0
+      </div>
+      <p className="mt-3 font-display text-xl font-bold text-ink">{title}</p>
+      <p className="mx-auto mt-1 max-w-md text-sm font-semibold text-stone">
+        {text}
+      </p>
+      {action && <div className="mt-4">{action}</div>}
+    </div>
   );
 }
 
@@ -497,6 +557,7 @@ function AdminWorkspace() {
       detail: "Non-cancelled orders",
     },
   ];
+  const deliveryQueue = dashboard?.delivery_queue ?? [];
 
   return (
     <main className="min-h-[calc(100vh-66px)] bg-[#f6f7fb] px-4 py-8">
@@ -515,7 +576,7 @@ function AdminWorkspace() {
               </span>
             </div>
             <p className="mt-1 truncate text-sm font-semibold text-stone">
-              {displayName} · {user.email}
+              {displayName} / {user.email}
             </p>
           </div>
           <div className="ml-auto flex flex-wrap gap-2">
@@ -554,6 +615,60 @@ function AdminWorkspace() {
             </section>
           ))}
         </div>
+
+        <section className="mt-5 rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-2xl font-extrabold text-ink">
+                Delivery queue
+              </h2>
+              <p className="mt-0.5 text-sm font-semibold text-stone">
+                Active orders that staff and couriers should watch first
+              </p>
+            </div>
+            <span className="rounded-full bg-blush px-3 py-1 text-xs font-extrabold text-blossomdeep">
+              {deliveryQueue.length} active
+            </span>
+          </div>
+          {ordersLoading && !dashboard ? (
+            <LoadingRows label="Loading delivery queue" />
+          ) : deliveryQueue.length === 0 ? (
+            <EmptyPanel
+              title="No active deliveries"
+              text="Confirmed, preparing, and courier-picked-up orders will appear here."
+            />
+          ) : (
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              {deliveryQueue.slice(0, 4).map((order) => (
+                <article
+                  key={order.id}
+                  className="rounded-3xl border border-line bg-paper p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-display text-lg font-bold text-ink">
+                        Order #{order.id}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-stone">
+                        {order.recipient_name || "Recipient"} /{" "}
+                        {formatDeliveryDate(order.delivery_date)}
+                      </p>
+                    </div>
+                    <span className={`${badgeBase} ${orderStatusBadgeClass(order.status)}`}>
+                      {order.status_display}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm font-semibold text-ink">
+                    {order.delivery_time_slot_display || order.delivery_time_slot}
+                  </p>
+                  <p className="mt-1 line-clamp-2 text-sm text-stone">
+                    {order.delivery_address || order.shipping_address}
+                  </p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
         <section className="mt-5 rounded-[1.75rem] border border-line bg-white shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
@@ -678,14 +793,30 @@ function AdminWorkspace() {
 
           <div className="divide-y divide-line">
             {ordersLoading && orders.length === 0 && (
-              <p className="px-5 py-8 text-sm font-bold text-stone">
-                Loading delivery orders...
-              </p>
+              <LoadingRows label="Loading delivery orders" />
             )}
             {!ordersLoading && filteredOrders.length === 0 && (
-              <p className="px-5 py-8 text-sm font-bold text-stone">
-                No orders match these filters.
-              </p>
+              <EmptyPanel
+                title="No orders match"
+                text="Clear filters or run seed_demo to populate realistic delivery orders."
+                action={
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter("all");
+                      setPaymentFilter("all");
+                      setPaymentStatusFilter("all");
+                      setDeliveryZoneFilter("all");
+                      setDeliveryDateFilter("");
+                      setCityFilter("all");
+                      setCourierFilter("all");
+                    }}
+                    className="rounded-full bg-blossomdeep px-5 py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
+                  >
+                    Clear filters
+                  </button>
+                }
+              />
             )}
             {filteredOrders.slice(0, 8).map((order) => {
               const subtotal = Number.parseFloat(order.subtotal_price) || 0;
@@ -704,17 +835,17 @@ function AdminWorkspace() {
                         {formatAdminTime(order.created_at)}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-stone">
-                        {order.user_username || "Customer"} · {order.user_email}
+                        {order.user_username || "Customer"} / {order.user_email}
                       </p>
                     </div>
                     <div className="flex flex-wrap justify-end gap-1.5">
-                      <span className="rounded-full bg-blush px-3 py-1 text-xs font-extrabold text-blossomdeep">
+                      <span className={`${badgeBase} ${orderStatusBadgeClass(order.status)}`}>
                         {order.status_display}
                       </span>
-                      <span className="rounded-full bg-mint px-3 py-1 text-xs font-extrabold text-leaf">
+                      <span className={`${badgeBase} bg-white text-stone ring-1 ring-line`}>
                         {order.payment_method_display}
                       </span>
-                      <span className="rounded-full bg-[#fff3d8] px-3 py-1 text-xs font-extrabold text-[#9a6410]">
+                      <span className={`${badgeBase} ${paymentStatusBadgeClass(order.payment_status)}`}>
                         {order.payment_status_display}
                       </span>
                       <span className="rounded-full bg-ink px-3 py-1 text-xs font-extrabold text-white">
@@ -756,7 +887,7 @@ function AdminWorkspace() {
                         {order.delivery_zone?.name || "No zone selected"}
                       </p>
                       <p className="mt-1 text-stone">
-                        {order.city_name || "No city"} · {order.vendor_name || "No vendor"}
+                        {order.city_name || "No city"} / {order.vendor_name || "No vendor"}
                       </p>
                       <p className="mt-1 text-stone">
                         Courier {order.assigned_courier_name || "unassigned"}
@@ -772,7 +903,7 @@ function AdminWorkspace() {
                         Payment
                       </p>
                       <p className="mt-1 text-stone">
-                        {order.payment_method_display} · {order.payment_status_display}
+                        {order.payment_method_display} / {order.payment_status_display}
                       </p>
                       <p className="text-stone">
                         Provider {order.payment_provider || "manual"}
@@ -1024,7 +1155,7 @@ function AdminWorkspace() {
                     {item.username || item.email}
                   </p>
                   <p className="text-stone">
-                    {item.orders} orders · {formatPrice(Number.parseFloat(item.revenue) || 0, user.currency)}
+                    {item.orders} orders / {formatPrice(Number.parseFloat(item.revenue) || 0, user.currency)}
                   </p>
                 </div>
               ))}
@@ -1351,9 +1482,11 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
 
   return (
     <main className="min-h-[calc(100vh-66px)] bg-gradient-to-br from-[#ffe8f3] via-[#fff3f8] to-white px-5 py-6">
-      <section className="mx-auto max-w-[480px] rounded-[28px] bg-white px-10 py-8 shadow-[0_24px_80px_-45px_rgba(236,22,130,0.7)]">
+      <section className="mx-auto max-w-[520px] rounded-[28px] border border-line bg-white px-6 py-7 shadow-[0_24px_80px_-45px_rgba(236,22,130,0.7)] sm:px-10 sm:py-8">
         <div className="text-center">
-          <div className="mx-auto grid size-14 place-items-center text-5xl">🌺</div>
+          <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush font-display text-2xl font-extrabold text-blossomdeep">
+            B
+          </div>
           <h1 className="mt-4 font-display text-3xl font-extrabold leading-tight text-ink">
             {isRegister ? t.createTitle : t.loginTitle}
           </h1>
@@ -1362,7 +1495,17 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
           </p>
         </div>
 
-        <form onSubmit={onSubmit} className="mt-8 grid gap-4 min-[520px]:grid-cols-2">
+        <div className="mt-6 rounded-2xl bg-paper px-4 py-3 text-sm">
+          <p className="font-extrabold text-ink">Demo accounts</p>
+          <p className="mt-1 font-semibold text-stone">
+            Customer: customer@example.com / demo12345
+          </p>
+          <p className="font-semibold text-stone">
+            Staff: staff@example.com / demo12345
+          </p>
+        </div>
+
+        <form onSubmit={onSubmit} className="mt-6 grid gap-4 min-[520px]:grid-cols-2">
           {isRegister && (
             <label className="block">
               <span className="text-sm font-semibold text-ink">
@@ -1373,7 +1516,7 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 placeholder={t.usernamePlaceholder}
-                className="mt-2 w-full rounded-md border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
               />
             </label>
           )}
@@ -1386,7 +1529,7 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder={t.emailPlaceholder}
-              className="mt-2 w-full rounded-md border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
+              className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
             />
           </label>
 
@@ -1401,7 +1544,7 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder={t.passwordPlaceholder}
-              className="mt-2 w-full rounded-md border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
             />
           </label>
 
@@ -1418,7 +1561,7 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
                   value={passwordConfirm}
                   onChange={(event) => setPasswordConfirm(event.target.value)}
                   placeholder={t.confirmPlaceholder}
-                  className="mt-2 w-full rounded-md border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                  className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
                 />
               </label>
 
@@ -1431,14 +1574,14 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
                   placeholder={t.phonePlaceholder}
-                  className="mt-2 w-full rounded-md border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                  className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
                 />
               </label>
             </>
           )}
 
           {error && (
-            <p className="rounded-md bg-berrysoft px-4 py-3 text-sm font-semibold text-berry min-[520px]:col-span-2">
+              <p className="rounded-2xl bg-berrysoft px-4 py-3 text-sm font-semibold text-berry min-[520px]:col-span-2">
               {error}
             </p>
           )}
@@ -1446,7 +1589,7 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
           <button
             type="submit"
             disabled={submitting}
-            className="mt-2 rounded-md bg-blossomdeep px-6 py-3.5 text-base font-extrabold text-white shadow-glow transition hover:bg-raspberry disabled:cursor-wait disabled:opacity-70 min-[520px]:col-span-2"
+            className="mt-2 rounded-full bg-blossomdeep px-6 py-3.5 text-base font-extrabold text-white shadow-glow transition hover:bg-raspberry disabled:cursor-wait disabled:opacity-70 min-[520px]:col-span-2"
           >
             {submitting ? "..." : isRegister ? t.createButton : t.loginButton}
           </button>
@@ -1563,17 +1706,20 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
       )}
 
       {loading ? (
-        <p className="mt-5 text-sm font-semibold text-stone">Loading orders...</p>
+        <LoadingRows label="Loading customer orders" />
       ) : orders.length === 0 ? (
-        <div className="mt-5 rounded-3xl bg-paper py-12 text-center">
-          <CartIcon className="mx-auto size-10 text-line" />
-          <p className="mt-3 font-display text-xl font-semibold">
-            No orders yet
-          </p>
-          <p className="mt-1 text-sm text-stone">
-            Completed checkouts will appear here.
-          </p>
-        </div>
+        <EmptyPanel
+          title="No orders yet"
+          text="Completed checkouts will appear here with delivery timeline and payment status."
+          action={
+            <Link
+              href="/#catalog"
+              className="inline-flex rounded-full bg-blossomdeep px-5 py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
+            >
+              Browse flowers
+            </Link>
+          }
+        />
       ) : (
         <div className="mt-5 grid gap-3">
           {orders.map((order) => {
@@ -1602,13 +1748,13 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                   </div>
                   <div className="text-right">
                     <div className="flex flex-wrap justify-end gap-1.5">
-                      <span className="rounded-full bg-blush px-3 py-1 text-xs font-extrabold text-blossomdeep">
+                      <span className={`${badgeBase} ${orderStatusBadgeClass(order.status)}`}>
                         {order.status_display}
                       </span>
-                      <span className="rounded-full bg-mint px-3 py-1 text-xs font-extrabold text-leaf">
+                      <span className={`${badgeBase} bg-white text-stone ring-1 ring-line`}>
                         {order.payment_method_display}
                       </span>
-                      <span className="rounded-full bg-[#fff3d8] px-3 py-1 text-xs font-extrabold text-[#9a6410]">
+                      <span className={`${badgeBase} ${paymentStatusBadgeClass(order.payment_status)}`}>
                         {order.payment_status_display}
                       </span>
                     </div>
@@ -1760,7 +1906,7 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                 )}
 
                 <p className="hidden">
-                  {order.shipping_address} · {order.phone}
+                  {order.shipping_address} / {order.phone}
                 </p>
                 {order.notes && (
                   <p className="mt-1 text-sm text-stone">{order.notes}</p>

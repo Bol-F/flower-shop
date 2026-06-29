@@ -108,7 +108,7 @@ export default function ProductDetail({ product }: { product: Product }) {
             <div className="absolute left-4 top-4 flex flex-col items-start gap-1.5">
               {discount > 0 && (
                 <span className="rounded-full bg-berry px-3 py-1.5 text-xs font-bold text-white">
-                  −{discount}%
+                  Save {discount}%
                 </span>
               )}
               {product.isNew && (
@@ -139,7 +139,7 @@ export default function ProductDetail({ product }: { product: Product }) {
                 type="button"
                 aria-label={
                   product.hasSizes
-                    ? `${t.size} ${bouquetSizes[v].id} · ${t.sizes[bouquetSizes[v].id]}`
+                    ? `${t.size} ${bouquetSizes[v].id} / ${t.sizes[bouquetSizes[v].id]}`
                     : `${t.angle} ${v + 1}`
                 }
                 aria-pressed={variant === v}
@@ -163,13 +163,21 @@ export default function ProductDetail({ product }: { product: Product }) {
             <StarIcon className="size-4 text-blossom" />
             <span className="font-bold">{product.rating.toFixed(1)}</span>
             <span className="text-stone">({product.reviews} {t.reviews})</span>
-            <span className="text-stone">·</span>
+            <span className="text-stone">/</span>
             <span className="font-semibold text-ink/80">{product.shop}</span>
           </div>
 
           <h1 className="mt-2 font-display text-3xl font-bold leading-tight sm:text-4xl">
             {product.name}
           </h1>
+
+          {product.source === "mock" && (
+            <div className="mt-4 rounded-2xl border border-[#f5d79c] bg-[#fff8e7] px-4 py-3 text-sm font-semibold text-[#8a5a0a]">
+              Demo catalog item. Start the Django backend and run
+              <span className="font-extrabold"> python manage.py seed_demo </span>
+              to test live product data.
+            </div>
+          )}
 
           <p className="mt-3 flex items-baseline gap-3">
             <span className="text-3xl font-extrabold tracking-tight">
@@ -182,7 +190,7 @@ export default function ProductDetail({ product }: { product: Product }) {
             )}
             {product.oldPrice && (product.hasSizes || qty > 1) && (
               <span className="rounded-full bg-berrysoft px-2.5 py-1 text-xs font-bold text-berry">
-                −{discount}% {t.discountToday}
+                Save {discount}% {t.discountToday}
               </span>
             )}
           </p>
@@ -225,7 +233,7 @@ export default function ProductDetail({ product }: { product: Product }) {
                     }`}
                   >
                     <span className="block text-sm font-bold">
-                      {s.id} · {t.sizes[s.id]}
+                      {s.id} / {t.sizes[s.id]}
                     </span>
                     <span className="mt-0.5 block text-sm font-semibold text-blossomdeep">
                       {formatPrice(Math.round(product.price * s.multiplier), currency)}
@@ -274,9 +282,38 @@ export default function ProductDetail({ product }: { product: Product }) {
               }}
               className="flex-1 rounded-full bg-blossomdeep px-8 py-4 text-sm font-bold text-white shadow-lift transition hover:-translate-y-0.5 hover:bg-raspberry active:translate-y-0 disabled:cursor-not-allowed disabled:bg-ink/20 disabled:text-stone disabled:shadow-none sm:flex-none sm:px-12"
             >
-              {purchasable ? t.addToCart : "Out of stock"} —{" "}
+              {purchasable ? t.addToCart : "Out of stock"} -{" "}
               {formatPrice(unitPrice * qty, currency)}
             </button>
+          </div>
+
+          <div className="mt-4 grid gap-2 rounded-3xl border border-line bg-card p-4 text-sm shadow-soft sm:grid-cols-3">
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                Availability
+              </p>
+              <p className="mt-1 font-bold text-ink">
+                {purchasable ? "Ready to order" : "Out of stock"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                Stock
+              </p>
+              <p className="mt-1 font-bold text-ink">
+                {typeof product.stock === "number"
+                  ? `${product.stock} available`
+                  : "Live stock"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                Checkout
+              </p>
+              <p className="mt-1 font-bold text-ink">
+                Cash, card, or online test payment
+              </p>
+            </div>
           </div>
 
           {/* description */}

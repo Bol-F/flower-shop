@@ -37,6 +37,7 @@ export default function Catalog() {
   );
   const [loading, setLoading] = useState(true);
   const [usingFallback, setUsingFallback] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
   const [sort, setSort] = useState<SortKey>("popular");
   const [todayOnly, setTodayOnly] = useState(false);
   const [saleOnly, setSaleOnly] = useState(false);
@@ -54,11 +55,15 @@ export default function Catalog() {
         setAllProducts(products.length > 0 ? products : fallbackCatalogProducts);
         setAllCategories(categories.length > 0 ? categories : fallbackCatalogCategories);
         setUsingFallback(false);
+        setCatalogError("");
       } catch {
         if (cancelled) return;
         setAllProducts(fallbackCatalogProducts);
         setAllCategories(fallbackCatalogCategories);
         setUsingFallback(true);
+        setCatalogError(
+          "Live backend is offline or unreachable. Showing bundled demo flowers.",
+        );
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -141,6 +146,13 @@ export default function Catalog() {
         </label>
       </div>
 
+      {(usingFallback || catalogError) && (
+        <div className="mt-5 rounded-3xl border border-[#f5d79c] bg-[#fff8e7] px-4 py-3 text-sm font-semibold text-[#8a5a0a] shadow-soft">
+          {catalogError || "Showing demo catalog data."} Checkout and account
+          features need the Django API.
+        </div>
+      )}
+
       {/* filter chips */}
       <div className="mt-5 flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
         <button
@@ -193,7 +205,20 @@ export default function Catalog() {
       </div>
 
       {/* grid */}
-      {visible.length > 0 ? (
+      {loading ? (
+        <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={index}
+              className="min-h-[22rem] animate-pulse rounded-3xl bg-card p-2 shadow-soft"
+            >
+              <div className="aspect-[4/5] rounded-2xl bg-blush" />
+              <div className="mx-2 mt-3 h-4 rounded-full bg-line" />
+              <div className="mx-2 mt-2 h-4 w-2/3 rounded-full bg-line" />
+            </div>
+          ))}
+        </div>
+      ) : visible.length > 0 ? (
         <>
           <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {shownProducts.map((product) => (
@@ -214,8 +239,10 @@ export default function Catalog() {
           )}
         </>
       ) : (
-        <div className="mt-12 rounded-3xl bg-card py-16 text-center shadow-soft">
-          <p className="text-4xl">🥀</p>
+        <div className="mt-12 rounded-3xl border border-line bg-card px-5 py-16 text-center shadow-soft">
+          <p className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush text-2xl font-extrabold text-blossomdeep">
+            0
+          </p>
           <p className="mt-3 font-display text-xl font-semibold">
             {t.emptyTitle}
           </p>

@@ -13,9 +13,9 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const product = fallbackCatalogProducts.find((p) => p.id === id);
-  if (!product) return { title: "Not found — Gulora" };
+  if (!product) return { title: "Not found - Bloom & Petal" };
   return {
-    title: `${product.name} — Gulora`,
+    title: `${product.name} - Bloom & Petal`,
     description: product.description,
   };
 }

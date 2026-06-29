@@ -265,7 +265,9 @@ export default function AdminSupportInbox() {
     return (
       <main className="grid min-h-[calc(100vh-66px)] place-items-center bg-[#f7f0f4] px-5 text-center">
         <section className="max-w-md rounded-[2rem] bg-white p-8 shadow-lift">
-          <div className="text-5xl">🔒</div>
+          <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush text-2xl font-extrabold text-blossomdeep">
+            !
+          </div>
           <h1 className="mt-4 font-display text-3xl font-extrabold text-ink">
             Staff only
           </h1>
@@ -312,12 +314,27 @@ export default function AdminSupportInbox() {
 
           <div className="h-[18rem] overflow-y-auto lg:h-[calc(100%-5.65rem)]">
             {loading && conversations.length === 0 && (
-              <p className="p-5 text-sm font-bold text-stone">Loading chats...</p>
+              <div className="grid gap-3 p-5">
+                {[0, 1, 2].map((item) => (
+                  <div key={item} className="animate-pulse rounded-2xl bg-white p-3">
+                    <div className="h-4 w-32 rounded-full bg-line" />
+                    <div className="mt-2 h-3 rounded-full bg-line" />
+                  </div>
+                ))}
+              </div>
             )}
             {!loading && conversations.length === 0 && (
-              <p className="p-5 text-sm leading-relaxed text-stone">
-                No customer messages yet. New support requests will appear here.
-              </p>
+              <div className="p-5 text-center">
+                <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-blush text-lg font-extrabold text-blossomdeep">
+                  0
+                </div>
+                <p className="mt-3 font-display text-lg font-bold text-ink">
+                  No support messages
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-stone">
+                  New customer support requests will appear here.
+                </p>
+              </div>
             )}
             {conversations.map((conversation) => {
               const active = selectedConversation?.key === conversation.key;
@@ -444,7 +461,9 @@ export default function AdminSupportInbox() {
           ) : (
             <div className="grid flex-1 place-items-center bg-[#f9eef4] text-center">
               <div>
-                <div className="text-5xl">💬</div>
+                <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-white text-2xl font-extrabold text-blossomdeep shadow-soft">
+                  B
+                </div>
                 <p className="mt-3 text-sm font-bold text-stone">
                   Choose a chat to start replying.
                 </p>

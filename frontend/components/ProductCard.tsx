@@ -15,6 +15,8 @@ export default function ProductCard({ product }: { product: Product }) {
   const t = copy[language].product;
   const liked = favorites.includes(product.id);
   const purchasable = product.isAvailable !== false && product.isInStock !== false;
+  const lowStock =
+    purchasable && typeof product.stock === "number" && product.stock > 0 && product.stock <= 3;
   const discount = product.oldPrice
     ? Math.round((1 - product.price / product.oldPrice) * 100)
     : 0;
@@ -43,7 +45,7 @@ export default function ProductCard({ product }: { product: Product }) {
         <div className="absolute left-2.5 top-2.5 z-20 flex flex-col items-start gap-1.5">
           {discount > 0 && (
             <span className="rounded-full bg-berry px-2.5 py-1 text-[11px] font-bold text-white">
-              −{discount}%
+              Save {discount}%
             </span>
           )}
           {product.isNew && (
@@ -54,6 +56,11 @@ export default function ProductCard({ product }: { product: Product }) {
           {!purchasable && (
             <span className="rounded-full bg-ink px-2.5 py-1 text-[11px] font-bold text-white">
               Out of stock
+            </span>
+          )}
+          {lowStock && (
+            <span className="rounded-full bg-[#fff3d8] px-2.5 py-1 text-[11px] font-bold text-[#9a6410]">
+              {product.stock} left
             </span>
           )}
         </div>
@@ -112,7 +119,7 @@ export default function ProductCard({ product }: { product: Product }) {
           <StarIcon className="size-3.5 text-blossom" />
           <span className="font-bold text-ink/80">{product.rating.toFixed(1)}</span>
           <span>({product.reviews})</span>
-          <span className="mx-0.5">·</span>
+          <span className="mx-0.5">/</span>
           {product.deliveryToday ? (
             <span className="flex items-center gap-0.5 font-semibold text-leaf">
               <BoltIcon className="size-3" />
