@@ -169,15 +169,21 @@ export interface ApiDeliveryZone {
 
 export interface ApiNotificationLog {
   id: number;
+  event_type: string;
   event: string;
   event_display: string;
   channel: string;
   channel_display: string;
+  recipient: string;
+  subject: string;
   status: string;
   status_display: string;
   message: string;
+  error_message: string;
   error: string;
+  related_order_id: number | null;
   created_at: string;
+  sent_at: string | null;
 }
 
 export interface ApiOrder {
@@ -706,6 +712,14 @@ export async function updatePaymentStatus(
   return request<ApiOrder>(`/api/orders/${id}/payment-status/`, {
     method: "PATCH",
     body: { payment_status: paymentStatus, ...metadata },
+    auth: true,
+  });
+}
+
+export async function payTestOrder(id: number): Promise<ApiOrder> {
+  return request<ApiOrder>(`/api/orders/${id}/pay-test/`, {
+    method: "POST",
+    body: {},
     auth: true,
   });
 }

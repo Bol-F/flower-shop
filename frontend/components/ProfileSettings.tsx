@@ -17,6 +17,7 @@ import {
   fetchAdminSupportMessages,
   fetchOrders,
   login as apiLogin,
+  payTestOrder,
   repeatOrder,
   register as apiRegister,
   type ApiOrder,
@@ -1476,6 +1477,7 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [repeatingId, setRepeatingId] = useState<number | null>(null);
+  const [testPayingId, setTestPayingId] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -1512,6 +1514,27 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
       setError(firstApiMessage(err, "Could not repeat this order."));
     } finally {
       setRepeatingId(null);
+    }
+  }
+
+  async function onPayTestOrder(orderId: number) {
+    setError("");
+    try {
+      setTestPayingId(orderId);
+      const updated = await payTestOrder(orderId);
+      setOrders((current) =>
+        current.map((order) => (order.id === updated.id ? updated : order)),
+      );
+      showToast(`Order #${updated.id} paid`);
+    } catch (err) {
+      setError(
+        firstApiMessage(
+          err,
+          "Could not complete this test payment. Please try again.",
+        ),
+      );
+    } finally {
+      setTestPayingId(null);
     }
   }
 
@@ -1558,6 +1581,11 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
             const subtotal = Number.parseFloat(order.subtotal_price) || 0;
             const deliveryFee = Number.parseFloat(order.delivery_fee) || 0;
             const mapUrl = deliveryMapUrl(order);
+            const canPayTest =
+              order.payment_provider === "test" &&
+              (order.payment_method === "card" ||
+                order.payment_method === "online") &&
+              order.payment_status === "pending";
             return (
               <article
                 key={order.id}
@@ -1655,10 +1683,32 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                     <p className="text-stone">
                       {order.payment_status_display}
                     </p>
+                    {order.payment_provider === "test" && order.payment_reference && (
+                      <p className="mt-1 text-xs font-bold text-stone">
+                        Test ref {order.payment_reference}
+                      </p>
+                    )}
                     {order.paid_at && (
                       <p className="mt-1 text-xs font-bold text-leaf">
                         Paid {formatAdminTime(order.paid_at)}
                       </p>
+                    )}
+                    {canPayTest && (
+                      <div className="mt-3 rounded-2xl border border-line bg-paper p-3">
+                        <p className="text-xs font-bold text-ink">
+                          This is a test payment. No real money will be charged.
+                        </p>
+                        <button
+                          type="button"
+                          disabled={testPayingId === order.id}
+                          onClick={() => void onPayTestOrder(order.id)}
+                          className="mt-2 w-full rounded-full bg-ink px-4 py-2 text-xs font-extrabold text-white transition hover:bg-raspberry disabled:cursor-wait disabled:opacity-70"
+                        >
+                          {testPayingId === order.id
+                            ? "Paying..."
+                            : "Pay test order"}
+                        </button>
+                      </div>
                     )}
                   </div>
                   <div>

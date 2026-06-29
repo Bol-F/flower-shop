@@ -13,11 +13,15 @@ import {
 } from "@/lib/delivery";
 import { copy, languages } from "@/lib/i18n";
 import {
+  ApiError,
+  OfflineError,
   createOrder,
   fetchAdminSupportMessages,
   fetchCities,
   fetchDeliveryZones,
+  payTestOrder,
   validatePromoCode,
+  type ApiOrder,
   type ApiCity,
   type ApiPaymentMethod,
 } from "@/lib/api";
@@ -69,6 +73,17 @@ const paymentMethods: Array<{
   { id: "online", label: "Online", detail: "Pending internal payment" },
 ];
 
+function firstApiMessage(error: unknown, fallback: string) {
+  if (error instanceof OfflineError) return fallback;
+  if (error instanceof ApiError) {
+    const first = Object.values(error.details)[0];
+    if (Array.isArray(first) && typeof first[0] === "string") return first[0];
+    if (typeof first === "string") return first;
+    return error.message;
+  }
+  return error instanceof Error ? error.message : fallback;
+}
+
 function CartDropdown({ onClose }: { onClose: () => void }) {
   const {
     cartLines,
@@ -117,6 +132,9 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [showExtraDetails, setShowExtraDetails] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<ApiOrder | null>(null);
+  const [testPaying, setTestPaying] = useState(false);
+  const [testPayError, setTestPayError] = useState("");
   const [error, setError] = useState("");
   const total = cartLines.reduce((sum, item) => sum + item.subtotal, 0);
   const selectedDeliveryZone =
@@ -250,15 +268,44 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
         notes: notes.trim(),
       });
       clearCart();
+      setCreatedOrder(order);
+      setTestPayError("");
       setCheckoutOpen(false);
       showToast(`Order #${order.id} created`);
-      onClose();
+      if (order.payment_method === "cash") onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create order.");
+      setError(firstApiMessage(err, "Could not create order."));
     } finally {
       setSubmitting(false);
     }
   }
+
+  async function onPayTestOrder() {
+    if (!createdOrder) return;
+    setTestPayError("");
+    try {
+      setTestPaying(true);
+      const updated = await payTestOrder(createdOrder.id);
+      setCreatedOrder(updated);
+      showToast(`Order #${updated.id} paid`);
+    } catch (err) {
+      setTestPayError(
+        firstApiMessage(
+          err,
+          "Could not complete this test payment. Please try again.",
+        ),
+      );
+    } finally {
+      setTestPaying(false);
+    }
+  }
+
+  const createdOrderNeedsTestPayment =
+    createdOrder &&
+    createdOrder.payment_provider === "test" &&
+    (createdOrder.payment_method === "card" ||
+      createdOrder.payment_method === "online") &&
+    createdOrder.payment_status === "pending";
 
   return (
     <>
@@ -289,7 +336,96 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-      {cartLines.length === 0 ? (
+      {createdOrder ? (
+        <div className="mt-4 rounded-2xl bg-paper p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-display text-xl font-bold">
+                Order #{createdOrder.id}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-stone">
+                {createdOrder.payment_method_display} ·{" "}
+                {createdOrder.payment_status_display}
+              </p>
+            </div>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-extrabold ${
+                createdOrder.payment_status === "paid"
+                  ? "bg-mint text-leaf"
+                  : "bg-[#fff3d8] text-[#9a6410]"
+              }`}
+            >
+              {createdOrder.payment_status_display}
+            </span>
+          </div>
+
+          {createdOrder.payment_reference && (
+            <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-bold text-stone">
+              Test ref {createdOrder.payment_reference}
+            </p>
+          )}
+
+          {createdOrder.payment_method === "cash" ? (
+            <p className="mt-3 text-sm font-semibold text-stone">
+              Cash payment is due on delivery.
+            </p>
+          ) : createdOrder.payment_provider === "test" ? (
+            <div className="mt-3 rounded-2xl border border-line bg-white p-3">
+              <p className="text-sm font-bold text-ink">
+                This is a test payment. No real money will be charged.
+              </p>
+              <p className="mt-1 text-xs font-semibold text-stone">
+                No card details are needed or saved.
+              </p>
+              {createdOrderNeedsTestPayment ? (
+                <button
+                  type="button"
+                  disabled={testPaying}
+                  onClick={() => void onPayTestOrder()}
+                  className="mt-3 w-full rounded-full bg-ink py-2.5 text-sm font-extrabold text-white transition hover:bg-raspberry disabled:cursor-wait disabled:opacity-70"
+                >
+                  {testPaying ? "Paying..." : "Pay test order"}
+                </button>
+              ) : createdOrder.payment_status === "paid" ? (
+                <p className="mt-3 rounded-xl bg-mint px-3 py-2 text-sm font-bold text-leaf">
+                  Test payment complete.
+                </p>
+              ) : (
+                <p className="mt-3 rounded-xl bg-berrysoft px-3 py-2 text-sm font-bold text-berry">
+                  Payment is {createdOrder.payment_status_display.toLowerCase()}.
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-2xl bg-berrysoft px-3 py-2 text-sm font-bold text-berry">
+              Payment provider is not available in this demo checkout.
+            </p>
+          )}
+
+          {testPayError && (
+            <p className="mt-3 rounded-2xl bg-berrysoft px-3 py-2 text-xs font-bold text-berry">
+              {testPayError}
+            </p>
+          )}
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Link
+              href="/profile"
+              onClick={onClose}
+              className="rounded-full border border-line py-2.5 text-center text-sm font-bold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
+            >
+              Order history
+            </Link>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full bg-blossomdeep py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      ) : cartLines.length === 0 ? (
         <div className="py-6 text-center">
           <p className="text-3xl">🌷</p>
           <p className="mt-2 text-sm text-stone">
