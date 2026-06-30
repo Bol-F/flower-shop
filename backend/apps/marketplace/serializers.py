@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.products.models import Product
 from apps.products.serializers import ProductListSerializer
 
 from .models import City, Courier, PromoCode, Vendor, WishlistItem
@@ -52,7 +53,11 @@ class PromoValidationSerializer(serializers.Serializer):
 
 class WishlistItemSerializer(serializers.ModelSerializer):
     product = ProductListSerializer(read_only=True)
-    product_id = serializers.IntegerField(write_only=True)
+    product_id = serializers.PrimaryKeyRelatedField(
+        source='product',
+        queryset=Product.objects.filter(is_available=True),
+        write_only=True,
+    )
 
     class Meta:
         model = WishlistItem
@@ -62,6 +67,6 @@ class WishlistItemSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         item, _ = WishlistItem.objects.get_or_create(
             user=user,
-            product_id=validated_data['product_id'],
+            product=validated_data['product'],
         )
         return item

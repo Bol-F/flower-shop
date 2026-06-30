@@ -7,6 +7,7 @@ from django.db.models.functions import TruncDate
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.common.permissions import IsOwnerOrAdmin
@@ -63,6 +64,8 @@ class OrderListView(generics.ListAPIView):
 
 class CreateOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'order_create'
 
     def post(self, request):
         serializer = CreateOrderSerializer(
@@ -128,6 +131,8 @@ class UpdatePaymentStatusView(APIView):
 
 class PayTestOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'test_payment'
 
     def post(self, request, pk):
         order = get_object_or_404(Order, pk=pk, user=request.user)

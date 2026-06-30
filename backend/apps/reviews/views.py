@@ -1,6 +1,7 @@
 from django.db.models import Avg, Count
 from rest_framework import permissions, status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from .models import Review
@@ -43,6 +44,8 @@ class ProductSocialView(APIView):
 class ReviewView(APIView):
     """Create/update (POST) or remove (DELETE) the caller's own review."""
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'review_write'
 
     def post(self, request, product_id):
         serializer = ReviewWriteSerializer(data=request.data)

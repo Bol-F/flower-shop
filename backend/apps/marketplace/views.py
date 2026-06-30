@@ -1,5 +1,6 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from .models import City, Courier, Vendor, WishlistItem
@@ -32,6 +33,8 @@ class CourierListView(generics.ListAPIView):
 
 class PromoValidateView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'promo_validate'
 
     def post(self, request):
         serializer = PromoValidationSerializer(data=request.data)

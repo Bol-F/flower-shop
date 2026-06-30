@@ -4,6 +4,7 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV DJANGO_SETTINGS_MODULE=config.settings.production
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -17,4 +18,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]

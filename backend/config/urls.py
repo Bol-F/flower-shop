@@ -1,10 +1,9 @@
 from django.contrib import admin
-from django.urls import path, re_path, include
+from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.i18n import i18n_patterns
 from django.conf.urls.static import static
 from django.utils.translation import gettext_lazy as _
-from django.views.static import serve as serve_media
 
 admin.site.site_header = _('Bloom & Petal administration')
 admin.site.site_title = _('Bloom & Petal admin')
@@ -22,7 +21,7 @@ urlpatterns = [
     path('api/reviews/', include('apps.reviews.urls')),
 ]
 
-# /admin/ stays English (default), /ru/admin/ and /uz/admin/ switch language
+# /admin/ stays English (default), /ru/admin/ and /uz/admin/ switch language.
 urlpatterns += i18n_patterns(
     path('admin/', admin.site.urls),
     prefix_default_language=False,
@@ -30,10 +29,3 @@ urlpatterns += i18n_patterns(
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-else:
-    # Serve product photos in production too — fine at this scale; move
-    # media to S3/Cloudinary if uploads ever grow beyond seeded images.
-    urlpatterns += [
-        re_path(r'^media/(?P<path>.*)$', serve_media,
-                {'document_root': settings.MEDIA_ROOT}),
-    ]

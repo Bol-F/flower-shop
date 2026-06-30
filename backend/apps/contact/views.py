@@ -1,6 +1,7 @@
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from apps.common.permissions import IsCustomer
 from apps.orders.notifications import notify_support_message_created
@@ -18,6 +19,8 @@ class SendMessageView(generics.CreateAPIView):
     """Customers send a message to support; staff answer from the dashboard."""
     serializer_class = UserMessageCreateSerializer
     permission_classes = [IsCustomer]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'support_message'
 
     def perform_create(self, serializer):
         msg = serializer.save(user=self.request.user)

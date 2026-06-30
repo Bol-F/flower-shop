@@ -1,6 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
+from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -75,7 +76,14 @@ def validate_promo_code(code: str | None, subtotal: Decimal) -> tuple[PromoCode 
 def mark_promo_used(promo: PromoCode | None) -> None:
     if not promo:
         return
-    PromoCode.objects.filter(pk=promo.pk).update(used_count=promo.used_count + 1)
+    updated = (
+        PromoCode.objects
+        .filter(pk=promo.pk)
+        .filter(Q(usage_limit__isnull=True) | Q(used_count__lt=F('usage_limit')))
+        .update(used_count=F('used_count') + 1)
+    )
+    if not updated:
+        raise ValidationError({'promo_code': 'Promo code usage limit reached.'})
 
 
 def award_loyalty_points_if_eligible(order: Order) -> Order:

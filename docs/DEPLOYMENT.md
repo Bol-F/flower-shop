@@ -22,6 +22,7 @@ Before the first production deploy:
 - Run migrations against the production database.
 - Create a production superuser.
 - Set CORS and CSRF origins to the exact deployed domains.
+- Configure external media storage before relying on uploaded or seeded images.
 - Keep `PAYMENT_PROVIDER=test` until a real provider is officially integrated.
 - Keep email and Telegram disabled until credentials are available.
 
@@ -125,8 +126,9 @@ SUPABASE_STORAGE_BUCKET=
 SUPABASE_STORAGE_SERVICE_KEY=
 ```
 
-The app currently stores media on the local filesystem. Render filesystems can
-be ephemeral, so use external media storage before accepting important uploads.
+Development stores media on the local filesystem. Production does not serve
+`/media/` from Django; use external media storage before relying on uploaded or
+seeded images.
 
 ## 4. Production Migrations
 

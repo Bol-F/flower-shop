@@ -32,6 +32,7 @@ env = environ.Env(
     CLICK_SECRET_KEY=(str, ''),
     PAYME_MERCHANT_ID=(str, ''),
     PAYME_SECRET_KEY=(str, ''),
+    SECURE_HSTS_SECONDS=(int, 0),
 )
 
 environ.Env.read_env(BASE_DIR / '.env')
@@ -49,6 +50,7 @@ INSTALLED_APPS = [
     # Third-party
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
     'channels',
@@ -189,18 +191,35 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
+    'DEFAULT_THROTTLE_RATES': {
+        'auth_login': '5/minute',
+        'auth_register': '3/hour',
+        'auth_refresh': '10/minute',
+        'auth_password': '5/hour',
+        'support_message': '10/hour',
+        'promo_validate': '20/hour',
+        'order_create': '20/hour',
+        'test_payment': '20/hour',
+        'review_write': '30/hour',
+    },
 }
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': False,
+    'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 CORS_ALLOWED_ORIGINS = env('CORS_ALLOWED_ORIGINS')
 CSRF_TRUSTED_ORIGINS = env('CSRF_TRUSTED_ORIGINS')
+
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = 'Lax'
+SECURE_REFERRER_POLICY = 'same-origin'
 
 EMAIL_HOST = env('EMAIL_HOST')
 EMAIL_PORT = env('EMAIL_PORT')

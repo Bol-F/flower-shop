@@ -77,7 +77,7 @@ flower-shop/
       users/                Custom user model and auth endpoints
     config/
       settings/             base, development, production settings
-      urls.py               API, admin, media routes
+      urls.py               API and admin routes
       asgi.py / wsgi.py
     locale/                 Admin translation catalogs
     manage.py
@@ -249,8 +249,9 @@ python manage.py seed_flowers
 python manage.py download_flower_images
 ```
 
-`download_flower_images` stores files in local media storage. In production,
-use external media storage before accepting important uploads.
+`download_flower_images` stores files in local media storage for development.
+Production does not serve `/media/` from Django; configure external media
+storage before relying on uploaded or seeded images.
 
 ## Migrations
 
