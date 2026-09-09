@@ -4,10 +4,11 @@ from rest_framework.exceptions import ValidationError
 
 
 @dataclass(frozen=True)
-class PaymentResult:
+class PaymentInitialization:
     provider: str
-    reference: str
     status: str
+    checkout_url: str = ''
+    reference: str = ''
     message: str = ''
 
 
@@ -35,7 +36,7 @@ class BasePaymentProvider:
                 {'payment_provider': self.not_configured_message()}
             )
 
-    def create_payment(self, order):
+    def create_payment(self, payment):
         raise NotImplementedError
 
     def verify_payment(self, payment_reference: str):

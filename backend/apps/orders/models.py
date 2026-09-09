@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -94,6 +96,11 @@ class Order(models.Model):
         default='',
     )
     paid_at = models.DateTimeField(_('paid at'), null=True, blank=True)
+    inventory_released_at = models.DateTimeField(
+        _('inventory released at'),
+        null=True,
+        blank=True,
+    )
     promo_code = models.ForeignKey(
         'marketplace.PromoCode',
         on_delete=models.SET_NULL,
@@ -295,3 +302,93 @@ class OrderItem(models.Model):
     @property
     def subtotal(self):
         return self.product_price * self.quantity
+
+
+class PaymentAttempt(models.Model):
+    class Status(models.TextChoices):
+        CREATED = 'created', _('Created')
+        PENDING = 'pending', _('Pending')
+        PROCESSING = 'processing', _('Processing')
+        PAID = 'paid', _('Paid')
+        FAILED = 'failed', _('Failed')
+        CANCELLED = 'cancelled', _('Cancelled')
+        REFUNDED = 'refunded', _('Refunded')
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payments')
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    provider = models.CharField(max_length=20)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    currency = models.CharField(max_length=3, default='UZS')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.CREATED)
+    idempotency_key = models.CharField(max_length=128)
+    external_payment_id = models.CharField(max_length=128, blank=True, default='')
+    provider_reference = models.CharField(max_length=128, blank=True, default='')
+    checkout_url = models.URLField(max_length=2000, blank=True, default='')
+    failure_code = models.CharField(max_length=80, blank=True, default='')
+    failure_message = models.CharField(max_length=500, blank=True, default='')
+    provider_create_time = models.BigIntegerField(null=True, blank=True)
+    provider_perform_time = models.BigIntegerField(null=True, blank=True)
+    provider_cancel_time = models.BigIntegerField(null=True, blank=True)
+    cancellation_reason = models.SmallIntegerField(null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('order', 'provider', 'idempotency_key'),
+                name='unique_payment_idempotency_key',
+            ),
+            models.UniqueConstraint(
+                fields=('provider', 'external_payment_id'),
+                condition=~models.Q(external_payment_id=''),
+                name='unique_provider_external_payment_id',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.provider} {self.public_id} ({self.status})'
+
+
+class PaymentEvent(models.Model):
+    class Source(models.TextChoices):
+        PROVIDER = 'provider', _('Provider')
+        CUSTOMER = 'customer', _('Customer')
+        ADMIN = 'admin', _('Admin')
+        SYSTEM = 'system', _('System')
+
+    payment = models.ForeignKey(
+        PaymentAttempt,
+        on_delete=models.CASCADE,
+        related_name='events',
+    )
+    source = models.CharField(max_length=20, choices=Source.choices)
+    event_type = models.CharField(max_length=80)
+    external_event_id = models.CharField(max_length=160, blank=True, default='')
+    status_from = models.CharField(max_length=20, blank=True, default='')
+    status_to = models.CharField(max_length=20, blank=True, default='')
+    message = models.CharField(max_length=500, blank=True, default='')
+    metadata = models.JSONField(default=dict, blank=True)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='payment_events',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('created_at',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('payment', 'external_event_id'),
+                condition=~models.Q(external_event_id=''),
+                name='unique_payment_external_event',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.payment_id}:{self.event_type}'

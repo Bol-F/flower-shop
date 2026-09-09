@@ -1,7 +1,20 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import DeliveryZone, NotificationLog, Order, OrderItem
+from .models import DeliveryZone, NotificationLog, Order, OrderItem, PaymentAttempt
+
+
+class PaymentAttemptSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(source='public_id', read_only=True)
+
+    class Meta:
+        model = PaymentAttempt
+        fields = (
+            'id', 'order_id', 'provider', 'amount', 'currency', 'status',
+            'checkout_url', 'provider_reference', 'failure_code',
+            'failure_message', 'paid_at', 'created_at', 'updated_at',
+        )
+        read_only_fields = fields
 
 
 class DeliveryZoneSerializer(serializers.ModelSerializer):
@@ -72,6 +85,7 @@ class OrderSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     subtotal_price = serializers.SerializerMethodField()
+    latest_payment = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -93,7 +107,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'courier_assigned_at', 'courier_picked_up_at', 'delivered_at',
             'recipient_name', 'recipient_phone', 'gift_note',
             'call_recipient_before_delivery', 'delivery_fee',
-            'notes', 'items', 'notification_logs',
+            'notes', 'items', 'notification_logs', 'latest_payment',
             'created_at', 'updated_at',
         )
         read_only_fields = (
@@ -106,6 +120,10 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_subtotal_price(self, obj):
         subtotal = obj.total_price - obj.delivery_fee + obj.discount_amount
         return f'{subtotal:.2f}'
+
+    def get_latest_payment(self, obj):
+        payment = obj.payments.first()
+        return PaymentAttemptSerializer(payment).data if payment else None
 
     def get_status_timeline(self, obj):
         timeline = [
@@ -229,8 +247,18 @@ class UpdateOrderStatusSerializer(serializers.ModelSerializer):
 
 class UpdatePaymentStatusSerializer(serializers.Serializer):
     payment_status = serializers.ChoiceField(choices=Order.PaymentStatus.choices)
-    payment_provider = serializers.CharField(max_length=60, required=False, allow_blank=True)
-    payment_reference = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    reason = serializers.CharField(
+        max_length=500,
+        required=False,
+        default='Manual cash adjustment by authenticated staff.',
+    )
+    payment_provider = serializers.CharField(required=False, write_only=True)
+    payment_reference = serializers.CharField(required=False, write_only=True)
+
+
+class InitializePaymentSerializer(serializers.Serializer):
+    provider = serializers.ChoiceField(choices=('test', 'payme', 'click'), required=False)
+    idempotency_key = serializers.CharField(max_length=128, required=False, allow_blank=True)
 
 
 class AssignCourierSerializer(serializers.Serializer):

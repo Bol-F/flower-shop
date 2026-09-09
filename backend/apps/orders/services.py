@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
@@ -13,10 +14,11 @@ from apps.products.models import Product
 from . import notifications
 from .models import Order, OrderItem
 from .payments import (
-    create_provider_payment,
+    TEST_PAYMENT_PROVIDER,
     initial_payment_provider,
     initial_payment_reference,
     initial_payment_status,
+    initialize_payment,
 )
 from .pricing import calculate_delivery_fee
 
@@ -103,8 +105,6 @@ def create_order_from_cart(
         delivery_fee=delivery_fee,
         notes=notes,
     )
-    create_provider_payment(order)
-
     order_items = [
         OrderItem(
             order=order,
@@ -123,6 +123,17 @@ def create_order_from_cart(
 
     mark_promo_used(promo)
     clear_cart(user)
+    if (
+        payment_method != Order.PaymentMethod.CASH
+        and settings.PAYMENT_TEST_MODE_ENABLED
+        and settings.PAYMENT_PROVIDER == TEST_PAYMENT_PROVIDER
+    ):
+        initialize_payment(
+            order,
+            provider_name=TEST_PAYMENT_PROVIDER,
+            idempotency_key=f'test-order-{order.id}',
+        )
+        order.refresh_from_db()
     notifications.notify_order_created(order)
 
     return order

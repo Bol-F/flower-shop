@@ -7,8 +7,7 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from . import notifications
-from .models import DeliveryZone, NotificationLog, Order, OrderItem
-from .payments import update_payment_status
+from .models import DeliveryZone, NotificationLog, Order, OrderItem, PaymentAttempt, PaymentEvent
 from apps.marketplace.services import award_loyalty_points_if_eligible
 
 
@@ -95,7 +94,8 @@ class OrderAdmin(admin.ModelAdmin):
     list_per_page = 25
     readonly_fields = (
         'user', 'delivery_fee', 'discount_amount', 'total_price',
-        'loyalty_points_earned', 'map_preview',
+        'loyalty_points_earned', 'map_preview', 'payment_status',
+        'payment_provider', 'payment_reference', 'paid_at', 'inventory_released_at',
         'created_at', 'updated_at',
     )
     inlines = [OrderItemInline, NotificationLogInline]
@@ -104,8 +104,6 @@ class OrderAdmin(admin.ModelAdmin):
         'mark_preparing',
         'mark_courier_picked_up',
         'mark_delivered',
-        'mark_payment_paid',
-        'mark_payment_failed',
     )
 
     fieldsets = (
@@ -222,14 +220,6 @@ class OrderAdmin(admin.ModelAdmin):
     def mark_delivered(self, request, queryset):
         self._mark_status(queryset, Order.Status.DELIVERED)
 
-    @admin.action(description=_('Mark selected payments as paid'))
-    def mark_payment_paid(self, request, queryset):
-        self._mark_payment_status(queryset, Order.PaymentStatus.PAID)
-
-    @admin.action(description=_('Mark selected payments as failed'))
-    def mark_payment_failed(self, request, queryset):
-        self._mark_payment_status(queryset, Order.PaymentStatus.FAILED)
-
     def _mark_status(self, queryset, status):
         for order in queryset:
             order.status = status
@@ -244,10 +234,31 @@ class OrderAdmin(admin.ModelAdmin):
             award_loyalty_points_if_eligible(order)
             notifications.notify_order_status_changed(order)
 
-    def _mark_payment_status(self, queryset, payment_status):
-        for order in queryset:
-            try:
-                update_payment_status(order, payment_status)
-            except Exception:
-                continue
-            notifications.notify_payment_status_changed(order)
+
+
+@admin.register(PaymentAttempt)
+class PaymentAttemptAdmin(admin.ModelAdmin):
+    list_display = ('public_id', 'order', 'provider', 'amount', 'currency', 'status', 'created_at')
+    list_filter = ('provider', 'status', 'currency', 'created_at')
+    search_fields = ('public_id', 'external_payment_id', 'provider_reference', 'order__id')
+    readonly_fields = tuple(field.name for field in PaymentAttempt._meta.fields)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(PaymentEvent)
+class PaymentEventAdmin(admin.ModelAdmin):
+    list_display = ('payment', 'source', 'event_type', 'status_from', 'status_to', 'created_at')
+    list_filter = ('source', 'event_type', 'status_to', 'created_at')
+    search_fields = ('payment__public_id', 'external_event_id', 'message')
+    readonly_fields = tuple(field.name for field in PaymentEvent._meta.fields)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

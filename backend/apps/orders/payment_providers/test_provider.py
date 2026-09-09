@@ -1,34 +1,34 @@
 from uuid import uuid4
 
-from apps.orders.models import Order
+from apps.orders.models import PaymentAttempt
 
-from .base import BasePaymentProvider, PaymentResult
+from .base import BasePaymentProvider, PaymentInitialization
 
 
 class TestPaymentProvider(BasePaymentProvider):
     provider_name = 'test'
 
-    def create_payment(self, order):
-        reference = order.payment_reference or self.generate_reference()
-        return PaymentResult(
+    def create_payment(self, payment):
+        reference = payment.provider_reference or self.generate_reference()
+        return PaymentInitialization(
             provider=self.provider_name,
             reference=reference,
-            status=Order.PaymentStatus.PENDING,
+            status=PaymentAttempt.Status.PENDING,
             message='Test payment created. No real money will be charged.',
         )
 
     def verify_payment(self, payment_reference: str):
-        return PaymentResult(
+        return PaymentInitialization(
             provider=self.provider_name,
             reference=payment_reference,
-            status=Order.PaymentStatus.PAID,
+            status=PaymentAttempt.Status.PAID,
             message='Test payment verified.',
         )
 
     def handle_webhook(self, payload: dict):
         reference = str(payload.get('payment_reference') or payload.get('reference') or '')
-        status = str(payload.get('payment_status') or Order.PaymentStatus.PAID)
-        return PaymentResult(
+        status = str(payload.get('payment_status') or PaymentAttempt.Status.PAID)
+        return PaymentInitialization(
             provider=self.provider_name,
             reference=reference,
             status=status,
@@ -36,10 +36,10 @@ class TestPaymentProvider(BasePaymentProvider):
         )
 
     def refund_payment(self, order):
-        return PaymentResult(
+        return PaymentInitialization(
             provider=self.provider_name,
-            reference=order.payment_reference,
-            status=Order.PaymentStatus.REFUNDED,
+            reference=order.provider_reference,
+            status=PaymentAttempt.Status.REFUNDED,
             message='Test payment refunded.',
         )
 

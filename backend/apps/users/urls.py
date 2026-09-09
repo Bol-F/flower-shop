@@ -5,6 +5,11 @@ from .views import (
     CustomTokenRefreshView,
     ProfileView,
     RegisterView,
+    OAuthCallbackView,
+    OAuthExchangeView,
+    OAuthLinkStartView,
+    OAuthProvidersView,
+    OAuthStartView,
 )
 
 urlpatterns = [
@@ -13,4 +18,9 @@ urlpatterns = [
     path('token/refresh/', CustomTokenRefreshView.as_view(), name='token-refresh'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('profile/password/', ChangePasswordView.as_view(), name='profile-password'),
+    path('oauth/providers/', OAuthProvidersView.as_view(), name='oauth-providers'),
+    path('oauth/exchange/', OAuthExchangeView.as_view(), name='oauth-exchange'),
+    path('oauth/<str:provider>/start/', OAuthStartView.as_view(), name='oauth-start'),
+    path('oauth/<str:provider>/link/', OAuthLinkStartView.as_view(), name='oauth-link-start'),
+    path('oauth/<str:provider>/callback/', OAuthCallbackView.as_view(), name='oauth-callback'),
 ]

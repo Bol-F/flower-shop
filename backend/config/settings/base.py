@@ -10,6 +10,9 @@ env = environ.Env(
     CORS_ALLOWED_ORIGINS=(list, ['http://localhost:3000', 'http://localhost:3001']),
     CSRF_TRUSTED_ORIGINS=(list, []),
     DATABASE_URL=(str, ''),
+    DB_NAME=(str, 'flower_shop_db'),
+    DB_USER=(str, 'postgres'),
+    DB_PASSWORD=(str, 'postgres'),
     DB_HOST=(str, 'localhost'),
     DB_PORT=(str, '5432'),
     REDIS_URL=(str, 'redis://127.0.0.1:6379/0'),
@@ -26,12 +29,41 @@ env = environ.Env(
     TELEGRAM_BOT_TOKEN=(str, ''),
     TELEGRAM_ADMIN_CHAT_ID=(str, ''),
     PAYMENT_PROVIDER=(str, 'test'),
+    PAYMENT_TEST_MODE_ENABLED=(bool, False),
+    FRONTEND_URL=(str, 'http://localhost:3000'),
+    OAUTH_FRONTEND_CALLBACK_URL=(str, 'http://localhost:3000/auth/callback'),
+    OAUTH_ATTEMPT_TTL_SECONDS=(int, 600),
+    OAUTH_EXCHANGE_TTL_SECONDS=(int, 60),
+    OAUTH_HTTP_TIMEOUT_SECONDS=(int, 10),
+    GOOGLE_OAUTH_CLIENT_ID=(str, ''),
+    GOOGLE_OAUTH_CLIENT_SECRET=(str, ''),
+    GOOGLE_OAUTH_REDIRECT_URI=(str, 'http://localhost:8000/api/auth/oauth/google/callback/'),
+    GITHUB_OAUTH_CLIENT_ID=(str, ''),
+    GITHUB_OAUTH_CLIENT_SECRET=(str, ''),
+    GITHUB_OAUTH_REDIRECT_URI=(str, 'http://localhost:8000/api/auth/oauth/github/callback/'),
+    MICROSOFT_OAUTH_CLIENT_ID=(str, ''),
+    MICROSOFT_OAUTH_CLIENT_SECRET=(str, ''),
+    MICROSOFT_OAUTH_REDIRECT_URI=(str, 'http://localhost:8000/api/auth/oauth/microsoft/callback/'),
+    MICROSOFT_OAUTH_TENANT=(str, 'common'),
+    PAYMENT_FRONTEND_RETURN_URL=(str, 'http://localhost:3000/payment/return'),
+    PAYMENT_UZS_PER_PRICE_UNIT=(str, '12650'),
+    PAYMENT_HTTP_TIMEOUT_SECONDS=(int, 10),
     STRIPE_SECRET_KEY=(str, ''),
     STRIPE_WEBHOOK_SECRET=(str, ''),
     CLICK_SERVICE_ID=(str, ''),
+    CLICK_MERCHANT_ID=(str, ''),
     CLICK_SECRET_KEY=(str, ''),
+    CLICK_CHECKOUT_URL=(str, 'https://my.click.uz/services/pay'),
     PAYME_MERCHANT_ID=(str, ''),
+    PAYME_LOGIN=(str, 'Paycom'),
     PAYME_SECRET_KEY=(str, ''),
+    PAYME_CHECKOUT_URL=(str, 'https://checkout.paycom.uz'),
+    PAYME_ALLOWED_IPS=(list, [
+        '185.234.113.1', '185.234.113.2', '185.234.113.3', '185.234.113.4',
+        '185.234.113.5', '185.234.113.6', '185.234.113.7', '185.234.113.8',
+        '185.234.113.9', '185.234.113.10', '185.234.113.11', '185.234.113.12',
+        '185.234.113.13', '185.234.113.14', '185.234.113.15',
+    ]),
     SECURE_HSTS_SECONDS=(int, 0),
 )
 
@@ -196,10 +228,15 @@ REST_FRAMEWORK = {
         'auth_register': '3/hour',
         'auth_refresh': '10/minute',
         'auth_password': '5/hour',
+        'auth_oauth_start': '20/hour',
+        'auth_oauth_callback': '30/hour',
+        'auth_oauth_exchange': '10/minute',
         'support_message': '10/hour',
         'promo_validate': '20/hour',
         'order_create': '20/hour',
         'test_payment': '20/hour',
+        'payment_create': '20/hour',
+        'payment_webhook': '240/minute',
         'review_write': '30/hour',
     },
 }
@@ -233,12 +270,44 @@ TELEGRAM_NOTIFICATIONS_ENABLED = env('TELEGRAM_NOTIFICATIONS_ENABLED')
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN')
 TELEGRAM_ADMIN_CHAT_ID = env('TELEGRAM_ADMIN_CHAT_ID')
 PAYMENT_PROVIDER = env('PAYMENT_PROVIDER').strip().lower()
+PAYMENT_TEST_MODE_ENABLED = env('PAYMENT_TEST_MODE_ENABLED')
+FRONTEND_URL = env('FRONTEND_URL').rstrip('/')
+OAUTH_FRONTEND_CALLBACK_URL = env('OAUTH_FRONTEND_CALLBACK_URL')
+OAUTH_ATTEMPT_TTL_SECONDS = env('OAUTH_ATTEMPT_TTL_SECONDS')
+OAUTH_EXCHANGE_TTL_SECONDS = env('OAUTH_EXCHANGE_TTL_SECONDS')
+OAUTH_HTTP_TIMEOUT_SECONDS = env('OAUTH_HTTP_TIMEOUT_SECONDS')
+OAUTH_PROVIDERS = {
+    'google': {
+        'client_id': env('GOOGLE_OAUTH_CLIENT_ID'),
+        'client_secret': env('GOOGLE_OAUTH_CLIENT_SECRET'),
+        'redirect_uri': env('GOOGLE_OAUTH_REDIRECT_URI'),
+    },
+    'github': {
+        'client_id': env('GITHUB_OAUTH_CLIENT_ID'),
+        'client_secret': env('GITHUB_OAUTH_CLIENT_SECRET'),
+        'redirect_uri': env('GITHUB_OAUTH_REDIRECT_URI'),
+    },
+    'microsoft': {
+        'client_id': env('MICROSOFT_OAUTH_CLIENT_ID'),
+        'client_secret': env('MICROSOFT_OAUTH_CLIENT_SECRET'),
+        'redirect_uri': env('MICROSOFT_OAUTH_REDIRECT_URI'),
+        'tenant': env('MICROSOFT_OAUTH_TENANT'),
+    },
+}
+PAYMENT_FRONTEND_RETURN_URL = env('PAYMENT_FRONTEND_RETURN_URL')
+PAYMENT_UZS_PER_PRICE_UNIT = env('PAYMENT_UZS_PER_PRICE_UNIT')
+PAYMENT_HTTP_TIMEOUT_SECONDS = env('PAYMENT_HTTP_TIMEOUT_SECONDS')
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET')
 CLICK_SERVICE_ID = env('CLICK_SERVICE_ID')
+CLICK_MERCHANT_ID = env('CLICK_MERCHANT_ID')
 CLICK_SECRET_KEY = env('CLICK_SECRET_KEY')
+CLICK_CHECKOUT_URL = env('CLICK_CHECKOUT_URL')
 PAYME_MERCHANT_ID = env('PAYME_MERCHANT_ID')
+PAYME_LOGIN = env('PAYME_LOGIN')
 PAYME_SECRET_KEY = env('PAYME_SECRET_KEY')
+PAYME_CHECKOUT_URL = env('PAYME_CHECKOUT_URL')
+PAYME_ALLOWED_IPS = env('PAYME_ALLOWED_IPS')
 
 LOGGING = {
     'version': 1,

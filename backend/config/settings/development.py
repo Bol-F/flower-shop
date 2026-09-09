@@ -1,6 +1,7 @@
 from .base import *
 
 DEBUG = True
+PAYMENT_TEST_MODE_ENABLED = True
 
 ALLOWED_HOSTS = ['*']
 

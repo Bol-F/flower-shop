@@ -10,7 +10,7 @@ class StripePaymentProvider(BasePaymentProvider):
     def is_configured(self) -> bool:
         return bool(settings.STRIPE_SECRET_KEY and settings.STRIPE_WEBHOOK_SECRET)
 
-    def create_payment(self, order):
+    def create_payment(self, payment):
         self.ensure_configured()
         raise NotImplementedError(
             'Stripe integration requires official Stripe API docs, test mode '

@@ -3,6 +3,7 @@ from django.core.exceptions import ImproperlyConfigured
 from .base import *
 
 DEBUG = False
+PAYMENT_TEST_MODE_ENABLED = False
 
 # Tolerate stray spaces in comma-separated dashboard values
 ALLOWED_HOSTS = [h.strip() for h in env('ALLOWED_HOSTS') if h.strip()]
@@ -28,6 +29,44 @@ insecure_cors_origins = [
 ]
 if insecure_cors_origins:
     raise ImproperlyConfigured('Production CORS_ALLOWED_ORIGINS must use HTTPS.')
+
+if PAYMENT_PROVIDER not in {'payme', 'click'}:
+    raise ImproperlyConfigured(
+        'Production PAYMENT_PROVIDER must explicitly be payme or click; test fallback is forbidden.'
+    )
+
+payment_requirements = {
+    'payme': {
+        'PAYME_MERCHANT_ID': PAYME_MERCHANT_ID,
+        'PAYME_LOGIN': PAYME_LOGIN,
+        'PAYME_SECRET_KEY': PAYME_SECRET_KEY,
+        'PAYME_CHECKOUT_URL': PAYME_CHECKOUT_URL,
+    },
+    'click': {
+        'CLICK_SERVICE_ID': CLICK_SERVICE_ID,
+        'CLICK_MERCHANT_ID': CLICK_MERCHANT_ID,
+        'CLICK_SECRET_KEY': CLICK_SECRET_KEY,
+        'CLICK_CHECKOUT_URL': CLICK_CHECKOUT_URL,
+    },
+}
+missing_payment_settings = [
+    name for name, value in payment_requirements[PAYMENT_PROVIDER].items() if not value
+]
+if missing_payment_settings:
+    raise ImproperlyConfigured(
+        f'Missing {PAYMENT_PROVIDER} settings: {", ".join(missing_payment_settings)}.'
+    )
+if not PAYMENT_FRONTEND_RETURN_URL.startswith('https://'):
+    raise ImproperlyConfigured('PAYMENT_FRONTEND_RETURN_URL must use HTTPS in production.')
+
+for provider_name, provider in OAUTH_PROVIDERS.items():
+    supplied = [provider.get('client_id'), provider.get('client_secret')]
+    if any(supplied) and not all(supplied):
+        raise ImproperlyConfigured(f'{provider_name.title()} OAuth credentials are incomplete.')
+    if all(supplied) and not provider.get('redirect_uri', '').startswith('https://'):
+        raise ImproperlyConfigured(
+            f'{provider_name.title()} OAuth redirect URI must use HTTPS in production.'
+        )
 
 # Static files served by WhiteNoise (hashed filenames + gzip/brotli)
 STORAGES = {

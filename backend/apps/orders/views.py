@@ -1,11 +1,14 @@
+import json
 from decimal import Decimal
 
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch, Sum, Value
 from django.db.models.functions import Coalesce
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from rest_framework import generics, permissions, status
+from rest_framework.parsers import FormParser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
@@ -16,8 +19,20 @@ from apps.marketplace.services import award_loyalty_points_if_eligible, repeat_o
 from apps.products.models import Product
 from . import services
 from . import notifications
-from .payments import pay_test_order, update_payment_status
-from .models import DeliveryZone, Order, OrderItem
+from .payments import (
+    available_payment_methods,
+    initialize_payment,
+    pay_test_order,
+    update_payment_status,
+)
+from .payment_webhooks import (
+    handle_click_complete,
+    handle_click_prepare,
+    handle_payme_request,
+    payme_authenticated,
+    payme_error,
+)
+from .models import DeliveryZone, Order, OrderItem, PaymentAttempt
 from .serializers import (
     DeliveryZoneSerializer,
     OrderSerializer,
@@ -25,6 +40,8 @@ from .serializers import (
     UpdateOrderStatusSerializer,
     UpdatePaymentStatusSerializer,
     AssignCourierSerializer,
+    InitializePaymentSerializer,
+    PaymentAttemptSerializer,
 )
 
 
@@ -35,6 +52,7 @@ def order_queryset():
     ).prefetch_related(
         Prefetch('items', queryset=OrderItem.objects.select_related('product')),
         'notification_logs',
+        'payments',
     )
 
 
@@ -117,11 +135,13 @@ class UpdatePaymentStatusView(APIView):
         order = get_object_or_404(Order, pk=pk)
         serializer = UpdatePaymentStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        update_payment_status(
+        order = update_payment_status(
             order,
             serializer.validated_data['payment_status'],
             payment_provider=serializer.validated_data.get('payment_provider', ''),
             payment_reference=serializer.validated_data.get('payment_reference', ''),
+            actor=request.user,
+            reason=serializer.validated_data['reason'],
         )
         award_loyalty_points_if_eligible(order)
         notifications.notify_payment_status_changed(order)
@@ -136,10 +156,98 @@ class PayTestOrderView(APIView):
 
     def post(self, request, pk):
         order = get_object_or_404(Order, pk=pk, user=request.user)
-        pay_test_order(order)
+        order = pay_test_order(order)
         notifications.notify_payment_status_changed(order)
         order = order_queryset().get(pk=order.pk)
         return Response(OrderSerializer(order).data)
+
+
+class PaymentMethodsView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response({'methods': available_payment_methods()})
+
+
+class InitializePaymentView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'payment_create'
+
+    def post(self, request, pk):
+        order = get_object_or_404(Order, pk=pk, user=request.user)
+        serializer = InitializePaymentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        idempotency_key = (
+            request.headers.get('Idempotency-Key')
+            or serializer.validated_data.get('idempotency_key', '')
+        )
+        payment, created = initialize_payment(
+            order,
+            provider_name=serializer.validated_data.get('provider', ''),
+            idempotency_key=idempotency_key,
+        )
+        return Response(
+            PaymentAttemptSerializer(payment).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class PaymentDetailView(generics.RetrieveAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = PaymentAttemptSerializer
+    lookup_field = 'public_id'
+    lookup_url_kwarg = 'payment_id'
+
+    def get_queryset(self):
+        queryset = PaymentAttempt.objects.select_related('order').filter(
+            order_id=self.kwargs['pk'],
+        )
+        if self.request.user.is_staff:
+            return queryset
+        return queryset.filter(order__user=self.request.user)
+
+
+class PaymeWebhookView(APIView):
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'payment_webhook'
+
+    def http_method_not_allowed(self, request, *args, **kwargs):
+        return Response(payme_error(None, -32300, 'Only POST requests are accepted.'))
+
+    def post(self, request):
+        try:
+            payload = json.loads(request.body.decode('utf-8'))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return Response(payme_error(None, -32700, 'JSON parsing error.'))
+        request_id = payload.get('id') if isinstance(payload, dict) else None
+        authorization = request.META.get('HTTP_AUTHORIZATION', '')
+        if not payme_authenticated(authorization):
+            return Response(payme_error(request_id, -32504, 'Authentication failed.'))
+        if not settings.DEBUG and settings.PAYME_ALLOWED_IPS:
+            if request.META.get('REMOTE_ADDR') not in settings.PAYME_ALLOWED_IPS:
+                return Response(payme_error(request_id, -32504, 'Authentication failed.'))
+        return Response(handle_payme_request(payload))
+
+
+class ClickWebhookBaseView(APIView):
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+    parser_classes = [FormParser]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'payment_webhook'
+
+
+class ClickPrepareWebhookView(ClickWebhookBaseView):
+    def post(self, request):
+        return Response(handle_click_prepare(request.data.dict()))
+
+
+class ClickCompleteWebhookView(ClickWebhookBaseView):
+    def post(self, request):
+        return Response(handle_click_complete(request.data.dict()))
 
 
 class AssignCourierView(APIView):

@@ -50,3 +50,70 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+
+class SocialIdentity(models.Model):
+    class Provider(models.TextChoices):
+        GOOGLE = 'google', 'Google'
+        GITHUB = 'github', 'GitHub'
+        MICROSOFT = 'microsoft', 'Microsoft'
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='social_identities',
+    )
+    provider = models.CharField(max_length=20, choices=Provider.choices)
+    subject = models.CharField(max_length=255)
+    email = models.EmailField(blank=True)
+    email_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=('provider', 'subject'),
+                name='unique_social_provider_subject',
+            ),
+        ]
+        ordering = ('provider',)
+
+    def __str__(self):
+        return f'{self.provider}:{self.subject}'
+
+
+class OAuthLoginAttempt(models.Model):
+    provider = models.CharField(max_length=20, choices=SocialIdentity.Provider.choices)
+    state_digest = models.CharField(max_length=64, unique=True)
+    code_verifier = models.CharField(max_length=128)
+    nonce = models.CharField(max_length=128)
+    next_path = models.CharField(max_length=500, default='/profile')
+    linking_user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='oauth_link_attempts',
+    )
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+
+
+class OAuthExchangeCode(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='oauth_exchange_codes',
+    )
+    token_digest = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-created_at',)

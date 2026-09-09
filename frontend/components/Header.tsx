@@ -19,11 +19,15 @@ import {
   fetchAdminSupportMessages,
   fetchCities,
   fetchDeliveryZones,
+  fetchPaymentMethods,
+  initializePayment,
   payTestOrder,
   validatePromoCode,
   type ApiOrder,
   type ApiCity,
   type ApiPaymentMethod,
+  type ApiPaymentAttempt,
+  type ApiPaymentOption,
 } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import BouquetArt from "./BouquetArt";
@@ -63,14 +67,16 @@ function cityToSlug(city: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-const paymentMethods: Array<{
-  id: ApiPaymentMethod;
-  label: string;
-  detail: string;
-}> = [
-  { id: "cash", label: "Cash", detail: "Unpaid until delivery" },
-  { id: "card", label: "Card", detail: "Pending staff confirmation" },
-  { id: "online", label: "Online", detail: "Pending internal payment" },
+const fallbackPaymentOptions: ApiPaymentOption[] = [
+  {
+    id: "cash",
+    payment_method: "cash",
+    provider: "cash",
+    label: "Cash",
+    detail: "Pay when your flowers arrive",
+    enabled: true,
+    test_mode: false,
+  },
 ];
 
 function firstApiMessage(error: unknown, fallback: string) {
@@ -106,7 +112,8 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
     lng: null,
   });
   const [phone, setPhone] = useState(user?.phone ?? "");
-  const [paymentMethod, setPaymentMethod] = useState<ApiPaymentMethod>("cash");
+  const [paymentOptions, setPaymentOptions] = useState<ApiPaymentOption[]>(fallbackPaymentOptions);
+  const [selectedPaymentOptionId, setSelectedPaymentOptionId] = useState<ApiPaymentOption["id"]>("cash");
   const [promoCode, setPromoCode] = useState("");
   const [promoDiscount, setPromoDiscount] = useState(0);
   const [promoLoading, setPromoLoading] = useState(false);
@@ -133,10 +140,15 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
   const [showExtraDetails, setShowExtraDetails] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<ApiOrder | null>(null);
+  const [createdPayment, setCreatedPayment] = useState<ApiPaymentAttempt | null>(null);
+  const [paymentPreparing, setPaymentPreparing] = useState(false);
   const [testPaying, setTestPaying] = useState(false);
   const [testPayError, setTestPayError] = useState("");
   const [error, setError] = useState("");
   const total = cartLines.reduce((sum, item) => sum + item.subtotal, 0);
+  const selectedPaymentOption =
+    paymentOptions.find((method) => method.id === selectedPaymentOptionId) ?? paymentOptions[0];
+  const paymentMethod: ApiPaymentMethod = selectedPaymentOption?.payment_method ?? "cash";
   const selectedDeliveryZone =
     deliveryZones.find((zone) => zone.id === selectedDeliveryZoneId) ??
     deliveryZones[0] ??
@@ -192,6 +204,50 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
       active = false;
     };
   }, [checkoutOpen, city]);
+
+  useEffect(() => {
+    if (!checkoutOpen) return;
+    let active = true;
+    void fetchPaymentMethods()
+      .then((methods) => {
+        if (!active || methods.length === 0) return;
+        setPaymentOptions(methods);
+        setSelectedPaymentOptionId((current) =>
+          methods.some((method) => method.id === current) ? current : methods[0].id,
+        );
+      })
+      .catch(() => {
+        if (active) setPaymentOptions(fallbackPaymentOptions);
+      });
+    return () => {
+      active = false;
+    };
+  }, [checkoutOpen]);
+
+  async function preparePayment(order: ApiOrder) {
+    if (!selectedPaymentOption || selectedPaymentOption.provider === "cash") return;
+    setTestPayError("");
+    if (
+      order.latest_payment?.provider === selectedPaymentOption.provider &&
+      ["created", "pending", "processing"].includes(order.latest_payment.status)
+    ) {
+      setCreatedPayment(order.latest_payment);
+      return;
+    }
+    try {
+      setPaymentPreparing(true);
+      const payment = await initializePayment(
+        order.id,
+        selectedPaymentOption.provider,
+        `checkout-${order.id}-${selectedPaymentOption.provider}`,
+      );
+      setCreatedPayment(payment);
+    } catch (err) {
+      setTestPayError(firstApiMessage(err, "Could not prepare payment. Your order is safe; please retry."));
+    } finally {
+      setPaymentPreparing(false);
+    }
+  }
 
   async function onApplyPromo() {
     const code = promoCode.trim();
@@ -269,10 +325,12 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
       });
       clearCart();
       setCreatedOrder(order);
+      setCreatedPayment(null);
       setTestPayError("");
       setCheckoutOpen(false);
       showToast(`Order #${order.id} created`);
       if (order.payment_method === "cash") onClose();
+      else await preparePayment(order);
     } catch (err) {
       setError(firstApiMessage(err, "Could not create order."));
     } finally {
@@ -287,6 +345,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
       setTestPaying(true);
       const updated = await payTestOrder(createdOrder.id);
       setCreatedOrder(updated);
+      setCreatedPayment(updated.latest_payment);
       showToast(`Order #${updated.id} paid`);
     } catch (err) {
       setTestPayError(
@@ -302,10 +361,10 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
 
   const createdOrderNeedsTestPayment =
     createdOrder &&
-    createdOrder.payment_provider === "test" &&
+    createdPayment?.provider === "test" &&
     (createdOrder.payment_method === "card" ||
       createdOrder.payment_method === "online") &&
-    createdOrder.payment_status === "pending";
+    createdPayment.status === "pending";
 
   return (
     <>
@@ -359,9 +418,9 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
             </span>
           </div>
 
-          {createdOrder.payment_reference && (
+          {(createdPayment?.provider_reference || createdOrder.payment_reference) && (
             <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-bold text-stone">
-              Test ref {createdOrder.payment_reference}
+              Payment ref {createdPayment?.provider_reference || createdOrder.payment_reference}
             </p>
           )}
 
@@ -369,7 +428,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
             <p className="mt-3 text-sm font-semibold text-stone">
               Cash payment is due on delivery.
             </p>
-          ) : createdOrder.payment_provider === "test" ? (
+          ) : createdPayment?.provider === "test" ? (
             <div className="mt-3 rounded-2xl border border-line bg-white p-3">
               <p className="text-sm font-bold text-ink">
                 This is a test payment. No real money will be charged.
@@ -396,10 +455,31 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                 </p>
               )}
             </div>
+          ) : createdPayment?.checkout_url ? (
+            <div className="mt-3 rounded-2xl border border-line bg-white p-3">
+              <p className="text-sm font-bold text-ink">
+                Continue to <span className="capitalize">{createdPayment.provider}</span> to pay securely.
+              </p>
+              <p className="mt-1 text-xs font-semibold text-stone">
+                Card details are entered on the provider page and never touch Bloom &amp; Petal.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.assign(createdPayment.checkout_url)}
+                className="mt-3 w-full rounded-full bg-blossomdeep py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
+              >
+                Continue to <span className="capitalize">{createdPayment.provider}</span>
+              </button>
+            </div>
           ) : (
-            <p className="mt-3 rounded-2xl bg-berrysoft px-3 py-2 text-sm font-bold text-berry">
-              Payment provider is not available in this demo checkout.
-            </p>
+            <button
+              type="button"
+              disabled={paymentPreparing}
+              onClick={() => void preparePayment(createdOrder)}
+              className="mt-3 w-full rounded-full border border-blossomdeep py-2.5 text-sm font-extrabold text-blossomdeep disabled:cursor-wait disabled:opacity-60"
+            >
+              {paymentPreparing ? "Preparing secure checkout…" : "Retry secure checkout"}
+            </button>
           )}
 
           {testPayError && (
@@ -538,7 +618,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
             <form onSubmit={onCheckout} className="mt-3 grid gap-3">
               <div className="rounded-2xl bg-ink px-4 py-3 text-white">
                 <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-white/60">
-                  Secure demo checkout
+                  Secure checkout
                 </p>
                 <div className="mt-1 flex items-center justify-between gap-3">
                   <span className="text-sm font-bold">
@@ -549,7 +629,11 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                   </span>
                 </div>
                 <p className="mt-1 text-xs font-semibold text-white/70">
-                  Card and online payments use the safe test provider.
+                  {selectedPaymentOption?.provider === "test"
+                    ? "Development test mode — no real money is charged."
+                    : selectedPaymentOption?.provider === "cash"
+                      ? "Pay the florist when your flowers arrive."
+                      : `Online payment continues on ${selectedPaymentOption?.label ?? "the provider"}.`}
                 </p>
               </div>
 
@@ -755,14 +839,14 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                   Payment method
                 </legend>
                 <div className="mt-1 grid gap-2 sm:grid-cols-3">
-                  {paymentMethods.map((method) => {
-                    const active = paymentMethod === method.id;
+                  {paymentOptions.map((method) => {
+                    const active = selectedPaymentOptionId === method.id;
                     return (
                       <button
                         key={method.id}
                         type="button"
                         aria-pressed={active}
-                        onClick={() => setPaymentMethod(method.id)}
+                        onClick={() => setSelectedPaymentOptionId(method.id)}
                         className={`min-h-20 rounded-xl px-3 py-2 text-left transition ${
                           active
                             ? "bg-blossomdeep text-white shadow-glow"
@@ -816,7 +900,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                 <div className="mt-1 flex items-center justify-between gap-3">
                   <span className="text-stone">Payment</span>
                   <span className="font-bold">
-                    {paymentMethods.find((method) => method.id === paymentMethod)?.label}
+                    {selectedPaymentOption?.label}
                   </span>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-3">

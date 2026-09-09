@@ -42,6 +42,18 @@ export interface AuthUser {
   loyalty_points: number;
   is_staff: boolean;
   date_joined: string;
+  social_identities?: Array<{
+    provider: OAuthProvider;
+    email: string;
+    email_verified: boolean;
+  }>;
+}
+
+export type OAuthProvider = "google" | "github" | "microsoft";
+
+export interface OAuthProviderAvailability {
+  id: OAuthProvider;
+  enabled: boolean;
 }
 
 export interface SupportMessage {
@@ -156,6 +168,41 @@ export type ApiPaymentStatus =
   | "failed"
   | "refunded";
 
+export type ApiPaymentAttemptStatus =
+  | "created"
+  | "pending"
+  | "processing"
+  | "paid"
+  | "failed"
+  | "cancelled"
+  | "refunded";
+
+export interface ApiPaymentAttempt {
+  id: string;
+  order_id: number;
+  provider: "test" | "payme" | "click" | "cash";
+  amount: string;
+  currency: "UZS";
+  status: ApiPaymentAttemptStatus;
+  checkout_url: string;
+  provider_reference: string;
+  failure_code: string;
+  failure_message: string;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiPaymentOption {
+  id: "cash" | "test" | "payme" | "click";
+  payment_method: ApiPaymentMethod;
+  provider: "cash" | "test" | "payme" | "click";
+  label: string;
+  detail: string;
+  enabled: boolean;
+  test_mode: boolean;
+}
+
 export interface ApiDeliveryZone {
   id: number;
   name: string;
@@ -232,6 +279,7 @@ export interface ApiOrder {
   notes: string;
   items: ApiOrderItem[];
   notification_logs: ApiNotificationLog[];
+  latest_payment: ApiPaymentAttempt | null;
   created_at: string;
   updated_at: string;
 }
@@ -431,6 +479,34 @@ export async function login(email: string, password: string): Promise<AuthUser> 
   );
   saveAuth({ access: data.access, refresh: data.refresh, user: data.user });
   return data.user;
+}
+
+export function oauthStartUrl(provider: OAuthProvider, next = "/profile") {
+  return `${API_BASE}/api/auth/oauth/${provider}/start/?${new URLSearchParams({ next })}`;
+}
+
+export async function fetchOAuthProviders(): Promise<OAuthProviderAvailability[]> {
+  const data = await request<{ providers: OAuthProviderAvailability[] }>(
+    "/api/auth/oauth/providers/",
+  );
+  return data.providers;
+}
+
+export async function completeOAuth(code: string): Promise<AuthUser> {
+  const data = await request<{ access: string; refresh: string; user: AuthUser }>(
+    "/api/auth/oauth/exchange/",
+    { method: "POST", body: { code } },
+  );
+  saveAuth({ access: data.access, refresh: data.refresh, user: data.user });
+  return data.user;
+}
+
+export async function startOAuthLink(provider: OAuthProvider): Promise<string> {
+  const data = await request<{ authorization_url: string }>(
+    `/api/auth/oauth/${provider}/link/`,
+    { method: "POST", body: {}, auth: true },
+  );
+  return data.authorization_url;
 }
 
 export interface RegisterPayload {
@@ -673,6 +749,35 @@ export async function createOrder(payload: {
   });
 }
 
+export async function fetchPaymentMethods(): Promise<ApiPaymentOption[]> {
+  const data = await request<{ methods: ApiPaymentOption[] }>(
+    "/api/orders/payment-methods/",
+  );
+  return data.methods.filter((method) => method.enabled);
+}
+
+export async function initializePayment(
+  orderId: number,
+  provider: "test" | "payme" | "click",
+  idempotencyKey: string,
+): Promise<ApiPaymentAttempt> {
+  return request<ApiPaymentAttempt>(`/api/orders/${orderId}/payments/`, {
+    method: "POST",
+    body: { provider, idempotency_key: idempotencyKey },
+    auth: true,
+  });
+}
+
+export async function fetchPayment(
+  orderId: number,
+  paymentId: string,
+): Promise<ApiPaymentAttempt> {
+  return request<ApiPaymentAttempt>(
+    `/api/orders/${orderId}/payments/${encodeURIComponent(paymentId)}/`,
+    { auth: true },
+  );
+}
+
 export async function fetchOrders(): Promise<ApiOrder[]> {
   const data = await request<ApiOrder[] | PaginatedResponse<ApiOrder>>(
     "/api/orders/?page_size=100",
@@ -707,11 +812,11 @@ export async function updateOrderStatus(
 export async function updatePaymentStatus(
   id: number,
   paymentStatus: ApiPaymentStatus,
-  metadata: { payment_provider?: string; payment_reference?: string } = {},
+  reason: string,
 ): Promise<ApiOrder> {
   return request<ApiOrder>(`/api/orders/${id}/payment-status/`, {
     method: "PATCH",
-    body: { payment_status: paymentStatus, ...metadata },
+    body: { payment_status: paymentStatus, reason },
     auth: true,
   });
 }

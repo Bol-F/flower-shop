@@ -2,7 +2,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import User
+from .models import SocialIdentity, User
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -36,6 +36,8 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    social_identities = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = (
@@ -51,8 +53,19 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'loyalty_points',
             'is_staff',
             'date_joined',
+            'social_identities',
         )
         read_only_fields = ('id', 'email', 'loyalty_points', 'is_staff', 'date_joined')
+
+    def get_social_identities(self, obj):
+        return [
+            {
+                'provider': identity.provider,
+                'email': identity.email,
+                'email_verified': identity.email_verified,
+            }
+            for identity in obj.social_identities.all()
+        ]
 
 
 class ChangePasswordSerializer(serializers.Serializer):

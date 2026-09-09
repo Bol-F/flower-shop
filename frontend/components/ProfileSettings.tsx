@@ -15,11 +15,14 @@ import {
   fetchAdminDashboard,
   fetchCouriers,
   fetchAdminSupportMessages,
+  fetchOAuthProviders,
   fetchOrders,
+  fetchProfile,
   login as apiLogin,
   payTestOrder,
   repeatOrder,
   register as apiRegister,
+  startOAuthLink,
   type ApiOrder,
   type ApiOrderStatus,
   type ApiOrderStatusStep,
@@ -27,11 +30,13 @@ import {
   type ApiCourier,
   type ApiPaymentStatus,
   type AdminSupportMessage,
-  updatePaymentStatus,
+  type AuthUser,
+  type OAuthProvider,
   updateOrderStatus,
   updateProfile,
 } from "@/lib/api";
 import { useStore } from "@/lib/store";
+import SocialLoginButtons from "./SocialLoginButtons";
 import type { Currency, Language } from "@/lib/types";
 import ProductCard from "./ProductCard";
 import {
@@ -44,6 +49,12 @@ import {
 } from "./icons";
 
 const cities = ["Tashkent", "Samarkand", "Bukhara", "Namangan", "Andijan"];
+
+const socialProviderLabels: Record<OAuthProvider, string> = {
+  google: "Google",
+  github: "GitHub",
+  microsoft: "Microsoft",
+};
 
 const currencyOptions: Array<{
   id: Currency;
@@ -269,7 +280,6 @@ function AdminWorkspace() {
   const [cityFilter, setCityFilter] = useState("all");
   const [courierFilter, setCourierFilter] = useState("all");
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
-  const [updatingPaymentId, setUpdatingPaymentId] = useState<number | null>(null);
   const [assigningCourierOrderId, setAssigningCourierOrderId] = useState<number | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState("");
@@ -437,25 +447,6 @@ function AdminWorkspace() {
       setOrdersError(firstApiMessage(err, "Could not update order status."));
     } finally {
       setUpdatingOrderId(null);
-    }
-  }
-
-  async function onPaymentStatusChange(
-    orderId: number,
-    nextStatus: ApiPaymentStatus,
-  ) {
-    setOrdersError("");
-    try {
-      setUpdatingPaymentId(orderId);
-      const updated = await updatePaymentStatus(orderId, nextStatus);
-      setOrders((current) =>
-        current.map((order) => (order.id === updated.id ? updated : order)),
-      );
-      showToast(`Order #${updated.id} payment marked ${updated.payment_status_display}`);
-    } catch (err) {
-      setOrdersError(firstApiMessage(err, "Could not update payment status."));
-    } finally {
-      setUpdatingPaymentId(null);
     }
   }
 
@@ -987,28 +978,9 @@ function AdminWorkspace() {
                           {updatingOrderId === order.id ? "Updating..." : status.label}
                         </button>
                       ))}
-                    <button
-                      type="button"
-                      disabled={
-                        updatingPaymentId === order.id ||
-                        order.payment_status === "paid"
-                      }
-                      onClick={() => void onPaymentStatusChange(order.id, "paid")}
-                      className="rounded-full border border-line px-3 py-1.5 text-xs font-extrabold text-stone transition hover:border-leaf hover:text-leaf disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      {updatingPaymentId === order.id ? "Updating..." : "Payment paid"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={
-                        updatingPaymentId === order.id ||
-                        order.payment_status === "failed"
-                      }
-                      onClick={() => void onPaymentStatusChange(order.id, "failed")}
-                      className="rounded-full border border-line px-3 py-1.5 text-xs font-extrabold text-stone transition hover:border-berry hover:text-berry disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      {updatingPaymentId === order.id ? "Updating..." : "Payment failed"}
-                    </button>
+                    <span className="rounded-full bg-paper px-3 py-1.5 text-xs font-bold text-stone">
+                      Provider payments update only from verified callbacks
+                    </span>
                   </div>
                 </article>
               );
@@ -1495,7 +1467,9 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
           </p>
         </div>
 
-        <div className="mt-6 rounded-2xl bg-paper px-4 py-3 text-sm">
+        <SocialLoginButtons />
+
+        <div className="mt-4 rounded-2xl bg-paper px-4 py-3 text-sm">
           <p className="font-extrabold text-ink">Demo accounts</p>
           <p className="mt-1 font-semibold text-stone">
             Customer: customer@example.com / demo12345
@@ -1611,6 +1585,112 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
         </p>
       </section>
     </main>
+  );
+}
+
+function ConnectedAccounts({
+  user,
+  onUserRefresh,
+}: {
+  user: AuthUser;
+  onUserRefresh: (user: AuthUser) => void;
+}) {
+  const [available, setAvailable] = useState<Set<OAuthProvider> | null>(null);
+  const [linking, setLinking] = useState<OAuthProvider | null>(null);
+  const [error, setError] = useState("");
+  const [connectedNotice, setConnectedNotice] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void fetchOAuthProviders()
+      .then((items) => {
+        if (active) {
+          setAvailable(new Set(items.filter((item) => item.enabled).map((item) => item.id)));
+        }
+      })
+      .catch(() => {
+        if (active) setAvailable(new Set());
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const provider = url.searchParams.get("connected") as OAuthProvider | null;
+    if (!provider || !(provider in socialProviderLabels)) return;
+    setConnectedNotice(`${socialProviderLabels[provider]} is now connected.`);
+    url.searchParams.delete("connected");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    void fetchProfile().then(onUserRefresh).catch(() => undefined);
+  }, [onUserRefresh]);
+
+  const identities = new Map(
+    (user.social_identities ?? []).map((identity) => [identity.provider, identity]),
+  );
+
+  async function link(provider: OAuthProvider) {
+    setError("");
+    try {
+      setLinking(provider);
+      const authorizationUrl = await startOAuthLink(provider);
+      window.location.assign(authorizationUrl);
+    } catch (err) {
+      setLinking(null);
+      setError(firstApiMessage(err, `Could not connect ${socialProviderLabels[provider]}.`));
+    }
+  }
+
+  return (
+    <section className="mt-10 rounded-3xl bg-card p-6 shadow-soft" aria-labelledby="connected-accounts-title">
+      <h2 id="connected-accounts-title" className="font-display text-xl font-semibold">
+        Connected accounts
+      </h2>
+      <p className="mt-1 text-sm text-stone">
+        Link a provider only after signing in here, so an existing account cannot be taken over by an unverified email match.
+      </p>
+      {connectedNotice && (
+        <p className="mt-4 rounded-2xl bg-mint px-4 py-3 text-sm font-semibold text-leaf" role="status">
+          {connectedNotice}
+        </p>
+      )}
+      {error && (
+        <p className="mt-4 rounded-2xl bg-berrysoft px-4 py-3 text-sm font-semibold text-berry" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        {(Object.keys(socialProviderLabels) as OAuthProvider[]).map((provider) => {
+          const identity = identities.get(provider);
+          const enabled = available?.has(provider) ?? true;
+          return (
+            <div key={provider} className="rounded-2xl border border-line bg-paper p-4">
+              <p className="font-extrabold text-ink">{socialProviderLabels[provider]}</p>
+              {identity ? (
+                <>
+                  <p className="mt-1 truncate text-xs text-stone" title={identity.email || undefined}>
+                    {identity.email || "Connected"}
+                  </p>
+                  <span className="mt-3 inline-flex rounded-full bg-mint px-3 py-1 text-xs font-bold text-leaf">
+                    Connected
+                  </span>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!enabled || linking !== null}
+                  onClick={() => void link(provider)}
+                  className="mt-3 rounded-full border border-line bg-white px-4 py-2 text-xs font-extrabold text-ink transition hover:border-blossomdeep hover:text-blossomdeep disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {linking === provider ? "Opening provider…" : enabled ? "Connect" : "Not configured"}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -1856,6 +1936,18 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                         </button>
                       </div>
                     )}
+                    {!canPayTest &&
+                      order.latest_payment?.checkout_url &&
+                      ["created", "pending", "processing"].includes(
+                        order.latest_payment.status,
+                      ) && (
+                        <a
+                          href={order.latest_payment.checkout_url}
+                          className="mt-3 inline-flex rounded-full bg-blossomdeep px-4 py-2 text-xs font-extrabold text-white shadow-glow"
+                        >
+                          Continue to {order.latest_payment.provider}
+                        </a>
+                      )}
                   </div>
                   <div>
                     <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
@@ -2256,6 +2348,8 @@ export default function ProfileSettings({
           </p>
         </section>
       </div>
+
+      <ConnectedAccounts user={user} onUserRefresh={setUser} />
 
       <CustomerOrderHistory currency={currency} />
 
