@@ -23,7 +23,9 @@ Before the first production deploy:
 - Create a production superuser.
 - Set CORS and CSRF origins to the exact deployed domains.
 - Configure external media storage before relying on uploaded or seeded images.
-- Keep `PAYMENT_PROVIDER=test` until a real provider is officially integrated.
+- Configure exactly one real provider (`payme` or `click`) and verify its test
+  credentials/callbacks before accepting production traffic. Production
+  settings reject the development test provider.
 - Keep email and Telegram disabled until credentials are available.
 
 ## 2. Supabase PostgreSQL
@@ -104,14 +106,25 @@ TELEGRAM_ADMIN_CHAT_ID=
 Payments:
 
 ```env
-PAYMENT_PROVIDER=test
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
-CLICK_SERVICE_ID=
-CLICK_SECRET_KEY=
-PAYME_MERCHANT_ID=
-PAYME_SECRET_KEY=
+PAYMENT_PROVIDER=payme
+PAYMENT_TEST_MODE_ENABLED=false
+PAYMENT_FRONTEND_RETURN_URL=https://<your-vercel-project>.vercel.app/payment/return
+PAYMENT_UZS_PER_PRICE_UNIT=12650
+PAYME_MERCHANT_ID=<merchant-id>
+PAYME_LOGIN=Paycom
+PAYME_SECRET_KEY=<merchant-api-password>
+PAYME_CHECKOUT_URL=https://checkout.paycom.uz
 ```
+
+For Click instead, set `PAYMENT_PROVIDER=click` plus `CLICK_SERVICE_ID`,
+`CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY`, and
+`CLICK_CHECKOUT_URL=https://my.click.uz/services/pay`. Configure the exact
+callback URLs from `README.md` in the chosen provider dashboard.
+
+OAuth is optional per provider. When enabled, set its client ID, backend-only
+client secret, and exact HTTPS Django callback URI. Also set
+`FRONTEND_URL` and `OAUTH_FRONTEND_CALLBACK_URL` to the Vercel origin and
+`/auth/callback` route respectively.
 
 Media/storage placeholders:
 
@@ -176,13 +189,6 @@ Required Vercel environment variables:
 ```env
 NEXT_PUBLIC_API_URL=https://<your-render-service>.onrender.com
 NEXT_PUBLIC_SITE_URL=https://<your-vercel-project>.vercel.app
-```
-
-Optional public variables:
-
-```env
-NEXT_PUBLIC_PAYMENT_PROVIDER=test
-NEXT_ALLOWED_DEV_ORIGINS=
 ```
 
 Do not put backend secrets, SMTP passwords, Telegram bot tokens, or payment
@@ -336,12 +342,13 @@ Common fixes:
 - Verify SMTP host/port/TLS settings.
 - Verify Telegram bot token and admin chat id.
 
-### Test payments do not work
+### Local test payments do not work
 
-Confirm the backend still uses the safe test provider:
+The mock provider is local/development-only. Confirm both settings:
 
 ```env
 PAYMENT_PROVIDER=test
+PAYMENT_TEST_MODE_ENABLED=true
 ```
 
 For card/online orders, the order should start as `pending` and the customer
@@ -351,7 +358,8 @@ can call:
 POST /api/orders/{id}/pay-test/
 ```
 
-Real providers are placeholders until official docs and credentials are added.
+Never deploy these values with `config.settings.production`; that settings
+module intentionally rejects them.
 
 ## 9. Production Verification Commands
 
@@ -375,7 +383,8 @@ Smoke test after deployment:
 2. Register a customer.
 3. Add a product to cart.
 4. Place a cash order.
-5. Place a card or online test order.
-6. Click `Pay test order`.
+5. Place an online order using the configured provider's test credentials.
+6. Finish hosted checkout and confirm the provider callback, not the return
+   URL, changed the payment to `paid`.
 7. Log in as staff/admin.
 8. Confirm the order, payment status, notification logs, and stock changes.

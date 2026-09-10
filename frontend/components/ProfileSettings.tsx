@@ -1620,10 +1620,14 @@ function ConnectedAccounts({
     const url = new URL(window.location.href);
     const provider = url.searchParams.get("connected") as OAuthProvider | null;
     if (!provider || !(provider in socialProviderLabels)) return;
-    setConnectedNotice(`${socialProviderLabels[provider]} is now connected.`);
     url.searchParams.delete("connected");
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-    void fetchProfile().then(onUserRefresh).catch(() => undefined);
+    void fetchProfile()
+      .then((refreshedUser) => {
+        onUserRefresh(refreshedUser);
+        setConnectedNotice(`${socialProviderLabels[provider]} is now connected.`);
+      })
+      .catch(() => undefined);
   }, [onUserRefresh]);
 
   const identities = new Map(

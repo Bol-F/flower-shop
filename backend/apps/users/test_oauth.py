@@ -1,3 +1,5 @@
+import time
+from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
 
@@ -7,7 +9,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from .models import OAuthLoginAttempt, SocialIdentity, User
-from .oauth import OAuthError, ProviderIdentity
+from .oauth import OAuthError, ProviderIdentity, _verified_oidc_claims
 
 
 OAUTH_SETTINGS = {
@@ -183,4 +185,78 @@ class TestOAuthFlow:
         raw_code = parse_qs(urlparse(first['Location']).query)['code'][0]
         assert client.post(reverse('oauth-exchange'), {'code': raw_code}, format='json').status_code == 200
         assert client.post(reverse('oauth-exchange'), {'code': raw_code}, format='json').status_code == 400
-        assert OAuthLoginAttempt.objects.get().used_at is not None
+        attempt = OAuthLoginAttempt.objects.get()
+        assert attempt.used_at is not None
+        assert attempt.code_verifier == ''
+        assert attempt.nonce == ''
+
+
+def _oidc_claims(**overrides):
+    claims = {
+        'iss': 'https://accounts.google.com',
+        'aud': 'google-client',
+        'exp': int(time.time()) + 300,
+        'sub': 'google-subject',
+        'nonce': 'expected-nonce',
+        'email': 'verified@example.com',
+    }
+    claims.update(overrides)
+    return claims
+
+
+def test_oidc_claims_require_verified_signature_audience_issuer_and_nonce():
+    claims = _oidc_claims()
+    with (
+        patch('apps.users.oauth._fetch_json', return_value={'keys': []}),
+        patch('apps.users.oauth.KeySet.import_key_set', return_value=object()),
+        patch('apps.users.oauth.jwt.decode', return_value=SimpleNamespace(claims=claims)) as decode,
+    ):
+        verified = _verified_oidc_claims(
+            'google', {'client_id': 'google-client'}, 'signed-id-token', 'expected-nonce'
+        )
+    assert verified['sub'] == 'google-subject'
+    assert decode.call_args.kwargs['algorithms'] == ['RS256']
+
+
+@pytest.mark.parametrize(
+    'overrides',
+    (
+        {'nonce': 'attacker-nonce'},
+        {'aud': 'another-client'},
+        {'iss': 'https://attacker.example'},
+        {'exp': 1},
+    ),
+)
+def test_oidc_invalid_security_claims_are_rejected(overrides):
+    with (
+        patch('apps.users.oauth._fetch_json', return_value={'keys': []}),
+        patch('apps.users.oauth.KeySet.import_key_set', return_value=object()),
+        patch(
+            'apps.users.oauth.jwt.decode',
+            return_value=SimpleNamespace(claims=_oidc_claims(**overrides)),
+        ),
+    ):
+        with pytest.raises(OAuthError) as error:
+            _verified_oidc_claims(
+                'google', {'client_id': 'google-client'}, 'signed-id-token', 'expected-nonce'
+            )
+    assert error.value.code == 'invalid_token'
+
+
+def test_microsoft_common_tenant_requires_signed_tenant_id():
+    claims = _oidc_claims(
+        iss='https://login.microsoftonline.com/tenant-id/v2.0',
+        aud='microsoft-client',
+    )
+    with (
+        patch('apps.users.oauth._fetch_json', return_value={'keys': []}),
+        patch('apps.users.oauth.KeySet.import_key_set', return_value=object()),
+        patch('apps.users.oauth.jwt.decode', return_value=SimpleNamespace(claims=claims)),
+    ):
+        with pytest.raises(OAuthError):
+            _verified_oidc_claims(
+                'microsoft',
+                {'client_id': 'microsoft-client', 'tenant': 'common'},
+                'signed-id-token',
+                'expected-nonce',
+            )

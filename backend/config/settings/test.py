@@ -10,10 +10,15 @@ PAYMENT_TEST_MODE_ENABLED = True
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ':memory:',
+        'NAME': os.environ.get('BROWSER_DATABASE_PATH', ':memory:'),
     }
 }
 PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+MIDDLEWARE = [
+    middleware
+    for middleware in MIDDLEWARE
+    if middleware != 'whitenoise.middleware.WhiteNoiseMiddleware'
+]
 EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 CELERY_TASK_ALWAYS_EAGER = True
 REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {
