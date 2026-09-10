@@ -5,6 +5,7 @@ import time
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -58,7 +59,10 @@ def _payment_from_account(params: dict, *, lock: bool = False) -> PaymentAttempt
     queryset = PaymentAttempt.objects.select_related('order')
     if lock:
         queryset = queryset.select_for_update()
-    payment = queryset.filter(public_id=public_id, provider='payme').first()
+    try:
+        payment = queryset.filter(public_id=public_id, provider='payme').first()
+    except (DjangoValidationError, ValueError):
+        payment = None
     if payment is None:
         raise PaymeProtocolError(-31050, 'Payment account was not found.', 'payment_id')
     return payment
@@ -338,10 +342,13 @@ def _click_common_checks(data: dict, expected_action: str):
         return None, click_response(-8)
     if str(data.get('action') or '') != expected_action:
         return None, click_response(-3)
-    payment = PaymentAttempt.objects.select_for_update().select_related('order').filter(
-        public_id=data.get('merchant_trans_id'),
-        provider='click',
-    ).first()
+    try:
+        payment = PaymentAttempt.objects.select_for_update().select_related('order').filter(
+            public_id=data.get('merchant_trans_id'),
+            provider='click',
+        ).first()
+    except (DjangoValidationError, ValueError):
+        payment = None
     if payment is None:
         return None, click_response(-5)
     if payment.currency != 'UZS':

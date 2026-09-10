@@ -1,6 +1,9 @@
+from uuid import UUID
 from urllib.parse import urlencode
 
 from django.conf import settings
+from django.db.models import Q
+from rest_framework.exceptions import ValidationError
 
 from apps.orders.models import PaymentAttempt
 
@@ -41,11 +44,36 @@ class ClickPaymentProvider(BasePaymentProvider):
 
     def verify_payment(self, payment_reference: str):
         self.ensure_configured()
-        raise NotImplementedError('Click payment verification is not implemented yet.')
+        reference = str(payment_reference or '').strip()
+        lookup = Q(external_payment_id=reference) | Q(provider_reference=reference)
+        try:
+            lookup |= Q(public_id=UUID(reference))
+        except ValueError:
+            pass
+        payment = PaymentAttempt.objects.filter(lookup, provider=self.provider_name).first()
+        if payment is None:
+            raise ValidationError({'payment_reference': 'Click payment was not found.'})
+        return PaymentInitialization(
+            provider=self.provider_name,
+            status=payment.status,
+            reference=str(payment.public_id),
+            message='Status recorded from authenticated Click merchant callbacks.',
+        )
 
     def handle_webhook(self, payload: dict):
         self.ensure_configured()
-        raise NotImplementedError('Click webhook handling is not implemented yet.')
+        from apps.orders.payment_webhooks import (
+            click_response,
+            handle_click_complete,
+            handle_click_prepare,
+        )
+
+        action = str(payload.get('action') or '')
+        if action == '0':
+            return handle_click_prepare(payload)
+        if action == '1':
+            return handle_click_complete(payload)
+        return click_response(-3)
 
     def refund_payment(self, order):
         self.ensure_configured()

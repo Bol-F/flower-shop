@@ -1,7 +1,10 @@
 import base64
+from uuid import UUID
 from urllib.parse import urlencode
 
 from django.conf import settings
+from django.db.models import Q
+from rest_framework.exceptions import ValidationError
 
 from apps.orders.models import PaymentAttempt
 
@@ -40,11 +43,29 @@ class PaymePaymentProvider(BasePaymentProvider):
 
     def verify_payment(self, payment_reference: str):
         self.ensure_configured()
-        raise NotImplementedError('Payme payment verification is not implemented yet.')
+        reference = str(payment_reference or '').strip()
+        lookup = Q(external_payment_id=reference) | Q(provider_reference=reference)
+        try:
+            lookup |= Q(public_id=UUID(reference))
+        except ValueError:
+            pass
+        payment = PaymentAttempt.objects.filter(lookup, provider=self.provider_name).first()
+        if payment is None:
+            raise ValidationError({'payment_reference': 'Payme payment was not found.'})
+        return PaymentInitialization(
+            provider=self.provider_name,
+            status=payment.status,
+            reference=str(payment.public_id),
+            message='Status recorded from authenticated Payme merchant callbacks.',
+        )
 
     def handle_webhook(self, payload: dict):
         self.ensure_configured()
-        raise NotImplementedError('Payme webhook handling is not implemented yet.')
+        # HTTP Basic authentication and the production IP allowlist are enforced
+        # by PaymeWebhookView before payload dispatch reaches this adapter.
+        from apps.orders.payment_webhooks import handle_payme_request
+
+        return handle_payme_request(payload)
 
     def refund_payment(self, order):
         self.ensure_configured()

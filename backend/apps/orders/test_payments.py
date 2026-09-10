@@ -61,6 +61,11 @@ def _payme_auth():
     return f'Basic {encoded}'
 
 
+def _payme_auth_with_secret(secret):
+    encoded = base64.b64encode(f'Paycom:{secret}'.encode()).decode('ascii')
+    return f'Basic {encoded}'
+
+
 def _payme_post(client, method, params, request_id=1, auth=None):
     client.credentials(
         HTTP_AUTHORIZATION=auth or _payme_auth(),
@@ -172,6 +177,24 @@ class TestPaymePayments:
         assert bad_auth.data['error']['code'] == -32504
         assert wrong_amount.data['error']['code'] == -31001
 
+    @override_settings(PAYME_SECRET_KEY='')
+    def test_unconfigured_callback_rejects_empty_secret_authentication(self):
+        response = _payme_post(
+            APIClient(),
+            'CheckPerformTransaction',
+            {'amount': 100, 'account': {'payment_id': 'not-a-uuid'}},
+            auth=_payme_auth_with_secret(''),
+        )
+        assert response.data['error']['code'] == -32504
+
+    def test_malformed_payment_identifier_is_a_protocol_error(self):
+        response = _payme_post(
+            APIClient(),
+            'CheckPerformTransaction',
+            {'amount': 100, 'account': {'payment_id': 'not-a-uuid'}},
+        )
+        assert response.data['error']['code'] == -31050
+
     def test_cancellation_restores_reserved_inventory_once(self, online_order):
         product = Product.objects.create(
             name='Reserved roses', description='Roses', price='5.00', stock=8
@@ -253,6 +276,46 @@ class TestClickPayments:
         assert _click_post(APIClient(), 'click-prepare', data).data['error'] == -1
         data['sign_string'] = _click_sign(data)
         assert _click_post(APIClient(), 'click-prepare', data).data['error'] == -2
+
+    def test_signed_malformed_payment_identifier_is_rejected_safely(self):
+        data = {
+            'click_trans_id': '903',
+            'service_id': '12345',
+            'click_paydoc_id': '803',
+            'merchant_trans_id': 'not-a-uuid',
+            'amount': '1000.00',
+            'action': '0',
+            'error': '0',
+            'error_note': 'Success',
+            'sign_time': '2026-09-09 12:00:00',
+        }
+        data['sign_string'] = _click_sign(data)
+        assert _click_post(APIClient(), 'click-prepare', data).data['error'] == -5
+
+    @override_settings(CLICK_SECRET_KEY='')
+    def test_unconfigured_callback_rejects_empty_secret_signature(self):
+        data = {
+            'click_trans_id': '904',
+            'service_id': '12345',
+            'click_paydoc_id': '804',
+            'merchant_trans_id': 'not-a-uuid',
+            'amount': '1000.00',
+            'action': '0',
+            'error': '0',
+            'error_note': 'Success',
+            'sign_time': '2026-09-09 12:00:00',
+        }
+        signature_parts = [
+            data['click_trans_id'],
+            data['service_id'],
+            '',
+            data['merchant_trans_id'],
+            data['amount'],
+            data['action'],
+            data['sign_time'],
+        ]
+        data['sign_string'] = hashlib.md5(''.join(signature_parts).encode()).hexdigest()
+        assert _click_post(APIClient(), 'click-prepare', data).data['error'] == -8
 
 
 @pytest.mark.django_db

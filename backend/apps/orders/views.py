@@ -25,10 +25,9 @@ from .payments import (
     pay_test_order,
     update_payment_status,
 )
+from .payment_providers import get_payment_provider
 from .payment_webhooks import (
-    handle_click_complete,
-    handle_click_prepare,
-    handle_payme_request,
+    click_response,
     payme_authenticated,
     payme_error,
 )
@@ -223,13 +222,16 @@ class PaymeWebhookView(APIView):
         except (UnicodeDecodeError, json.JSONDecodeError):
             return Response(payme_error(None, -32700, 'JSON parsing error.'))
         request_id = payload.get('id') if isinstance(payload, dict) else None
+        provider = get_payment_provider('payme')
+        if not provider.is_configured():
+            return Response(payme_error(request_id, -32504, 'Authentication failed.'))
         authorization = request.META.get('HTTP_AUTHORIZATION', '')
         if not payme_authenticated(authorization):
             return Response(payme_error(request_id, -32504, 'Authentication failed.'))
         if not settings.DEBUG and settings.PAYME_ALLOWED_IPS:
             if request.META.get('REMOTE_ADDR') not in settings.PAYME_ALLOWED_IPS:
                 return Response(payme_error(request_id, -32504, 'Authentication failed.'))
-        return Response(handle_payme_request(payload))
+        return Response(provider.handle_webhook(payload))
 
 
 class ClickWebhookBaseView(APIView):
@@ -242,12 +244,18 @@ class ClickWebhookBaseView(APIView):
 
 class ClickPrepareWebhookView(ClickWebhookBaseView):
     def post(self, request):
-        return Response(handle_click_prepare(request.data.dict()))
+        provider = get_payment_provider('click')
+        if not provider.is_configured():
+            return Response(click_response(-8))
+        return Response(provider.handle_webhook(request.data.dict()))
 
 
 class ClickCompleteWebhookView(ClickWebhookBaseView):
     def post(self, request):
-        return Response(handle_click_complete(request.data.dict()))
+        provider = get_payment_provider('click')
+        if not provider.is_configured():
+            return Response(click_response(-8))
+        return Response(provider.handle_webhook(request.data.dict()))
 
 
 class AssignCourierView(APIView):
