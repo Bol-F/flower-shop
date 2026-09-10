@@ -23,6 +23,11 @@ function apiProduct(overrides: Partial<ApiProductListItem> = {}): ApiProductList
     image: "http://localhost:8000/media/products/rose.jpg",
     category: roses.id,
     category_name: roses.name,
+    city_name: null,
+    city_slug: null,
+    vendor_name: null,
+    vendor_slug: null,
+    stock_quantity: 12,
     is_available: true,
     is_in_stock: true,
     is_low_stock: false,
@@ -67,5 +72,11 @@ describe("catalog API adapter", () => {
     );
 
     expect(product.category).toBe("exotic-and-tropical");
+  });
+
+  it("resolves backend-relative media against the API origin", () => {
+    const product = apiProductToProduct(apiProduct({ image: "/media/products/rose.jpg" }));
+
+    expect(product.image).toBe("http://localhost:8000/media/products/rose.jpg");
   });
 });

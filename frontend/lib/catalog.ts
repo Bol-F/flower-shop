@@ -1,4 +1,5 @@
 import {
+  API_BASE,
   fetchCategories,
   fetchProduct,
   fetchProducts,
@@ -41,6 +42,15 @@ function labelToSlug(value: string | null | undefined): string {
 function numberFromPrice(value: string | number): number {
   const parsed = typeof value === "number" ? value : Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function resolveApiMediaUrl(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value, `${API_BASE}/`).toString();
+  } catch {
+    return null;
+  }
 }
 
 function paletteFor(product: ApiProductBase): BouquetPalette {
@@ -104,10 +114,10 @@ export function apiProductToProduct(
       slug: product.slug,
       description: detail?.description || mock.description,
       price,
-    category: categorySlug,
-    city: product.city_slug,
-    vendor: product.vendor_slug,
-    image: product.image,
+      category: categorySlug,
+      city: product.city_slug,
+      vendor: product.vendor_slug,
+      image: resolveApiMediaUrl(product.image),
       stock,
       isAvailable: product.is_available,
       isInStock: product.is_in_stock,
@@ -140,7 +150,7 @@ export function apiProductToProduct(
     composition: compositionFor(product, detail),
     hasSizes,
     palette: paletteFor(product),
-    image: product.image,
+    image: resolveApiMediaUrl(product.image),
     stock,
     isAvailable: product.is_available,
     isInStock: product.is_in_stock,

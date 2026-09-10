@@ -1667,7 +1667,8 @@ function ConnectedAccounts({
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         {(Object.keys(socialProviderLabels) as OAuthProvider[]).map((provider) => {
           const identity = identities.get(provider);
-          const enabled = available?.has(provider) ?? true;
+          const capabilityLoaded = available !== null;
+          const enabled = available?.has(provider) ?? false;
           return (
             <div key={provider} className="rounded-2xl border border-line bg-paper p-4">
               <p className="font-extrabold text-ink">{socialProviderLabels[provider]}</p>
@@ -1687,7 +1688,13 @@ function ConnectedAccounts({
                   onClick={() => void link(provider)}
                   className="mt-3 rounded-full border border-line bg-white px-4 py-2 text-xs font-extrabold text-ink transition hover:border-blossomdeep hover:text-blossomdeep disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {linking === provider ? "Opening provider…" : enabled ? "Connect" : "Not configured"}
+                  {linking === provider
+                    ? "Opening provider…"
+                    : !capabilityLoaded
+                      ? "Checking…"
+                      : enabled
+                        ? "Connect"
+                        : "Not configured"}
                 </button>
               )}
             </div>

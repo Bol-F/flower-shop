@@ -67,7 +67,8 @@ export default function SocialLoginButtons({
   return (
     <div className="mt-6 grid gap-2" aria-label="Social sign in">
       {providers.map((provider) => {
-        const available = enabled?.has(provider.id) ?? true;
+        const capabilityLoaded = enabled !== null;
+        const available = enabled?.has(provider.id) ?? false;
         const loading = leavingFor === provider.id;
         return (
           <button
@@ -82,7 +83,12 @@ export default function SocialLoginButtons({
           >
             <ProviderIcon provider={provider.id} />
             <span>{loading ? "Opening provider…" : provider.label}</span>
-            {!available && <span className="text-xs font-semibold text-stone">Not configured</span>}
+            {!capabilityLoaded && (
+              <span className="text-xs font-semibold text-stone">Checking…</span>
+            )}
+            {capabilityLoaded && !available && (
+              <span className="text-xs font-semibold text-stone">Not configured</span>
+            )}
           </button>
         );
       })}

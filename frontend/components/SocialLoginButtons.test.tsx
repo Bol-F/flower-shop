@@ -25,7 +25,10 @@ describe("SocialLoginButtons", () => {
 
   it("renders accessible provider actions and capability state", async () => {
     render(<SocialLoginButtons onNavigate={() => undefined} />);
-    expect(screen.getByRole("button", { name: /continue with google/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /continue with google/i })).toBeDisabled();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /continue with google/i })).toBeEnabled(),
+    );
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /continue with microsoft/i })).toBeDisabled(),
     );
