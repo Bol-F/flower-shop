@@ -1,13 +1,14 @@
-from django.contrib import admin
-from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.i18n import i18n_patterns
 from django.conf.urls.static import static
+from django.contrib import admin
+from django.urls import include, path
 from django.utils.translation import gettext_lazy as _
 
 admin.site.site_header = _('Bloom & Petal administration')
 admin.site.site_title = _('Bloom & Petal admin')
 admin.site.index_title = _('Dashboard')
+admin.site.site_url = settings.FRONTEND_URL
 
 urlpatterns = [
     path('i18n/', include('django.conf.urls.i18n')),  # set_language view

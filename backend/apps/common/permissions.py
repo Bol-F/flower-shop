@@ -25,8 +25,4 @@ class IsCustomer(BasePermission):
     message = 'Staff accounts reply from the admin dashboard, not the support chat.'
 
     def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and not request.user.is_staff
-        )
+        return bool(request.user and request.user.is_authenticated and not request.user.is_staff)

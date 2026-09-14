@@ -15,12 +15,18 @@ class UserMessageAdmin(admin.ModelAdmin):
     list_per_page = 25
 
     fieldsets = (
-        (_('Incoming message'), {
-            'fields': ('user', 'subject', 'body', 'created_at', 'is_read'),
-        }),
-        (_('Admin reply'), {
-            'fields': ('admin_reply', 'replied_at'),
-        }),
+        (
+            _('Incoming message'),
+            {
+                'fields': ('user', 'subject', 'body', 'created_at', 'is_read'),
+            },
+        ),
+        (
+            _('Admin reply'),
+            {
+                'fields': ('admin_reply', 'replied_at'),
+            },
+        ),
     )
 
     @admin.display(description=_('From'), ordering='user__email')

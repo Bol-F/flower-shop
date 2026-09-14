@@ -46,8 +46,13 @@ from .serializers import (
 
 def order_queryset():
     return Order.objects.select_related(
-        'user', 'city', 'vendor', 'assigned_courier__user', 'delivery_zone',
-        'delivery_zone__city', 'promo_code',
+        'user',
+        'city',
+        'vendor',
+        'assigned_courier__user',
+        'delivery_zone',
+        'delivery_zone__city',
+        'promo_code',
     ).prefetch_related(
         Prefetch('items', queryset=OrderItem.objects.select_related('product')),
         'notification_logs',
@@ -177,9 +182,8 @@ class InitializePaymentView(APIView):
         order = get_object_or_404(Order, pk=pk, user=request.user)
         serializer = InitializePaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        idempotency_key = (
-            request.headers.get('Idempotency-Key')
-            or serializer.validated_data.get('idempotency_key', '')
+        idempotency_key = request.headers.get('Idempotency-Key') or serializer.validated_data.get(
+            'idempotency_key', ''
         )
         payment, created = initialize_payment(
             order,
@@ -342,9 +346,7 @@ class AdminDashboardView(APIView):
         orders_by_status = active_orders.values('status').annotate(count=Count('id'))
         payment_status_summary = active_orders.values('payment_status').annotate(count=Count('id'))
         city_order_summary = (
-            active_orders.values('city__name')
-            .annotate(count=Count('id'))
-            .order_by('-count')[:10]
+            active_orders.values('city__name').annotate(count=Count('id')).order_by('-count')[:10]
         )
         top_customers = (
             active_orders.values('user__email', 'user__username')
@@ -380,15 +382,11 @@ class AdminDashboardView(APIView):
                     )
                 )['total']
             ),
-            'low_stock_products': [
-                _product_summary(product) for product in low_stock_products
-            ],
+            'low_stock_products': [_product_summary(product) for product in low_stock_products],
             'out_of_stock_products': [
                 _product_summary(product) for product in out_of_stock_products
             ],
-            'unavailable_products': [
-                _product_summary(product) for product in unavailable_products
-            ],
+            'unavailable_products': [_product_summary(product) for product in unavailable_products],
             'best_selling_products': [
                 {
                     'product_name': item['product_name'],
@@ -406,8 +404,7 @@ class AdminDashboardView(APIView):
                 for item in revenue_by_day
             ],
             'orders_by_status': [
-                {'status': item['status'], 'count': item['count']}
-                for item in orders_by_status
+                {'status': item['status'], 'count': item['count']} for item in orders_by_status
             ],
             'payment_status_summary': [
                 {'payment_status': item['payment_status'], 'count': item['count']}

@@ -20,17 +20,18 @@ class PaymePaymentProvider(BasePaymentProvider):
 
     def create_payment(self, payment):
         self.ensure_configured()
-        return_url = (
-            f'{settings.PAYMENT_FRONTEND_RETURN_URL}?'
-            + urlencode({'order': payment.order_id, 'payment': payment.public_id})
+        return_url = f'{settings.PAYMENT_FRONTEND_RETURN_URL}?' + urlencode(
+            {'order': payment.order_id, 'payment': payment.public_id}
         )
-        params = ';'.join((
-            f'm={settings.PAYME_MERCHANT_ID}',
-            f'ac.payment_id={payment.public_id}',
-            f'a={int(payment.amount * 100)}',
-            f'c={return_url}',
-            'ct=15000',
-        ))
+        params = ';'.join(
+            (
+                f'm={settings.PAYME_MERCHANT_ID}',
+                f'ac.payment_id={payment.public_id}',
+                f'a={int(payment.amount * 100)}',
+                f'c={return_url}',
+                'ct=15000',
+            )
+        )
         encoded = base64.b64encode(params.encode('utf-8')).decode('ascii')
         checkout_url = f'{settings.PAYME_CHECKOUT_URL.rstrip("/")}/{encoded}'
         return PaymentInitialization(

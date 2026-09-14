@@ -74,6 +74,11 @@ def test_seed_demo_runs_idempotently(tmp_path):
     staff = User.objects.get(email='staff@example.com')
     assert staff.check_password('demo12345')
     assert staff.is_staff is True
+    assert staff.is_superuser is False
+    assert staff.has_perm('orders.view_order')
+    assert staff.has_perm('orders.change_order')
+    assert staff.has_perm('products.view_product')
+    assert staff.has_perm('contact.view_usermessage')
     assert Product.objects.get(slug='romantic-pink-roses').stock_status == 'low_stock'
     assert Product.objects.get(slug='wedding-bouquet').stock_status == 'out_of_stock'
     assert Order.objects.filter(notes__startswith='Demo seed:').count() == 6

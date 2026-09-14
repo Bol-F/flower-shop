@@ -24,7 +24,8 @@ if not ALLOWED_HOSTS or '*' in ALLOWED_HOSTS:
     raise ImproperlyConfigured('Production ALLOWED_HOSTS must be explicit.')
 
 insecure_cors_origins = [
-    origin for origin in CORS_ALLOWED_ORIGINS
+    origin
+    for origin in CORS_ALLOWED_ORIGINS
     if origin.startswith('http://') and 'localhost' not in origin and '127.0.0.1' not in origin
 ]
 if insecure_cors_origins:

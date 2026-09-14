@@ -20,7 +20,7 @@ class Cart(models.Model):
         verbose_name_plural = _('Carts')
 
     def __str__(self):
-        return f"Cart of {self.user.email}"
+        return f'Cart of {self.user.email}'
 
     @property
     def total_price(self):
@@ -33,7 +33,8 @@ class Cart(models.Model):
 
 class CartItem(models.Model):
     cart = models.ForeignKey(
-        Cart, on_delete=models.CASCADE, related_name='items', verbose_name=_('cart'))
+        Cart, on_delete=models.CASCADE, related_name='items', verbose_name=_('cart')
+    )
     product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name=_('product'))
     quantity = models.PositiveIntegerField(_('quantity'), default=1)
 
@@ -43,7 +44,7 @@ class CartItem(models.Model):
         unique_together = ['cart', 'product']
 
     def __str__(self):
-        return f"{self.quantity}x {self.product.name}"
+        return f'{self.quantity}x {self.product.name}'
 
     @property
     def subtotal(self):

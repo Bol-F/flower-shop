@@ -5,6 +5,7 @@ from .models import Review
 
 class ReviewSerializer(serializers.ModelSerializer):
     """A review as shown to everyone reading a product page."""
+
     author = serializers.CharField(source='user.username', read_only=True)
     is_mine = serializers.SerializerMethodField()
 
@@ -21,6 +22,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 class ReviewWriteSerializer(serializers.ModelSerializer):
     """Payload a customer sends to leave or update their review."""
+
     class Meta:
         model = Review
         fields = ['rating', 'body']

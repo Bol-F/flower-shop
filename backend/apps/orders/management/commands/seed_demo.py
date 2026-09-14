@@ -6,6 +6,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -17,7 +18,6 @@ from apps.marketplace.models import City, Courier, PromoCode, Vendor
 from apps.orders.models import DeliveryZone, Order, OrderItem
 from apps.products.models import Product
 from apps.reviews.models import Review
-
 
 DEMO_PASSWORD = 'demo12345'
 
@@ -197,6 +197,7 @@ class Command(BaseCommand):
                 last_name='Staff',
                 is_staff=True,
             )
+            self._sync_staff_permissions(staff)
             city = self._upsert_city()
             vendor = self._upsert_vendor(city)
             courier = self._upsert_courier(staff, city)
@@ -207,9 +208,7 @@ class Command(BaseCommand):
 
             self._upsert_reviews(customer, products)
             self._upsert_support_messages(customer)
-            orders = self._upsert_orders(
-                customer, city, vendor, courier, zones, promos, products
-            )
+            orders = self._upsert_orders(customer, city, vendor, courier, zones, promos, products)
             self._sync_promo_usage(promos)
 
         self.stdout.write(self.style.SUCCESS('Demo data is ready.'))
@@ -244,6 +243,21 @@ class Command(BaseCommand):
     def _available_username(self, User, username, email):
         conflict = User.objects.filter(username=username).exclude(email=email).exists()
         return f'{username}_demo' if conflict else username
+
+    def _sync_staff_permissions(self, staff):
+        project_apps = {
+            'cart',
+            'categories',
+            'contact',
+            'marketplace',
+            'orders',
+            'products',
+            'reviews',
+            'users',
+        }
+        staff.user_permissions.set(
+            Permission.objects.filter(content_type__app_label__in=project_apps)
+        )
 
     def _upsert_city(self):
         city, _ = City.objects.update_or_create(
@@ -533,8 +547,7 @@ class Command(BaseCommand):
 
     def _upsert_order(self, customer, city, vendor, products, spec):
         subtotal = sum(
-            products[product_name].price * quantity
-            for product_name, quantity in spec['items']
+            products[product_name].price * quantity for product_name, quantity in spec['items']
         )
         delivery_fee = spec['zone'].fee
         discount = self._calculate_discount(spec.get('promo'), subtotal)
@@ -605,7 +618,7 @@ class Command(BaseCommand):
             return Decimal('0.00')
         if promo.discount_type == PromoCode.DiscountType.FIXED_AMOUNT:
             return min(promo.discount_value, subtotal)
-        discount = subtotal * promo.discount_value / Decimal('100')
+        discount = subtotal * promo.discount_value / Decimal(100)
         if promo.max_discount_amount is not None:
             discount = min(discount, promo.max_discount_amount)
         return discount.quantize(Decimal('0.01'))

@@ -86,7 +86,9 @@ class TestOAuthFlow:
         assert SocialIdentity.objects.get(subject='google-john').user == existing
 
     def test_unverified_collision_requires_authenticated_linking(self):
-        User.objects.create_user(username='john', email='john@example.com', password='safe-password')
+        User.objects.create_user(
+            username='john', email='john@example.com', password='safe-password'
+        )
         client = APIClient()
         state = _start(client, 'microsoft')
         identity = ProviderIdentity(
@@ -183,8 +185,14 @@ class TestOAuthFlow:
             )
         assert 'error=already_used' in duplicate['Location']
         raw_code = parse_qs(urlparse(first['Location']).query)['code'][0]
-        assert client.post(reverse('oauth-exchange'), {'code': raw_code}, format='json').status_code == 200
-        assert client.post(reverse('oauth-exchange'), {'code': raw_code}, format='json').status_code == 400
+        assert (
+            client.post(reverse('oauth-exchange'), {'code': raw_code}, format='json').status_code
+            == 200
+        )
+        assert (
+            client.post(reverse('oauth-exchange'), {'code': raw_code}, format='json').status_code
+            == 400
+        )
         attempt = OAuthLoginAttempt.objects.get()
         assert attempt.used_at is not None
         assert attempt.code_verifier == ''

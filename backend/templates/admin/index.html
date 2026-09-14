@@ -1,0 +1,32 @@
+{% extends "admin/base_site.html" %}
+{% load i18n log flower_admin %}
+{% block bodyclass %}{{ block.super }} flower-dashboard{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+{% block content_title %}{% endblock %}
+{% block content %}
+{% flower_dashboard as dashboard %}
+<div id="content-main">
+<div class="flower-page-heading"><div><h1>{% translate 'Shop overview' %}</h1><p>{% translate 'A little care for every order, every bouquet.' %}</p></div>
+<div class="flower-heading-actions"><time datetime="{{ dashboard.today|date:'Y-m-d' }}">{{ dashboard.today|date:'D, j M Y' }}</time>{% if dashboard.urls.add_product %}<a class="flower-button" href="{{ dashboard.urls.add_product }}">{% include 'admin/flower_icon.html' with name='plus' %}{% translate 'Add bouquet' %}</a>{% endif %}</div></div>
+{% if dashboard.cards %}<div class="flower-stats">{% for card in dashboard.cards %}<a class="flower-stat flower-stat--{{ card.tone }}" href="{{ card.url }}"><span class="flower-stat-icon">{% if card.tone == 'rose' %}{% include 'admin/flower_icon.html' with name='orders' %}{% elif card.tone == 'sage' %}{% include 'admin/flower_icon.html' with name='delivery' %}{% elif card.tone == 'plum' %}{% include 'admin/flower_icon.html' with name='flower' %}{% else %}{% include 'admin/flower_icon.html' with name='alert' %}{% endif %}</span><div><h2>{{ card.label }}</h2><strong>{{ card.value }}</strong><p>{{ card.detail }}</p></div></a>{% endfor %}</div>{% endif %}
+<div class="flower-dashboard-grid">
+{% if dashboard.urls.orders %}<section class="flower-panel flower-orders-panel" aria-labelledby="recent-orders-title">
+<div class="flower-panel-heading"><h2 id="recent-orders-title">{% translate 'Recent orders' %}</h2><a href="{{ dashboard.urls.orders }}">{% translate 'View all' %} {% include 'admin/flower_icon.html' with name='arrow' %}</a></div>
+{% if dashboard.recent_orders %}<div class="flower-table-scroll"><table class="flower-order-table"><thead><tr><th scope="col">{% translate 'Order' %}</th><th scope="col">{% translate 'Customer' %}</th><th scope="col">{% translate 'Status' %}</th><th scope="col">{% translate 'Delivery' %}</th><th scope="col">{% translate 'Total' %}</th></tr></thead><tbody>{% for order in dashboard.recent_orders %}<tr><th scope="row"><a href="{{ order.url }}">{{ order.label }}</a></th><td>{{ order.customer }}</td><td><span class="flower-badge flower-status--{{ order.status_code }}">{{ order.status }}</span></td><td>{{ order.delivery_date|date:'j M'|default:'—' }}</td><td>{{ order.total }}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}<div class="flower-empty">{% include 'admin/flower_icon.html' with name='bag' %}<h3>{% translate 'Your next order starts here' %}</h3><p>{% translate 'New orders will appear here as customers check out.' %}</p></div>{% endif %}
+</section>{% endif %}
+{% if dashboard.urls.products %}<section class="flower-panel" aria-labelledby="stock-title"><div class="flower-panel-heading"><h2 id="stock-title">{% translate 'Stock to watch' %}</h2><a href="{{ dashboard.urls.stock }}" aria-label="{% translate 'View low-stock bouquets' %}">{% include 'admin/flower_icon.html' with name='arrow' %}</a></div>
+{% if dashboard.stock_items %}<ul class="flower-stock-list">{% for item in dashboard.stock_items %}<li><a href="{{ item.url }}">{% if item.image_url %}<img class="flower-product-thumb" src="{{ item.image_url }}" alt="" width="44" height="44" loading="lazy">{% else %}<span class="flower-product-placeholder">{% include 'admin/flower_icon.html' with name='flower' %}</span>{% endif %}<span class="flower-stock-name">{{ item.name }}<small>{% blocktranslate with threshold=item.threshold %}Restock at {{ threshold }} or fewer{% endblocktranslate %}</small></span><span class="flower-badge {% if item.stock == 0 %}flower-badge--danger{% else %}flower-badge--warning{% endif %}">{% blocktranslate with count=item.stock %}{{ count }} left{% endblocktranslate %}</span></a></li>{% endfor %}</ul>
+{% else %}<div class="flower-empty">{% include 'admin/flower_icon.html' with name='leaf' %}<h3>{% translate 'All stocked up' %}</h3><p>{% translate 'Low-stock bouquets will appear here.' %}</p></div>{% endif %}</section>{% endif %}
+</div>
+{% if dashboard.urls.products or dashboard.urls.delivery_map or dashboard.urls.messages %}<section class="flower-panel flower-quick-paths" aria-labelledby="quick-paths-title"><h2 id="quick-paths-title">{% translate 'Quick paths' %}</h2><div class="flower-paths">
+{% if dashboard.urls.products %}<a href="{{ dashboard.urls.products }}">{% include 'admin/flower_icon.html' with name='flower' %}<span><strong>{% translate 'Manage bouquets' %} {% include 'admin/flower_icon.html' with name='arrow' %}</strong><small>{% translate 'Care for your catalog, prices, and stock.' %}</small></span></a>{% endif %}
+{% if dashboard.urls.delivery_map %}<a href="{{ dashboard.urls.delivery_map }}">{% include 'admin/flower_icon.html' with name='delivery' %}<span><strong>{% translate 'Plan deliveries' %} {% include 'admin/flower_icon.html' with name='arrow' %}</strong><small>{% translate 'See delivery points and plan the next route.' %}</small></span></a>{% endif %}
+{% if dashboard.urls.messages %}<a href="{{ dashboard.urls.messages }}">{% include 'admin/flower_icon.html' with name='message' %}<span><strong>{% translate 'Help customers' %} {% include 'admin/flower_icon.html' with name='arrow' %}</strong><small>{% translate 'Read and respond to customer messages.' %}</small></span></a>{% endif %}
+</div></section>{% endif %}
+<section class="flower-panel flower-activity" aria-labelledby="activity-title"><h2 id="activity-title">{% translate 'Recent activity' %}</h2>
+{% get_admin_log 5 as admin_log for_user user %}
+{% if admin_log %}<ul>{% for entry in admin_log %}<li>{% if entry.is_deletion or not entry.get_admin_url %}<span>{{ entry.object_repr }}</span>{% else %}<a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>{% endif %}<span class="quiet">{{ entry.content_type.name|capfirst }} &middot; {{ entry.action_time|date:'j M, H:i' }}</span></li>{% endfor %}</ul>{% else %}<p class="flower-activity-empty">{% translate 'Your admin activity will appear here.' %}</p>{% endif %}</section>
+{% if not dashboard.cards %}<p class="flower-permission-note">{% translate 'Use the navigation to open the areas you have access to. Contact your administrator if you need additional access.' %}</p>{% endif %}
+</div>
+{% endblock %}

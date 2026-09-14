@@ -32,9 +32,7 @@ class BasePaymentProvider:
 
     def ensure_configured(self) -> None:
         if not self.is_configured():
-            raise ProviderNotConfiguredError(
-                {'payment_provider': self.not_configured_message()}
-            )
+            raise ProviderNotConfiguredError({'payment_provider': self.not_configured_message()})
 
     def create_payment(self, payment):
         raise NotImplementedError

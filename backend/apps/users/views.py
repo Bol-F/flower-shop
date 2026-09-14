@@ -97,12 +97,14 @@ class OAuthProvidersView(generics.GenericAPIView):
 
     def get(self, request):
         enabled = set(configured_providers())
-        return Response({
-            'providers': [
-                {'id': provider, 'enabled': provider in enabled}
-                for provider in ('google', 'github', 'microsoft')
-            ],
-        })
+        return Response(
+            {
+                'providers': [
+                    {'id': provider, 'enabled': provider in enabled}
+                    for provider in ('google', 'github', 'microsoft')
+                ],
+            }
+        )
 
 
 class OAuthStartView(generics.GenericAPIView):
@@ -166,8 +168,7 @@ class OAuthCallbackView(generics.GenericAPIView):
             OAuthExchangeCode.objects.create(
                 user=user,
                 token_digest=hashlib.sha256(raw_code.encode('utf-8')).hexdigest(),
-                expires_at=timezone.now()
-                + timedelta(seconds=settings.OAUTH_EXCHANGE_TTL_SECONDS),
+                expires_at=timezone.now() + timedelta(seconds=settings.OAUTH_EXCHANGE_TTL_SECONDS),
             )
             return redirect(_frontend_callback(code=raw_code, next=attempt.next_path))
         except OAuthError as exc:
@@ -209,8 +210,10 @@ class OAuthExchangeView(generics.GenericAPIView):
         exchange.used_at = timezone.now()
         exchange.save(update_fields=('used_at',))
         refresh = RefreshToken.for_user(exchange.user)
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': UserProfileSerializer(exchange.user).data,
-        })
+        return Response(
+            {
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': UserProfileSerializer(exchange.user).data,
+            }
+        )

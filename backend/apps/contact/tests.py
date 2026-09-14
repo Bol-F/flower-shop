@@ -51,7 +51,8 @@ class TestSendMessage:
         api_client.force_authenticate(user=user)
         url = reverse('contact-send')
         response = api_client.post(
-            url, {'subject': 'Question', 'body': 'Do you deliver on Sundays?'}, format='json')
+            url, {'subject': 'Question', 'body': 'Do you deliver on Sundays?'}, format='json'
+        )
         assert response.status_code == status.HTTP_201_CREATED
         msg = UserMessage.objects.get(subject='Question')
         assert msg.user == user
@@ -75,7 +76,8 @@ class TestSendMessage:
         api_client.force_authenticate(user=admin_user)
         url = reverse('contact-send')
         response = api_client.post(
-            url, {'subject': 'Hi', 'body': 'I am support myself'}, format='json')
+            url, {'subject': 'Hi', 'body': 'I am support myself'}, format='json'
+        )
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert UserMessage.objects.count() == 0
 
@@ -88,7 +90,8 @@ class TestMyMessages:
 
     def test_user_sees_only_own_messages(self, api_client, user, message):
         other = User.objects.create_user(
-            username='other', email='other@example.com', password='pass123')
+            username='other', email='other@example.com', password='pass123'
+        )
         UserMessage.objects.create(user=other, subject='Not yours', body='Private')
 
         api_client.force_authenticate(user=user)
@@ -134,7 +137,8 @@ class TestAdminMessages:
         api_client.force_authenticate(user=admin_user)
         url = reverse('contact-admin-detail', kwargs={'pk': message.pk})
         response = api_client.patch(
-            url, {'admin_reply': 'A replacement bouquet is on its way.'}, format='json')
+            url, {'admin_reply': 'A replacement bouquet is on its way.'}, format='json'
+        )
         assert response.status_code == status.HTTP_200_OK
         message.refresh_from_db()
         assert message.admin_reply

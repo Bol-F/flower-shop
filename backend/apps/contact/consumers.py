@@ -18,9 +18,13 @@ class AdminNotificationConsumer(AsyncWebsocketConsumer):
 
     # Handler called by notify_admin_new_message task
     async def new_message(self, event):
-        await self.send(text_data=json.dumps({
-            'type': 'new_message',
-            'message_id': event['message_id'],
-            'user': event['user'],
-            'subject': event['subject'],
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {
+                    'type': 'new_message',
+                    'message_id': event['message_id'],
+                    'user': event['user'],
+                    'subject': event['subject'],
+                }
+            )
+        )

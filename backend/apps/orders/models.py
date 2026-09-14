@@ -67,7 +67,9 @@ class Order(models.Model):
         related_name='orders',
         verbose_name=_('assigned courier'),
     )
-    status = models.CharField(_('status'), max_length=20, choices=Status.choices, default=Status.PENDING)
+    status = models.CharField(
+        _('status'), max_length=20, choices=Status.choices, default=Status.PENDING
+    )
     total_price = models.DecimalField(_('total price'), max_digits=10, decimal_places=2)
     shipping_address = models.TextField(_('shipping address'))
     phone = models.CharField(_('phone'), max_length=20)
@@ -176,7 +178,7 @@ class Order(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Order #{self.id} by {self.user.email}"
+        return f'Order #{self.id} by {self.user.email}'
 
     def save(self, *args, **kwargs):
         if self.payment_status == self.PaymentStatus.PAID and self.paid_at is None:
@@ -285,9 +287,11 @@ class NotificationLog(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(
-        Order, on_delete=models.CASCADE, related_name='items', verbose_name=_('order'))
+        Order, on_delete=models.CASCADE, related_name='items', verbose_name=_('order')
+    )
     product = models.ForeignKey(
-        Product, on_delete=models.SET_NULL, null=True, verbose_name=_('product'))
+        Product, on_delete=models.SET_NULL, null=True, verbose_name=_('product')
+    )
     product_name = models.CharField(_('product name'), max_length=200)
     product_price = models.DecimalField(_('product price'), max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(_('quantity'))
@@ -297,7 +301,7 @@ class OrderItem(models.Model):
         verbose_name_plural = _('Order items')
 
     def __str__(self):
-        return f"{self.quantity}x {self.product_name}"
+        return f'{self.quantity}x {self.product_name}'
 
     @property
     def subtotal(self):

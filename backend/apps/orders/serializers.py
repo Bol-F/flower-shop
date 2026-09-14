@@ -10,9 +10,19 @@ class PaymentAttemptSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentAttempt
         fields = (
-            'id', 'order_id', 'provider', 'amount', 'currency', 'status',
-            'checkout_url', 'provider_reference', 'failure_code',
-            'failure_message', 'paid_at', 'created_at', 'updated_at',
+            'id',
+            'order_id',
+            'provider',
+            'amount',
+            'currency',
+            'status',
+            'checkout_url',
+            'provider_reference',
+            'failure_code',
+            'failure_message',
+            'paid_at',
+            'created_at',
+            'updated_at',
         )
         read_only_fields = fields
 
@@ -24,8 +34,14 @@ class DeliveryZoneSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryZone
         fields = (
-            'id', 'name', 'city', 'city_slug', 'fee', 'is_active',
-            'requires_manual_confirmation', 'description',
+            'id',
+            'name',
+            'city',
+            'city_slug',
+            'fee',
+            'is_active',
+            'requires_manual_confirmation',
+            'description',
         )
 
 
@@ -40,10 +56,22 @@ class NotificationLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = NotificationLog
         fields = (
-            'id', 'event_type', 'event', 'event_display', 'channel',
-            'channel_display', 'recipient', 'subject', 'status',
-            'status_display', 'message', 'error_message', 'error',
-            'related_order_id', 'created_at', 'sent_at',
+            'id',
+            'event_type',
+            'event',
+            'event_display',
+            'channel',
+            'channel_display',
+            'recipient',
+            'subject',
+            'status',
+            'status_display',
+            'message',
+            'error_message',
+            'error',
+            'related_order_id',
+            'created_at',
+            'sent_at',
         )
 
 
@@ -90,31 +118,68 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = (
-            'id', 'status', 'status_display', 'status_timeline',
-            'user_email', 'user_username', 'city_name', 'city_slug',
-            'vendor_name', 'vendor_slug',
-            'subtotal_price', 'total_price',
-            'shipping_address', 'phone', 'payment_method',
-            'payment_method_display', 'payment_status',
-            'payment_status_display', 'payment_provider',
-            'payment_reference', 'paid_at', 'promo_code',
-            'discount_amount', 'loyalty_points_earned',
+            'id',
+            'status',
+            'status_display',
+            'status_timeline',
+            'user_email',
+            'user_username',
+            'city_name',
+            'city_slug',
+            'vendor_name',
+            'vendor_slug',
+            'subtotal_price',
+            'total_price',
+            'shipping_address',
+            'phone',
+            'payment_method',
+            'payment_method_display',
+            'payment_status',
+            'payment_status_display',
+            'payment_provider',
+            'payment_reference',
+            'paid_at',
+            'promo_code',
+            'discount_amount',
+            'loyalty_points_earned',
             'delivery_address',
-            'delivery_lat', 'delivery_lng', 'delivery_date',
-            'delivery_time_slot', 'delivery_time_slot_display',
-            'delivery_zone', 'delivery_requires_confirmation',
-            'assigned_courier_id', 'assigned_courier_name',
-            'courier_assigned_at', 'courier_picked_up_at', 'delivered_at',
-            'recipient_name', 'recipient_phone', 'gift_note',
-            'call_recipient_before_delivery', 'delivery_fee',
-            'notes', 'items', 'notification_logs', 'latest_payment',
-            'created_at', 'updated_at',
+            'delivery_lat',
+            'delivery_lng',
+            'delivery_date',
+            'delivery_time_slot',
+            'delivery_time_slot_display',
+            'delivery_zone',
+            'delivery_requires_confirmation',
+            'assigned_courier_id',
+            'assigned_courier_name',
+            'courier_assigned_at',
+            'courier_picked_up_at',
+            'delivered_at',
+            'recipient_name',
+            'recipient_phone',
+            'gift_note',
+            'call_recipient_before_delivery',
+            'delivery_fee',
+            'notes',
+            'items',
+            'notification_logs',
+            'latest_payment',
+            'created_at',
+            'updated_at',
         )
         read_only_fields = (
-            'id', 'status', 'total_price', 'created_at', 'updated_at',
-            'payment_method', 'payment_status', 'payment_provider',
-            'payment_reference', 'paid_at',
-            'discount_amount', 'loyalty_points_earned',
+            'id',
+            'status',
+            'total_price',
+            'created_at',
+            'updated_at',
+            'payment_method',
+            'payment_status',
+            'payment_provider',
+            'payment_reference',
+            'paid_at',
+            'discount_amount',
+            'loyalty_points_earned',
         )
 
     def get_subtotal_price(self, obj):
@@ -207,9 +272,7 @@ class CreateOrderSerializer(serializers.Serializer):
         delivery_date = attrs.get('delivery_date') or today
 
         if not delivery_address:
-            raise serializers.ValidationError(
-                {'delivery_address': 'Delivery address is required.'}
-            )
+            raise serializers.ValidationError({'delivery_address': 'Delivery address is required.'})
         if not phone:
             raise serializers.ValidationError({'phone': 'Phone is required.'})
         if delivery_date < today:

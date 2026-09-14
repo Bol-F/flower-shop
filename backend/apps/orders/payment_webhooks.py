@@ -156,9 +156,14 @@ def _payme_create(params: dict) -> dict:
     transaction_id = str(params.get('id') or '')
     if len(transaction_id) != 24:
         raise PaymeProtocolError(-31003, 'Transaction identifier is invalid.', 'id')
-    existing = PaymentAttempt.objects.select_for_update().filter(
-        provider='payme', external_payment_id=transaction_id,
-    ).first()
+    existing = (
+        PaymentAttempt.objects.select_for_update()
+        .filter(
+            provider='payme',
+            external_payment_id=transaction_id,
+        )
+        .first()
+    )
     if existing:
         _validate_payme_amount(existing, params.get('amount'))
         return {
@@ -343,10 +348,15 @@ def _click_common_checks(data: dict, expected_action: str):
     if str(data.get('action') or '') != expected_action:
         return None, click_response(-3)
     try:
-        payment = PaymentAttempt.objects.select_for_update().select_related('order').filter(
-            public_id=data.get('merchant_trans_id'),
-            provider='click',
-        ).first()
+        payment = (
+            PaymentAttempt.objects.select_for_update()
+            .select_related('order')
+            .filter(
+                public_id=data.get('merchant_trans_id'),
+                provider='click',
+            )
+            .first()
+        )
     except (DjangoValidationError, ValueError):
         payment = None
     if payment is None:
@@ -399,9 +409,14 @@ def handle_click_prepare(data: dict) -> dict:
     payment.provider_reference = str(data.get('click_paydoc_id') or '')
     payment.provider_create_time = int(time.time() * 1000)
     try:
-        payment.save(update_fields=(
-            'external_payment_id', 'provider_reference', 'provider_create_time', 'updated_at',
-        ))
+        payment.save(
+            update_fields=(
+                'external_payment_id',
+                'provider_reference',
+                'provider_create_time',
+                'updated_at',
+            )
+        )
     except IntegrityError:
         return click_response(-4, **base)
     transition_payment(

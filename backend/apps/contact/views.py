@@ -17,6 +17,7 @@ from .tasks import notify_admin_new_message
 
 class SendMessageView(generics.CreateAPIView):
     """Customers send a message to support; staff answer from the dashboard."""
+
     serializer_class = UserMessageCreateSerializer
     permission_classes = [IsCustomer]
     throttle_classes = [ScopedRateThrottle]
@@ -33,6 +34,7 @@ class SendMessageView(generics.CreateAPIView):
 
 class MyMessagesView(generics.ListAPIView):
     """Authenticated users see their own messages and any admin replies."""
+
     serializer_class = UserMessageOwnSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -42,6 +44,7 @@ class MyMessagesView(generics.ListAPIView):
 
 class AdminMessageListView(generics.ListAPIView):
     """Admin: list all incoming messages ordered newest first."""
+
     serializer_class = UserMessageAdminSerializer
     permission_classes = [permissions.IsAdminUser]
     queryset = UserMessage.objects.select_related('user').all()
@@ -49,6 +52,7 @@ class AdminMessageListView(generics.ListAPIView):
 
 class AdminMessageDetailView(generics.RetrieveUpdateAPIView):
     """Admin: read a message; PATCH to mark read or add a reply."""
+
     serializer_class = UserMessageAdminSerializer
     permission_classes = [permissions.IsAdminUser]
     queryset = UserMessage.objects.select_related('user').all()
@@ -70,6 +74,7 @@ class AdminMessageDetailView(generics.RetrieveUpdateAPIView):
 
 class AdminReplyView(generics.GenericAPIView):
     """Admin: send another message into the selected customer's conversation."""
+
     serializer_class = AdminReplyCreateSerializer
     permission_classes = [permissions.IsAdminUser]
     queryset = UserMessage.objects.select_related('user').all()

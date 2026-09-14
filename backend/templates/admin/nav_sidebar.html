@@ -1,0 +1,17 @@
+{% load i18n flower_admin %}
+{% flower_navigation available_apps as navigation %}
+<nav id="nav-sidebar" class="flower-sidebar" aria-label="{% translate 'Sidebar' %}">
+<a class="flower-sidebar-brand" href="{% url 'admin:index' %}">{% include 'admin/flower_icon.html' with name='flower' %}<span>Bloom &amp; Petal</span><small>{% translate 'Flower shop admin' %}</small></a>
+<div class="flower-nav-search">{% include 'admin/flower_icon.html' with name='search' %}<input type="search" id="nav-filter" placeholder="{% translate 'Find a page' %}" aria-label="{% translate 'Filter navigation items' %}" autocomplete="off"></div>
+{% url 'admin:index' as overview_url %}
+<a class="flower-nav-item flower-overview-link" href="{{ overview_url }}" {% if request.path == overview_url %}aria-current="page"{% endif %}>{% include 'admin/flower_icon.html' with name='home' %}<span>{% translate 'Shop overview' %}</span></a>
+<div class="flower-nav-groups">
+{% for group in navigation %}<details class="flower-nav-group" {% if forloop.first %}open{% endif %}><summary>{{ group.label }}</summary>
+<ul>{% for item in group.items %}<li data-nav-item>
+{% if item.admin_url %}<a class="flower-nav-item" href="{{ item.admin_url }}" {% if item.admin_url in request.path %}aria-current="page"{% endif %}>{% include 'admin/flower_icon.html' with name=item.icon %}<span>{{ item.name }}</span></a>
+{% elif item.add_url %}<a class="flower-nav-item" href="{{ item.add_url }}">{% include 'admin/flower_icon.html' with name=item.icon %}<span>{{ item.name }}</span></a>{% else %}<span class="flower-nav-item">{{ item.name }}</span>{% endif %}
+</li>{% endfor %}</ul></details>{% endfor %}
+<p id="flower-nav-empty" class="flower-nav-empty" role="status" hidden>{% translate 'No matching pages.' %}</p></div>
+{% if site_url %}<a class="flower-nav-item flower-storefront" href="{{ site_url }}">{% include 'admin/flower_icon.html' with name='arrow' %}<span>{% translate 'View storefront' %}</span></a>{% endif %}
+</nav>
+<button type="button" class="flower-nav-backdrop" aria-label="{% translate 'Close navigation' %}" tabindex="-1" hidden></button>

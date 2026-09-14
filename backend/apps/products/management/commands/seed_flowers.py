@@ -3,6 +3,7 @@ Management command: python manage.py seed_flowers
 Seeds the database with sample categories and flower products.
 Safe to re-run — skips records that already exist by name.
 """
+
 from django.core.management.base import BaseCommand
 from apps.categories.models import Category
 from apps.products.models import Product
@@ -48,7 +49,7 @@ PRODUCTS = [
         'description': (
             'The quintessential rose. Deep scarlet petals with a texture so rich they almost look painted. '
             'Each stem is cut at its peak and conditioned for maximum vase life. '
-            'Perfect for anniversaries, Valentine\'s Day, or whenever words fall short.'
+            "Perfect for anniversaries, Valentine's Day, or whenever words fall short."
         ),
         'price': '24.99',
         'stock': 45,
@@ -90,7 +91,7 @@ PRODUCTS = [
         'category': 'Roses',
         'description': (
             'A preserved white rose treated to last for months without water. '
-            'Presented in a sleek glass dome — a modern take on Beauty and the Beast\'s enchanted rose. '
+            "Presented in a sleek glass dome — a modern take on Beauty and the Beast's enchanted rose. "
             'The gift that does not wilt.'
         ),
         'price': '49.99',
@@ -160,7 +161,7 @@ PRODUCTS = [
         'description': (
             'A dwarf variety with an impossibly fluffy double bloom — more pompom than flower. '
             'The compact golden head sits atop a sturdy short stem and is utterly irresistible. '
-            'A favourite for children\'s gifts and cosy kitchen arrangements.'
+            "A favourite for children's gifts and cosy kitchen arrangements."
         ),
         'price': '19.99',
         'stock': 65,
@@ -193,7 +194,7 @@ PRODUCTS = [
         'category': 'Exotic & Tropical',
         'description': (
             'Grown in suspended baskets with no soil, Vanda orchids are among the rarest in cultivation. '
-            'This variety\'s blooms are a deep amethyst-violet, flat and perfectly symmetrical, '
+            "This variety's blooms are a deep amethyst-violet, flat and perfectly symmetrical, "
             'with a waxy sheen that seems almost artificial. Arrives in a keepsake glass vase.'
         ),
         'price': '54.99',
@@ -203,8 +204,8 @@ PRODUCTS = [
         'name': 'King Protea',
         'category': 'Exotic & Tropical',
         'description': (
-            'South Africa\'s national flower and one of the oldest flowering plants on earth. '
-            'The King Protea\'s bowl-shaped bloom can reach 30 cm across, surrounded by a crown '
+            "South Africa's national flower and one of the oldest flowering plants on earth. "
+            "The King Protea's bowl-shaped bloom can reach 30 cm across, surrounded by a crown "
             'of stiff, pointed bracts in dusty pink and cream. Bold, prehistoric, magnificent.'
         ),
         'price': '38.99',
@@ -225,8 +226,8 @@ PRODUCTS = [
         'name': 'Heliconia Lobster Claw',
         'category': 'Exotic & Tropical',
         'description': (
-            'Architectural, electric, theatrical. The Heliconia\'s waxy red-and-yellow bracts stack '
-            'like a dragon\'s spine up a metre-long stem. One stem alone is a complete installation. '
+            "Architectural, electric, theatrical. The Heliconia's waxy red-and-yellow bracts stack "
+            "like a dragon's spine up a metre-long stem. One stem alone is a complete installation. "
             'Beloved by interior designers and anyone who likes their flowers to make a statement.'
         ),
         'price': '42.99',

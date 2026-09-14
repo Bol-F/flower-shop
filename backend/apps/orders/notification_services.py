@@ -262,9 +262,7 @@ def _send_telegram(payload: NotificationPayload) -> NotificationLog:
             NotificationLog.Status.FAILED,
             recipient=_telegram_recipient(),
             message=message,
-            error_message=(
-                f'Telegram API returned HTTP {response.status_code}: {response_text}'
-            ),
+            error_message=(f'Telegram API returned HTTP {response.status_code}: {response_text}'),
         )
 
     try:

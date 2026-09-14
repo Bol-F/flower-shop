@@ -11,7 +11,10 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ('email', 'username')
     ordering = ('-date_joined',)
     fieldsets = BaseUserAdmin.fieldsets + (
-        (_('Extra info'), {'fields': ('phone', 'address', 'city', 'language', 'currency', 'loyalty_points')}),
+        (
+            _('Extra info'),
+            {'fields': ('phone', 'address', 'city', 'language', 'currency', 'loyalty_points')},
+        ),
     )
 
 

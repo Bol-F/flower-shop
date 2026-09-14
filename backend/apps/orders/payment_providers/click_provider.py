@@ -16,24 +16,25 @@ class ClickPaymentProvider(BasePaymentProvider):
 
     def is_configured(self) -> bool:
         return bool(
-            settings.CLICK_SERVICE_ID
-            and settings.CLICK_MERCHANT_ID
-            and settings.CLICK_SECRET_KEY
+            settings.CLICK_SERVICE_ID and settings.CLICK_MERCHANT_ID and settings.CLICK_SECRET_KEY
         )
 
     def create_payment(self, payment):
         self.ensure_configured()
-        return_url = (
-            f'{settings.PAYMENT_FRONTEND_RETURN_URL}?'
-            + urlencode({'order': payment.order_id, 'payment': payment.public_id})
+        return_url = f'{settings.PAYMENT_FRONTEND_RETURN_URL}?' + urlencode(
+            {'order': payment.order_id, 'payment': payment.public_id}
         )
-        checkout_url = f'{settings.CLICK_CHECKOUT_URL}?{urlencode({
-            "service_id": settings.CLICK_SERVICE_ID,
-            "merchant_id": settings.CLICK_MERCHANT_ID,
-            "amount": f"{payment.amount:.2f}",
-            "transaction_param": str(payment.public_id),
-            "return_url": return_url,
-        })}'
+        checkout_url = f'{settings.CLICK_CHECKOUT_URL}?{
+            urlencode(
+                {
+                    "service_id": settings.CLICK_SERVICE_ID,
+                    "merchant_id": settings.CLICK_MERCHANT_ID,
+                    "amount": f"{payment.amount:.2f}",
+                    "transaction_param": str(payment.public_id),
+                    "return_url": return_url,
+                }
+            )
+        }'
         return PaymentInitialization(
             provider=self.provider_name,
             status=PaymentAttempt.Status.PENDING,

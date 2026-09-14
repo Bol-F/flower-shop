@@ -6,6 +6,7 @@ handles the plain msgid/msgstr entries we use (no plural forms).
 
 Usage:  python scripts/compile_messages.py
 """
+
 import ast
 import array
 import struct
@@ -68,13 +69,16 @@ def write_mo(catalog, path):
         koffsets += [l1, o1 + keystart]
         voffsets += [l2, o2 + valuestart]
 
-    output = struct.pack('Iiiiiii',
-                         0x950412DE,        # magic
-                         0,                 # version
-                         n,                 # number of entries
-                         7 * 4,             # start of key index
-                         7 * 4 + n * 8,     # start of value index
-                         0, 0)              # size/offset of hash table (unused)
+    output = struct.pack(
+        'Iiiiiii',
+        0x950412DE,  # magic
+        0,  # version
+        n,  # number of entries
+        7 * 4,  # start of key index
+        7 * 4 + n * 8,  # start of value index
+        0,
+        0,
+    )  # size/offset of hash table (unused)
     output += array.array('i', koffsets + voffsets).tobytes()
     output += ids + strs
     with open(path, 'wb') as f:

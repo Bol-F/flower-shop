@@ -1,28 +1,25 @@
 {% extends "admin/base.html" %}
-{% load i18n %}
-
-{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
-
+{% load i18n static %}
+{% block title %}{{ title }} | {{ site_title }}{% endblock %}
+{% block dark-mode-vars %}{% endblock %}
+{% block responsive %}
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="{% static 'flower_admin/flower.svg' %}">
+<link rel="stylesheet" href="{% static 'admin/css/responsive.css' %}">
+<link rel="stylesheet" href="{% static 'flower_admin/css/admin.css' %}">
+<script src="{% static 'flower_admin/js/admin.js' %}" defer></script>
+<noscript><style>@media (max-width: 900px) { #main > #nav-sidebar { position: static; width: 100%; transform: none; visibility: visible; } .flower-menu-toggle, .flower-nav-search { display: none; } }</style></noscript>
+{% endblock %}
 {% block branding %}
-<h1 id="site-name"><a href="{% url 'admin:index' %}">🌸 {{ site_header|default:_('Django administration') }}</a></h1>
+<button type="button" id="flower-menu-toggle" class="flower-menu-toggle" aria-controls="nav-sidebar" aria-expanded="false" aria-label="{% translate 'Toggle navigation' %}">{% include 'admin/flower_icon.html' with name='menu' %}</button>
+<a class="flower-brand" href="{% url 'admin:index' %}" aria-label="{{ site_header }}">{% include 'admin/flower_icon.html' with name='flower' %}<span>Bloom &amp; Petal</span></a><span class="flower-brand-caption">{% translate 'Flower shop admin' %}</span>
 {% endblock %}
-
+{% block welcome-msg %}<span class="flower-user">{% firstof user.get_short_name user.get_username %}</span>{% endblock %}
 {% block userlinks %}
-{{ block.super }}
-<form action="{% url 'set_language' %}" method="post" style="display:inline-block; margin-left:12px;">
-    {% csrf_token %}
-    <input type="hidden" name="next" value="{{ request.path }}">
-    {% get_current_language as CURRENT_LANGUAGE %}
-    {% get_available_languages as AVAILABLE_LANGUAGES %}
-    {% for code, label in AVAILABLE_LANGUAGES %}
-    <button type="submit" name="language" value="{{ code }}"
-            title="{{ label }}"
-            style="background:none; border:none; cursor:pointer; padding:0 4px;
-                   color:var(--header-link-color, #fff);
-                   font-weight:{% if code == CURRENT_LANGUAGE %}700{% else %}400{% endif %};
-                   text-decoration:{% if code == CURRENT_LANGUAGE %}underline{% else %}none{% endif %};">
-        {{ code|upper }}
-    </button>{% if not forloop.last %}<span style="opacity:.5;">/</span>{% endif %}
-    {% endfor %}
-</form>
+<form class="flower-language" action="{% url 'set_language' %}" method="post" aria-label="{% translate 'Language' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+{% get_current_language as CURRENT_LANGUAGE %}{% get_available_languages as AVAILABLE_LANGUAGES %}
+{% for code, label in AVAILABLE_LANGUAGES %}<button type="submit" name="language" value="{{ code }}" title="{{ label }}" lang="{{ code }}" {% if code == CURRENT_LANGUAGE or code == 'en' and CURRENT_LANGUAGE == 'en-us' %}aria-current="true"{% endif %}>{{ code|upper }}</button>{% endfor %}</form>
+{% if user.has_usable_password %}<a class="flower-account-link" href="{% url 'admin:password_change' %}">{% translate 'Change password' %}</a>{% endif %}
+<form id="logout-form" method="post" action="{% url 'admin:logout' %}">{% csrf_token %}<button type="submit">{% translate 'Log out' %}</button></form>
 {% endblock %}
+{% block footer %}<div id="footer" class="flower-footer">Bloom &amp; Petal <span aria-hidden="true">&middot;</span> {% translate 'Made for the care behind every bouquet.' %}</div>{% endblock %}

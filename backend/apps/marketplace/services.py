@@ -77,8 +77,7 @@ def mark_promo_used(promo: PromoCode | None) -> None:
     if not promo:
         return
     updated = (
-        PromoCode.objects
-        .filter(pk=promo.pk)
+        PromoCode.objects.filter(pk=promo.pk)
         .filter(Q(usage_limit__isnull=True) | Q(used_count__lt=F('usage_limit')))
         .update(used_count=F('used_count') + 1)
     )

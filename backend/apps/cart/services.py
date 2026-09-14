@@ -11,10 +11,7 @@ def get_or_create_cart(user) -> Cart:
 
 def get_cart_for_response(user) -> Cart:
     get_or_create_cart(user)
-    return (
-        Cart.objects.prefetch_related('items__product__category')
-        .get(user=user)
-    )
+    return Cart.objects.prefetch_related('items__product__category').get(user=user)
 
 
 def add_item_to_cart(user, product_id: int, quantity: int = 1) -> CartItem:
@@ -77,6 +74,4 @@ def _get_available_product(product_id: int) -> Product:
 
 def _ensure_stock(product: Product, quantity: int) -> None:
     if quantity > product.stock:
-        raise ValidationError(
-            f'Only {product.stock} item(s) available for "{product.name}".'
-        )
+        raise ValidationError(f'Only {product.stock} item(s) available for "{product.name}".')

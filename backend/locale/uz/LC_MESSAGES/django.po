@@ -219,3 +219,266 @@ msgstr "Kimdan"
 
 msgid "Replied"
 msgstr "Javob berilgan"
+
+#: flower shop workspace
+msgid "Toggle navigation"
+msgstr "Menyuni ochish yoki yopish"
+
+msgid "Flower shop admin"
+msgstr "Gul do‘koni boshqaruvi"
+
+msgid "Made for the care behind every bouquet."
+msgstr "Har bir guldastaga e’tibor bilan."
+
+msgid "Shop overview"
+msgstr "Do‘kon holati"
+
+msgid "A little care for every order, every bouquet."
+msgstr "Har bir buyurtma va guldastaga e’tibor."
+
+msgid "Add bouquet"
+msgstr "Guldasta qo‘shish"
+
+msgid "Recent orders"
+msgstr "So‘nggi buyurtmalar"
+
+msgid "View all"
+msgstr "Barchasini ko‘rish"
+
+msgid "Customer"
+msgstr "Xaridor"
+
+msgid "Status"
+msgstr "Holat"
+
+msgid "Total"
+msgstr "Jami"
+
+msgid "Your next order starts here"
+msgstr "Keyingi buyurtmangiz shu yerda ko‘rinadi"
+
+msgid "New orders will appear here as customers check out."
+msgstr "Xaridorlar rasmiylashtirgan yangi buyurtmalar shu yerda ko‘rinadi."
+
+msgid "Stock to watch"
+msgstr "Kam qolgan guldastalar"
+
+msgid "View low-stock bouquets"
+msgstr "Zaxirasi kam guldastalarni ko‘rish"
+
+#, python-format
+msgid "Restock at %(threshold)s or fewer"
+msgstr "%(threshold)s ta yoki kamroq qolganda to‘ldiring"
+
+#, python-format
+msgid "%(count)s left"
+msgstr "%(count)s ta qoldi"
+
+msgid "All stocked up"
+msgstr "Zaxiralar yetarli"
+
+msgid "Low-stock bouquets will appear here."
+msgstr "Zaxirasi kam qolgan guldastalar shu yerda ko‘rinadi."
+
+msgid "Quick paths"
+msgstr "Tezkor amallar"
+
+msgid "Manage bouquets"
+msgstr "Guldastalarni boshqarish"
+
+msgid "Care for your catalog, prices, and stock."
+msgstr "Katalog, narxlar va zaxiralarni yangilang."
+
+msgid "Plan deliveries"
+msgstr "Yetkazishni rejalash"
+
+msgid "See delivery points and plan the next route."
+msgstr "Yetkazish manzillarini ko‘ring va yo‘nalishni rejalang."
+
+msgid "Help customers"
+msgstr "Xaridorlarga yordam"
+
+msgid "Read and respond to customer messages."
+msgstr "Xaridorlarning xabarlarini o‘qing va javob bering."
+
+msgid "Recent activity"
+msgstr "So‘nggi amallar"
+
+msgid "Your admin activity will appear here."
+msgstr "Boshqaruv panelidagi amallaringiz shu yerda ko‘rinadi."
+
+msgid "Use the navigation to open the areas you have access to. Contact your administrator if you need additional access."
+msgstr "Ruxsat berilgan bo‘limlarni menyu orqali oching. Qo‘shimcha ruxsat kerak bo‘lsa, administratorga murojaat qiling."
+
+msgid "Welcome to the flower shop"
+msgstr "Gul do‘koniga xush kelibsiz"
+
+msgid "A beautiful day starts behind the scenes."
+msgstr "Go‘zal kun sizning e’tiboringizdan boshlanadi."
+
+msgid "This account does not have admin access. Please sign in with a staff account."
+msgstr "Bu hisobda boshqaruv paneliga kirish huquqi yo‘q. Xodim hisobi bilan kiring."
+
+msgid "Find a page"
+msgstr "Bo‘limni topish"
+
+msgid "Filter navigation items"
+msgstr "Menyu bo‘limlarini qidirish"
+
+msgid "No matching pages."
+msgstr "Mos bo‘lim topilmadi."
+
+msgid "View storefront"
+msgstr "Do‘konni ochish"
+
+msgid "Close navigation"
+msgstr "Menyuni yopish"
+
+msgid "New orders"
+msgstr "Yangi buyurtmalar"
+
+msgid "Awaiting confirmation"
+msgstr "Tasdiqlash kutilmoqda"
+
+msgid "Deliveries today"
+msgstr "Bugungi yetkazishlar"
+
+msgid "Scheduled for today"
+msgstr "Bugunga rejalashtirilgan"
+
+#, python-format
+msgid "Order #%(number)s"
+msgstr "Buyurtma №%(number)s"
+
+msgid "Available bouquets"
+msgstr "Mavjud guldastalar"
+
+msgid "Visible in your catalog"
+msgstr "Katalogda ko‘rinadigan"
+
+msgid "Stock alerts"
+msgstr "Zaxira ogohlantirishlari"
+
+msgid "Ready for a restock"
+msgstr "Zaxirani to‘ldirish vaqti"
+
+msgid "Shop"
+msgstr "Do‘kon"
+
+msgid "Operations"
+msgstr "Do‘kon ishlari"
+
+msgid "Customers"
+msgstr "Xaridorlar"
+
+msgid "System"
+msgstr "Tizim"
+
+#: product and order admin
+msgid "stock level"
+msgstr "zaxira darajasi"
+
+msgid "Needs restocking"
+msgstr "To‘ldirish kerak"
+
+msgid "Healthy stock"
+msgstr "Zaxira yetarli"
+
+msgid "Out of stock"
+msgstr "Zaxirada yo‘q"
+
+msgid "Find flowers by name, description, slug, or florist."
+msgstr "Gullarni nomi, tavsifi, slugi yoki floristi bo‘yicha toping."
+
+msgid "No flower photo"
+msgstr "Gul rasmi yo‘q"
+
+msgid "Stock status"
+msgstr "Zaxira holati"
+
+msgid "In stock"
+msgstr "Zaxirada bor"
+
+msgid "Low stock"
+msgstr "Zaxira kam"
+
+msgid "Hidden"
+msgstr "Yashirilgan"
+
+msgid "Add a flower photo to help your team recognize this product."
+msgstr "Xodimlar mahsulotni oson tanishi uchun gul rasmini qo‘shing."
+
+msgid "Find delivery zones by name, city, or description."
+msgstr "Yetkazish hududlarini nomi, shahri yoki tavsifi bo‘yicha toping."
+
+msgid "Find notifications by order number, recipient, or message."
+msgstr "Bildirishnomalarni buyurtma raqami, oluvchi yoki xabar matni bo‘yicha toping."
+
+msgid "Find an order by number, customer, recipient, phone, address, or florist."
+msgstr "Buyurtmani raqami, xaridori, oluvchisi, telefoni, manzili yoki floristi bo‘yicha toping."
+
+msgid "Order details"
+msgstr "Buyurtma tafsilotlari"
+
+msgid "Payment & totals"
+msgstr "To‘lov va jami summa"
+
+msgid "Recipient"
+msgstr "Oluvchi"
+
+msgid "Delivery map"
+msgstr "Yetkazish xaritasi"
+
+msgid "Map"
+msgstr "Xarita"
+
+msgid "No map point selected"
+msgstr "Xaritada nuqta tanlanmagan"
+
+msgid "Payment"
+msgstr "To‘lov"
+
+msgid "Mark selected orders as confirmed"
+msgstr "Tanlangan buyurtmalarni tasdiqlash"
+
+msgid "Mark selected orders as preparing"
+msgstr "Tanlangan buyurtmalarni tayyorlanmoqda deb belgilash"
+
+msgid "Mark selected orders as courier picked up"
+msgstr "Tanlangan buyurtmalarni kuryerga topshirilgan deb belgilash"
+
+msgid "Mark selected orders as delivered"
+msgstr "Tanlangan buyurtmalarni yetkazilgan deb belgilash"
+
+msgid "Find a payment by reference or order number."
+msgstr "To‘lovni identifikatori yoki buyurtma raqami bo‘yicha toping."
+
+msgid "Find an event by payment reference, event ID, or message."
+msgstr "Hodisani to‘lov identifikatori, hodisa ID raqami yoki xabar matni bo‘yicha toping."
+
+msgid "Preparing"
+msgstr "Tayyorlanmoqda"
+
+msgid "Courier picked up"
+msgstr "Kuryerga topshirilgan"
+
+msgid "Unpaid"
+msgstr "To‘lanmagan"
+
+msgid "Paid"
+msgstr "To‘langan"
+
+msgid "Failed"
+msgstr "Xatolik"
+
+msgid "Refunded"
+msgstr "Qaytarilgan"
+
+msgid "low stock threshold"
+msgstr "kam zaxira chegarasi"
+
+msgid "Delivery zone"
+msgstr "Yetkazish hududi"
+
+msgid "Delivery zones"
+msgstr "Yetkazish hududlari"

@@ -11,6 +11,7 @@ class Review(models.Model):
     string lets reviews work for API-backed products and for offline demo
     products. One review per user per product — re-submitting updates it.
     """
+
     product = models.CharField(_('product'), max_length=100, db_index=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

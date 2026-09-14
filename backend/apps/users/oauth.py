@@ -152,7 +152,9 @@ def consume_login_attempt(provider: str, state: str) -> OAuthLoginAttempt:
     return attempt
 
 
-def exchange_provider_code(provider: str, code: str, attempt: OAuthLoginAttempt) -> ProviderIdentity:
+def exchange_provider_code(
+    provider: str, code: str, attempt: OAuthLoginAttempt
+) -> ProviderIdentity:
     config = provider_config(provider)
     token = _token_exchange(provider, config, code, attempt.code_verifier)
     if provider == 'github':
@@ -253,9 +255,7 @@ def _verified_oidc_claims(provider: str, config: dict, id_token: str, nonce: str
         tenant_id = str(claims.get('tid') or '')
         if tenant in {'common', 'organizations', 'consumers'}:
             valid_issuers = (
-                [f'https://login.microsoftonline.com/{tenant_id}/v2.0']
-                if tenant_id
-                else []
+                [f'https://login.microsoftonline.com/{tenant_id}/v2.0'] if tenant_id else []
             )
         else:
             valid_issuers = [f'https://login.microsoftonline.com/{tenant}/v2.0']
@@ -271,7 +271,9 @@ def _verified_oidc_claims(provider: str, config: dict, id_token: str, nonce: str
             nonce={'essential': True, 'value': nonce},
         ).validate(claims)
     except (JoseError, ValueError, TypeError, KeyError) as exc:
-        raise OAuthError('invalid_token', 'The identity token claims could not be verified.') from exc
+        raise OAuthError(
+            'invalid_token', 'The identity token claims could not be verified.'
+        ) from exc
     return claims
 
 
@@ -304,7 +306,7 @@ def _unique_username(identity: ProviderIdentity) -> str:
     for suffix in range(1, 10000):
         if not User.objects.filter(username__iexact=candidate).exists():
             return candidate
-        candidate = f'{base[:140 - len(str(suffix))]}-{suffix}'
+        candidate = f'{base[: 140 - len(str(suffix))]}-{suffix}'
     return f'flower-friend-{secrets.token_hex(6)}'
 
 

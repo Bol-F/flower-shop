@@ -221,9 +221,7 @@ class TestOrderCreation:
         assert response.data['payment_reference'].startswith('TEST-')
         assert response.data['paid_at'] is not None
 
-    def test_test_payment_changes_pending_order_to_paid(
-        self, api_client, user, cart_with_item
-    ):
+    def test_test_payment_changes_pending_order_to_paid(self, api_client, user, cart_with_item):
         api_client.force_authenticate(user=user)
         create_response = api_client.post(
             reverse('order-create'),
@@ -270,9 +268,7 @@ class TestOrderCreation:
         assert order.payment_status == Order.PaymentStatus.PENDING
         assert order.paid_at is None
 
-    def test_cash_order_does_not_use_test_payment(
-        self, api_client, user, cart_with_item
-    ):
+    def test_cash_order_does_not_use_test_payment(self, api_client, user, cart_with_item):
         api_client.force_authenticate(user=user)
         create_response = api_client.post(
             reverse('order-create'),
@@ -291,9 +287,7 @@ class TestOrderCreation:
         assert order.payment_status == Order.PaymentStatus.UNPAID
         assert order.paid_at is None
 
-    def test_create_order_applies_valid_promo_code(
-        self, api_client, user, cart_with_item
-    ):
+    def test_create_order_applies_valid_promo_code(self, api_client, user, cart_with_item):
         PromoCode.objects.create(
             code='SAVE5',
             discount_type=PromoCode.DiscountType.FIXED_AMOUNT,
@@ -313,9 +307,7 @@ class TestOrderCreation:
         assert response.data['total_price'] == '34.98'
         assert PromoCode.objects.get(code='SAVE5').used_count == 1
 
-    def test_create_order_rejects_invalid_promo_code(
-        self, api_client, user, cart_with_item
-    ):
+    def test_create_order_rejects_invalid_promo_code(self, api_client, user, cart_with_item):
         api_client.force_authenticate(user=user)
         response = api_client.post(
             reverse('order-create'),
@@ -344,9 +336,7 @@ class TestOrderCreation:
         assert response.data['delivery_fee'] == f'{FIXED_CITY_DELIVERY_FEE:.2f}'
         assert response.data['total_price'] == f'{expected_total:.2f}'
 
-    def test_create_order_uses_selected_delivery_zone_fee(
-        self, api_client, user, product
-    ):
+    def test_create_order_uses_selected_delivery_zone_fee(self, api_client, user, product):
         zone = DeliveryZone.objects.get(name='Outer Tashkent')
         Cart.objects.create(user=user)
         CartItem.objects.create(cart=user.cart, product=product, quantity=1)
@@ -365,9 +355,7 @@ class TestOrderCreation:
         assert response.data['delivery_fee'] == f'{OUTER_CITY_DELIVERY_FEE:.2f}'
         assert response.data['total_price'] == f'{expected_total:.2f}'
 
-    def test_create_order_flags_manual_delivery_confirmation(
-        self, api_client, user, product
-    ):
+    def test_create_order_flags_manual_delivery_confirmation(self, api_client, user, product):
         zone = DeliveryZone.objects.get(name='Outside City')
         Cart.objects.create(user=user)
         CartItem.objects.create(cart=user.cart, product=product, quantity=1)
@@ -383,9 +371,7 @@ class TestOrderCreation:
         assert response.data['delivery_zone']['name'] == 'Outside City'
         assert response.data['delivery_requires_confirmation'] is True
 
-    def test_create_order_rejects_invalid_payment_method(
-        self, api_client, user, cart_with_item
-    ):
+    def test_create_order_rejects_invalid_payment_method(self, api_client, user, cart_with_item):
         api_client.force_authenticate(user=user)
         response = api_client.post(
             reverse('order-create'),
@@ -531,9 +517,7 @@ class TestOrderCreation:
         assert response.data['loyalty_points_earned'] > 0
         assert user.loyalty_points == response.data['loyalty_points_earned']
 
-    def test_customer_can_repeat_order_to_cart(
-        self, api_client, user, cart_with_item
-    ):
+    def test_customer_can_repeat_order_to_cart(self, api_client, user, cart_with_item):
         api_client.force_authenticate(user=user)
         create_response = api_client.post(
             reverse('order-create'),
@@ -580,9 +564,7 @@ class TestOrderCreation:
             for log in response.data['notification_logs']
         )
 
-    def test_staff_can_mark_payment_failed(
-        self, api_client, user, staff_user, cart_with_item
-    ):
+    def test_staff_can_mark_payment_failed(self, api_client, user, staff_user, cart_with_item):
         api_client.force_authenticate(user=user)
         create_response = api_client.post(
             reverse('order-create'),
@@ -605,9 +587,7 @@ class TestOrderCreation:
             for log in response.data['notification_logs']
         )
 
-    def test_customer_cannot_update_payment_status(
-        self, api_client, user, cart_with_item
-    ):
+    def test_customer_cannot_update_payment_status(self, api_client, user, cart_with_item):
         api_client.force_authenticate(user=user)
         create_response = api_client.post(
             reverse('order-create'),
@@ -626,9 +606,7 @@ class TestOrderCreation:
         assert order.payment_status == Order.PaymentStatus.UNPAID
         assert order.paid_at is None
 
-    def test_rejects_unknown_payment_status(
-        self, api_client, user, staff_user, cart_with_item
-    ):
+    def test_rejects_unknown_payment_status(self, api_client, user, staff_user, cart_with_item):
         api_client.force_authenticate(user=user)
         create_response = api_client.post(
             reverse('order-create'),
@@ -691,9 +669,7 @@ class TestOrderCreation:
         assert response.data['low_stock_products'][0]['name'] == product.name
         assert response.data['delivery_queue'][0]['id']
 
-    def test_telegram_disabled_creates_skipped_log(
-        self, settings, user, cart_with_item
-    ):
+    def test_telegram_disabled_creates_skipped_log(self, settings, user, cart_with_item):
         settings.NOTIFICATIONS_ENABLED = True
         settings.EMAIL_NOTIFICATIONS_ENABLED = False
         settings.TELEGRAM_NOTIFICATIONS_ENABLED = False
@@ -709,12 +685,8 @@ class TestOrderCreation:
 
         logs = notifications.notify_order_created(order)
 
-        console_log = next(
-            log for log in logs if log.channel == NotificationLog.Channel.CONSOLE
-        )
-        telegram_log = next(
-            log for log in logs if log.channel == NotificationLog.Channel.TELEGRAM
-        )
+        console_log = next(log for log in logs if log.channel == NotificationLog.Channel.CONSOLE)
+        telegram_log = next(log for log in logs if log.channel == NotificationLog.Channel.TELEGRAM)
         assert console_log.status == NotificationLog.Status.SENT
         assert console_log.event_type == NotificationLog.Event.ORDER_CREATED
         assert console_log.subject == f'Order #{order.id} created'
@@ -760,9 +732,7 @@ class TestOrderCreation:
 
         logs = notifications.notify_order_created(order)
 
-        email_log = next(
-            log for log in logs if log.channel == NotificationLog.Channel.EMAIL
-        )
+        email_log = next(log for log in logs if log.channel == NotificationLog.Channel.EMAIL)
         assert email_log.status == NotificationLog.Status.SKIPPED
         assert 'disabled' in email_log.error_message
 
@@ -784,9 +754,7 @@ class TestOrderCreation:
 
         logs = notifications.notify_order_created(order)
 
-        email_log = next(
-            log for log in logs if log.channel == NotificationLog.Channel.EMAIL
-        )
+        email_log = next(log for log in logs if log.channel == NotificationLog.Channel.EMAIL)
         assert email_log.status == NotificationLog.Status.SKIPPED
         assert email_log.recipient == ''
         assert 'Customer email is missing' in email_log.error_message
@@ -809,9 +777,7 @@ class TestOrderCreation:
         with patch('apps.orders.notification_services.send_mail', return_value=1) as send:
             logs = notifications.notify_order_created(order)
 
-        email_log = next(
-            log for log in logs if log.channel == NotificationLog.Channel.EMAIL
-        )
+        email_log = next(log for log in logs if log.channel == NotificationLog.Channel.EMAIL)
         assert email_log.status == NotificationLog.Status.SENT
         assert email_log.recipient == user.email
         assert email_log.sent_at is not None
@@ -841,9 +807,7 @@ class TestOrderCreation:
         ):
             logs = notifications.notify_order_created(order)
 
-        email_log = next(
-            log for log in logs if log.channel == NotificationLog.Channel.EMAIL
-        )
+        email_log = next(log for log in logs if log.channel == NotificationLog.Channel.EMAIL)
         assert email_log.status == NotificationLog.Status.FAILED
         assert 'SMTP unavailable' in email_log.error_message
 
@@ -877,9 +841,7 @@ class TestOrderCreation:
         )
         assert email_log.status == NotificationLog.Status.FAILED
 
-    def test_successful_mocked_telegram_send_creates_sent_log(
-        self, settings, user
-    ):
+    def test_successful_mocked_telegram_send_creates_sent_log(self, settings, user):
         settings.NOTIFICATIONS_ENABLED = True
         settings.EMAIL_NOTIFICATIONS_ENABLED = False
         settings.TELEGRAM_NOTIFICATIONS_ENABLED = True
@@ -894,12 +856,12 @@ class TestOrderCreation:
         response = Mock(status_code=200, text='{"ok": true}')
         response.json.return_value = {'ok': True, 'result': {'message_id': 1}}
 
-        with patch('apps.orders.notification_services.requests.post', return_value=response) as post:
+        with patch(
+            'apps.orders.notification_services.requests.post', return_value=response
+        ) as post:
             logs = notifications.notify_order_created(order)
 
-        telegram_log = next(
-            log for log in logs if log.channel == NotificationLog.Channel.TELEGRAM
-        )
+        telegram_log = next(log for log in logs if log.channel == NotificationLog.Channel.TELEGRAM)
         assert telegram_log.status == NotificationLog.Status.SENT
         assert telegram_log.recipient == '123'
         assert telegram_log.sent_at is not None
@@ -910,9 +872,7 @@ class TestOrderCreation:
         assert request_payload['chat_id'] == '123'
         assert 'New order' in request_payload['text']
 
-    def test_failed_mocked_telegram_send_creates_failed_log(
-        self, settings, user
-    ):
+    def test_failed_mocked_telegram_send_creates_failed_log(self, settings, user):
         settings.NOTIFICATIONS_ENABLED = True
         settings.EMAIL_NOTIFICATIONS_ENABLED = False
         settings.TELEGRAM_NOTIFICATIONS_ENABLED = True
@@ -930,16 +890,12 @@ class TestOrderCreation:
         with patch('apps.orders.notification_services.requests.post', return_value=response):
             logs = notifications.notify_order_created(order)
 
-        telegram_log = next(
-            log for log in logs if log.channel == NotificationLog.Channel.TELEGRAM
-        )
+        telegram_log = next(log for log in logs if log.channel == NotificationLog.Channel.TELEGRAM)
         assert telegram_log.status == NotificationLog.Status.FAILED
         assert 'HTTP 400' in telegram_log.error_message
         assert 'fake-token' not in telegram_log.error_message
 
-    def test_notification_service_skips_missing_credentials_without_crashing(
-        self, settings, user
-    ):
+    def test_notification_service_skips_missing_credentials_without_crashing(self, settings, user):
         settings.NOTIFICATIONS_ENABLED = True
         settings.EMAIL_NOTIFICATIONS_ENABLED = True
         settings.TELEGRAM_NOTIFICATIONS_ENABLED = True
@@ -964,7 +920,8 @@ class TestOrderCreation:
             NotificationLog.Channel.TELEGRAM,
         }
         assert [
-            log.status for log in logs
+            log.status
+            for log in logs
             if log.channel in [NotificationLog.Channel.EMAIL, NotificationLog.Channel.TELEGRAM]
         ] == [NotificationLog.Status.SKIPPED, NotificationLog.Status.SKIPPED]
 
@@ -980,7 +937,9 @@ class TestOrderCreation:
         response.json.return_value = {'ok': True, 'result': {'message_id': 1}}
 
         api_client.force_authenticate(user=user)
-        with patch('apps.orders.notification_services.requests.post', return_value=response) as post:
+        with patch(
+            'apps.orders.notification_services.requests.post', return_value=response
+        ) as post:
             create_response = api_client.post(
                 reverse('order-create'),
                 order_payload(),

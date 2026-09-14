@@ -1,4 +1,5 @@
 """The admin must be served in English (default), Russian, and Uzbek."""
+
 import pytest
 from django.utils import translation
 
@@ -36,11 +37,14 @@ class TestAdminLanguages:
 
 
 class TestModelLabelTranslations:
-    @pytest.mark.parametrize('lang, products, price, pending', [
-        ('en', 'Products', 'price', 'Pending'),
-        ('ru', 'Товары', 'цена', 'В ожидании'),
-        ('uz', 'Mahsulotlar', 'narx', 'Kutilmoqda'),
-    ])
+    @pytest.mark.parametrize(
+        'lang, products, price, pending',
+        [
+            ('en', 'Products', 'price', 'Pending'),
+            ('ru', 'Товары', 'цена', 'В ожидании'),
+            ('uz', 'Mahsulotlar', 'narx', 'Kutilmoqda'),
+        ],
+    )
     def test_labels_translate(self, lang, products, price, pending):
         with translation.override(lang):
             assert str(Product._meta.verbose_name_plural) == products

@@ -5,19 +5,20 @@ from decimal import Decimal
 from urllib.parse import urlencode
 
 import pytest
+from django.contrib.admin.sites import AdminSite
+from django.contrib.messages.storage.fallback import FallbackStorage
 from django.test import override_settings
 from django.urls import reverse
 from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
 
-from apps.categories.models import Category
 from apps.products.models import Product
 from apps.users.models import User
 
+from .admin import OrderAdmin
 from .models import Order, OrderItem, PaymentAttempt, PaymentEvent
-from .payments import available_payment_methods, initialize_payment, transition_payment
 from .payment_webhooks import payme_authenticated
-
+from .payments import available_payment_methods, initialize_payment, transition_payment
 
 PAYME_SETTINGS = {
     'PAYMENT_PROVIDER': 'payme',
@@ -127,16 +128,22 @@ class TestPaymePayments:
         )
         client = APIClient()
         client.force_authenticate(user=stranger)
-        assert client.post(
-            reverse('payment-initialize', args=[online_order.id]),
-            {'provider': 'payme'},
-            format='json',
-        ).status_code == 404
-        assert client.post(
-            reverse('payment-initialize', args=[99999]),
-            {'provider': 'payme'},
-            format='json',
-        ).status_code == 404
+        assert (
+            client.post(
+                reverse('payment-initialize', args=[online_order.id]),
+                {'provider': 'payme'},
+                format='json',
+            ).status_code
+            == 404
+        )
+        assert (
+            client.post(
+                reverse('payment-initialize', args=[99999]),
+                {'provider': 'payme'},
+                format='json',
+            ).status_code
+            == 404
+        )
 
     def test_verified_webhook_marks_paid_and_duplicate_is_safe(self, payment_user, online_order):
         payment, _ = initialize_payment(online_order, provider_name='payme', idempotency_key='one')
@@ -153,7 +160,12 @@ class TestPaymePayments:
         create = _payme_post(
             client,
             'CreateTransaction',
-            {'id': transaction_id, 'time': int(time.time() * 1000), 'amount': amount, 'account': account},
+            {
+                'id': transaction_id,
+                'time': int(time.time() * 1000),
+                'amount': amount,
+                'account': account,
+            },
         )
         assert create.data['result']['state'] == 1
         paid = _payme_post(client, 'PerformTransaction', {'id': transaction_id})
@@ -162,7 +174,12 @@ class TestPaymePayments:
         assert duplicate.data['result']['perform_time'] == paid.data['result']['perform_time']
         online_order.refresh_from_db()
         assert online_order.payment_status == Order.PaymentStatus.PAID
-        assert PaymentEvent.objects.filter(payment=payment, event_type='payme_perform_transaction').count() == 1
+        assert (
+            PaymentEvent.objects.filter(
+                payment=payment, event_type='payme_perform_transaction'
+            ).count()
+            == 1
+        )
 
     def test_invalid_auth_and_wrong_amount_are_rejected(self, online_order):
         payment, _ = initialize_payment(online_order, provider_name='payme', idempotency_key='two')
@@ -206,7 +223,9 @@ class TestPaymePayments:
             product_price=product.price,
             quantity=2,
         )
-        payment, _ = initialize_payment(online_order, provider_name='payme', idempotency_key='cancel')
+        payment, _ = initialize_payment(
+            online_order, provider_name='payme', idempotency_key='cancel'
+        )
         transaction_id = 'b' * 24
         params = {
             'id': transaction_id,
@@ -234,7 +253,9 @@ class TestClickPayments:
             yield
 
     def test_prepare_complete_signature_amount_and_duplicates(self, online_order):
-        payment, _ = initialize_payment(online_order, provider_name='click', idempotency_key='click-one')
+        payment, _ = initialize_payment(
+            online_order, provider_name='click', idempotency_key='click-one'
+        )
         client = APIClient()
         prepare = {
             'click_trans_id': '901',
@@ -260,7 +281,9 @@ class TestClickPayments:
         assert online_order.payment_status == Order.PaymentStatus.PAID
 
     def test_invalid_signature_and_wrong_amount(self, online_order):
-        payment, _ = initialize_payment(online_order, provider_name='click', idempotency_key='click-two')
+        payment, _ = initialize_payment(
+            online_order, provider_name='click', idempotency_key='click-two'
+        )
         data = {
             'click_trans_id': '902',
             'service_id': '12345',
@@ -336,6 +359,62 @@ def test_real_provider_status_cannot_be_manually_overridden(payment_user, online
 @override_settings(PAYMENT_PROVIDER='test', PAYMENT_TEST_MODE_ENABLED=False)
 def test_test_provider_never_appears_as_production_capability():
     assert [method['id'] for method in available_payment_methods()] == ['cash']
+
+
+@pytest.mark.django_db
+@override_settings(PAYMENT_PROVIDER='test', PAYMENT_TEST_MODE_ENABLED=True)
+def test_checkout_capabilities_expose_cash_and_card_with_clear_labels():
+    methods = available_payment_methods()
+
+    assert [(method['id'], method['payment_method']) for method in methods] == [
+        ('cash', Order.PaymentMethod.CASH),
+        ('test', Order.PaymentMethod.CARD),
+    ]
+    assert methods[0]['label'] == 'Cash on delivery'
+    assert methods[1]['label'] == 'Pay by card'
+
+
+@pytest.mark.django_db
+def test_admin_action_marks_only_unpaid_cash_orders_paid(payment_user, rf):
+    payment_user.is_staff = True
+    payment_user.save(update_fields=('is_staff',))
+    cash_order = Order.objects.create(
+        user=payment_user,
+        total_price='25.00',
+        shipping_address='Tashkent',
+        phone='+998901234567',
+        payment_method=Order.PaymentMethod.CASH,
+        payment_status=Order.PaymentStatus.UNPAID,
+    )
+    card_order = Order.objects.create(
+        user=payment_user,
+        total_price='30.00',
+        shipping_address='Tashkent',
+        phone='+998901234567',
+        payment_method=Order.PaymentMethod.CARD,
+        payment_status=Order.PaymentStatus.PENDING,
+    )
+    request = rf.post('/admin/orders/order/')
+    request.user = payment_user
+    request.session = {}
+    request._messages = FallbackStorage(request)
+
+    order_admin = OrderAdmin(Order, AdminSite())
+    assert order_admin.has_delete_permission(request, cash_order) is False
+    order_admin.mark_cash_paid(
+        request,
+        Order.objects.filter(pk__in=(cash_order.pk, card_order.pk)),
+    )
+
+    cash_order.refresh_from_db()
+    card_order.refresh_from_db()
+    assert cash_order.payment_status == Order.PaymentStatus.PAID
+    assert cash_order.payment_provider == 'cash'
+    assert cash_order.paid_at is not None
+    assert card_order.payment_status == Order.PaymentStatus.PENDING
+    event = PaymentEvent.objects.get(payment__order=cash_order)
+    assert event.source == PaymentEvent.Source.ADMIN
+    assert event.actor == payment_user
 
 
 @pytest.mark.django_db

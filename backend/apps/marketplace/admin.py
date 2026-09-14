@@ -6,8 +6,12 @@ from .models import City, Courier, PromoCode, Vendor, WishlistItem
 @admin.register(City)
 class CityAdmin(admin.ModelAdmin):
     list_display = (
-        'name', 'country', 'currency', 'default_delivery_fee',
-        'free_delivery_threshold', 'is_active',
+        'name',
+        'country',
+        'currency',
+        'default_delivery_fee',
+        'free_delivery_threshold',
+        'is_active',
     )
     list_filter = ('country', 'currency', 'is_active')
     search_fields = ('name', 'country', 'slug')
@@ -35,8 +39,14 @@ class CourierAdmin(admin.ModelAdmin):
 @admin.register(PromoCode)
 class PromoCodeAdmin(admin.ModelAdmin):
     list_display = (
-        'code', 'discount_type', 'discount_value', 'min_order_amount',
-        'max_discount_amount', 'used_count', 'usage_limit', 'is_active',
+        'code',
+        'discount_type',
+        'discount_value',
+        'min_order_amount',
+        'max_discount_amount',
+        'used_count',
+        'usage_limit',
+        'is_active',
     )
     list_filter = ('discount_type', 'is_active', 'valid_from', 'valid_until')
     search_fields = ('code',)

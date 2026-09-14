@@ -22,6 +22,5 @@ MIDDLEWARE = [
 EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 CELERY_TASK_ALWAYS_EAGER = True
 REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {
-    scope: '10000/minute'
-    for scope in REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']
+    scope: '10000/minute' for scope in REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']
 }

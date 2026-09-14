@@ -45,7 +45,7 @@ class PromoValidateView(APIView):
                 'code': promo.code,
                 'discount_type': promo.discount_type,
                 'discount_value': str(promo.discount_value),
-                'discount_amount': f"{serializer.validated_data['discount']:.2f}",
+                'discount_amount': f'{serializer.validated_data["discount"]:.2f}',
             }
         )
 
@@ -56,7 +56,8 @@ class WishlistView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return WishlistItem.objects.filter(user=self.request.user).select_related(
-            'product', 'product__category',
+            'product',
+            'product__category',
         )
 
     def get_serializer_context(self):

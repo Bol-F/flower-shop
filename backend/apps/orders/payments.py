@@ -1,4 +1,4 @@
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.db import transaction
@@ -10,7 +10,6 @@ from apps.products.models import Product
 from .models import Order, PaymentAttempt, PaymentEvent
 from .payment_providers import get_payment_provider
 from .payment_providers.test_provider import TestPaymentProvider
-
 
 CASH_PAYMENT_PROVIDER = 'cash'
 TEST_PAYMENT_PROVIDER = TestPaymentProvider.provider_name
@@ -101,34 +100,38 @@ def available_payment_methods() -> list[dict]:
             'id': 'cash',
             'payment_method': Order.PaymentMethod.CASH,
             'provider': CASH_PAYMENT_PROVIDER,
-            'label': 'Cash',
-            'detail': 'Pay when your flowers arrive',
+            'label': 'Cash on delivery',
+            'detail': 'Pay the courier when your flowers arrive',
             'enabled': True,
             'test_mode': False,
         }
     ]
     selected = settings.PAYMENT_PROVIDER
     if selected == TEST_PAYMENT_PROVIDER and settings.PAYMENT_TEST_MODE_ENABLED:
-        methods.append({
-            'id': 'test',
-            'payment_method': Order.PaymentMethod.ONLINE,
-            'provider': TEST_PAYMENT_PROVIDER,
-            'label': 'Test payment',
-            'detail': 'Development only — no real money is charged',
-            'enabled': True,
-            'test_mode': True,
-        })
+        methods.append(
+            {
+                'id': 'test',
+                'payment_method': Order.PaymentMethod.CARD,
+                'provider': TEST_PAYMENT_PROVIDER,
+                'label': 'Pay by card',
+                'detail': 'Secure test checkout — no money is charged',
+                'enabled': True,
+                'test_mode': True,
+            }
+        )
     elif selected in SUPPORTED_REAL_PROVIDERS:
         provider = get_payment_provider(selected)
-        methods.append({
-            'id': selected,
-            'payment_method': Order.PaymentMethod.ONLINE,
-            'provider': selected,
-            'label': 'Payme' if selected == 'payme' else 'Click',
-            'detail': 'Secure payment on the provider checkout page',
-            'enabled': provider.is_configured(),
-            'test_mode': False,
-        })
+        methods.append(
+            {
+                'id': selected,
+                'payment_method': Order.PaymentMethod.CARD,
+                'provider': selected,
+                'label': 'Pay by card',
+                'detail': (f'Secure checkout with {"Payme" if selected == "payme" else "Click"}'),
+                'enabled': provider.is_configured(),
+                'test_mode': False,
+            }
+        )
     return methods
 
 
@@ -179,9 +182,14 @@ def initialize_payment(
     payment.status = result.status
     payment.checkout_url = result.checkout_url
     payment.provider_reference = result.reference
-    payment.save(update_fields=(
-        'status', 'checkout_url', 'provider_reference', 'updated_at',
-    ))
+    payment.save(
+        update_fields=(
+            'status',
+            'checkout_url',
+            'provider_reference',
+            'updated_at',
+        )
+    )
     PaymentEvent.objects.create(
         payment=payment,
         source=PaymentEvent.Source.SYSTEM,
@@ -193,9 +201,14 @@ def initialize_payment(
     order.payment_provider = provider_name
     order.payment_reference = payment.provider_reference or str(payment.public_id)
     order.payment_status = Order.PaymentStatus.PENDING
-    order.save(update_fields=(
-        'payment_provider', 'payment_reference', 'payment_status', 'updated_at',
-    ))
+    order.save(
+        update_fields=(
+            'payment_provider',
+            'payment_reference',
+            'payment_status',
+            'updated_at',
+        )
+    )
     return payment, True
 
 
@@ -222,9 +235,11 @@ def _order_status_for_payment(payment_status: str, current_order_status: str) ->
         return Order.PaymentStatus.PAID
     if payment_status == PaymentAttempt.Status.REFUNDED:
         return Order.PaymentStatus.REFUNDED
-    if payment_status in {PaymentAttempt.Status.FAILED, PaymentAttempt.Status.CANCELLED}:
-        if current_order_status != Order.PaymentStatus.PAID:
-            return Order.PaymentStatus.FAILED
+    if (
+        payment_status in {PaymentAttempt.Status.FAILED, PaymentAttempt.Status.CANCELLED}
+        and current_order_status != Order.PaymentStatus.PAID
+    ):
+        return Order.PaymentStatus.FAILED
     return Order.PaymentStatus.PENDING
 
 
@@ -249,10 +264,13 @@ def transition_payment(
             {'payment_status': f'Cannot change payment from {current} to {next_status}.'}
         )
 
-    if external_event_id and PaymentEvent.objects.filter(
-        payment=payment,
-        external_event_id=external_event_id,
-    ).exists():
+    if (
+        external_event_id
+        and PaymentEvent.objects.filter(
+            payment=payment,
+            external_event_id=external_event_id,
+        ).exists()
+    ):
         return payment
 
     payment.status = next_status
@@ -273,9 +291,7 @@ def transition_payment(
     order = Order.objects.select_for_update().get(pk=payment.order_id)
     order.payment_provider = payment.provider
     order.payment_reference = (
-        payment.external_payment_id
-        or payment.provider_reference
-        or str(payment.public_id)
+        payment.external_payment_id or payment.provider_reference or str(payment.public_id)
     )
     order.payment_status = _order_status_for_payment(next_status, order.payment_status)
     order_fields = ['payment_provider', 'payment_reference', 'payment_status', 'updated_at']
@@ -327,10 +343,7 @@ def release_inventory_for_cancelled_order(order: Order) -> None:
 
 @transaction.atomic
 def pay_test_order(order: Order) -> Order:
-    if (
-        settings.PAYMENT_PROVIDER != TEST_PAYMENT_PROVIDER
-        or not settings.PAYMENT_TEST_MODE_ENABLED
-    ):
+    if settings.PAYMENT_PROVIDER != TEST_PAYMENT_PROVIDER or not settings.PAYMENT_TEST_MODE_ENABLED:
         raise ValidationError({'payment_provider': 'Test payments are not enabled.'})
     payment, _ = initialize_payment(
         order,

@@ -1,0 +1,20 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block bodyclass %}{{ block.super }} login flower-login{% endblock %}
+{% block usertools %}{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+{% block content_title %}{% endblock %}
+{% block extrahead %}{{ block.super }}{{ form.media }}{% endblock %}
+{% block content %}
+<div id="content-main"><div class="flower-login-heading"><span class="flower-login-icon">{% include 'admin/flower_icon.html' with name='flower' %}</span><h1>{% translate 'Welcome to the flower shop' %}</h1><p>{% translate 'A beautiful day starts behind the scenes.' %}</p></div>
+{% if form.errors and not form.non_field_errors %}<p class="errornote">{% translate 'Please correct the errors below.' %}</p>{% endif %}
+{% for error in form.non_field_errors %}<p class="errornote">{{ error }}</p>{% endfor %}
+{% if user.is_authenticated %}<p class="errornote">{% translate 'This account does not have admin access. Please sign in with a staff account.' %}</p>{% endif %}
+<form action="{{ app_path }}" method="post" id="login-form">{% csrf_token %}
+<div class="form-row">{{ form.username.errors }}{{ form.username.label_tag }}{{ form.username }}</div>
+<div class="form-row">{{ form.password.errors }}{{ form.password.label_tag }}{{ form.password }}<input type="hidden" name="next" value="{{ next }}"></div>
+{% url 'admin_password_reset' as password_reset_url %}{% if password_reset_url %}<p><a href="{{ password_reset_url }}">{% translate 'Forgotten your password or username?' %}</a></p>{% endif %}
+<div class="submit-row"><input type="submit" value="{% translate 'Log in' %}"></div></form>
+<p class="flower-login-note">{{ site_header }}</p></div>
+{% endblock %}

@@ -57,19 +57,23 @@ def create_order_from_cart(
         if not product or not product.is_available:
             raise ValidationError(f'"{item.product.name}" is no longer available.')
         if item.quantity > product.stock:
-            raise ValidationError(
-                f'Only {product.stock} item(s) available for "{product.name}".'
-            )
+            raise ValidationError(f'Only {product.stock} item(s) available for "{product.name}".')
 
     subtotal = sum(item.product.price * item.quantity for item in cart_items)
     city = resolve_city(city_slug, user)
     if delivery_zone and delivery_zone.city_id and city and delivery_zone.city_id != city.id:
-        raise ValidationError({'delivery_zone_id': 'Delivery zone does not belong to selected city.'})
+        raise ValidationError(
+            {'delivery_zone_id': 'Delivery zone does not belong to selected city.'}
+        )
     if delivery_zone and delivery_zone.city_id:
         city = delivery_zone.city
 
     vendor = next(
-        (products[item.product_id].vendor for item in cart_items if products[item.product_id].vendor_id),
+        (
+            products[item.product_id].vendor
+            for item in cart_items
+            if products[item.product_id].vendor_id
+        ),
         None,
     )
     promo, discount_amount = validate_promo_code(promo_code, subtotal)

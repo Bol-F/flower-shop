@@ -219,3 +219,266 @@ msgstr "От"
 
 msgid "Replied"
 msgstr "Отвечено"
+
+#: flower shop workspace
+msgid "Toggle navigation"
+msgstr "Открыть или закрыть меню"
+
+msgid "Flower shop admin"
+msgstr "Управление цветочным магазином"
+
+msgid "Made for the care behind every bouquet."
+msgstr "С заботой о каждом букете."
+
+msgid "Shop overview"
+msgstr "Обзор магазина"
+
+msgid "A little care for every order, every bouquet."
+msgstr "Забота о каждом заказе и каждом букете."
+
+msgid "Add bouquet"
+msgstr "Добавить букет"
+
+msgid "Recent orders"
+msgstr "Последние заказы"
+
+msgid "View all"
+msgstr "Смотреть все"
+
+msgid "Customer"
+msgstr "Покупатель"
+
+msgid "Status"
+msgstr "Статус"
+
+msgid "Total"
+msgstr "Итого"
+
+msgid "Your next order starts here"
+msgstr "Здесь появится ваш следующий заказ"
+
+msgid "New orders will appear here as customers check out."
+msgstr "Новые заказы появятся здесь после оформления покупателями."
+
+msgid "Stock to watch"
+msgstr "Пора пополнить запас"
+
+msgid "View low-stock bouquets"
+msgstr "Посмотреть букеты с низким остатком"
+
+#, python-format
+msgid "Restock at %(threshold)s or fewer"
+msgstr "Пополнить при остатке %(threshold)s или меньше"
+
+#, python-format
+msgid "%(count)s left"
+msgstr "Осталось: %(count)s"
+
+msgid "All stocked up"
+msgstr "Запасы в порядке"
+
+msgid "Low-stock bouquets will appear here."
+msgstr "Здесь появятся букеты, запасы которых заканчиваются."
+
+msgid "Quick paths"
+msgstr "Быстрые действия"
+
+msgid "Manage bouquets"
+msgstr "Управлять букетами"
+
+msgid "Care for your catalog, prices, and stock."
+msgstr "Обновляйте каталог, цены и остатки."
+
+msgid "Plan deliveries"
+msgstr "Планировать доставку"
+
+msgid "See delivery points and plan the next route."
+msgstr "Посмотрите адреса доставки и спланируйте маршрут."
+
+msgid "Help customers"
+msgstr "Помочь покупателям"
+
+msgid "Read and respond to customer messages."
+msgstr "Читайте сообщения покупателей и отвечайте на них."
+
+msgid "Recent activity"
+msgstr "Последние действия"
+
+msgid "Your admin activity will appear here."
+msgstr "Здесь появятся ваши действия в панели управления."
+
+msgid "Use the navigation to open the areas you have access to. Contact your administrator if you need additional access."
+msgstr "Откройте доступные вам разделы через меню. Если нужен дополнительный доступ, обратитесь к администратору."
+
+msgid "Welcome to the flower shop"
+msgstr "Добро пожаловать в цветочный магазин"
+
+msgid "A beautiful day starts behind the scenes."
+msgstr "Прекрасный день начинается с вашей заботы."
+
+msgid "This account does not have admin access. Please sign in with a staff account."
+msgstr "У этой учётной записи нет доступа к панели управления. Войдите с учётной записью сотрудника."
+
+msgid "Find a page"
+msgstr "Найти раздел"
+
+msgid "Filter navigation items"
+msgstr "Поиск по разделам меню"
+
+msgid "No matching pages."
+msgstr "Подходящих разделов нет."
+
+msgid "View storefront"
+msgstr "Открыть витрину"
+
+msgid "Close navigation"
+msgstr "Закрыть меню"
+
+msgid "New orders"
+msgstr "Новые заказы"
+
+msgid "Awaiting confirmation"
+msgstr "Ожидают подтверждения"
+
+msgid "Deliveries today"
+msgstr "Доставки сегодня"
+
+msgid "Scheduled for today"
+msgstr "Запланированы на сегодня"
+
+#, python-format
+msgid "Order #%(number)s"
+msgstr "Заказ №%(number)s"
+
+msgid "Available bouquets"
+msgstr "Доступные букеты"
+
+msgid "Visible in your catalog"
+msgstr "Отображаются в каталоге"
+
+msgid "Stock alerts"
+msgstr "Мало в наличии"
+
+msgid "Ready for a restock"
+msgstr "Пора пополнить запас"
+
+msgid "Shop"
+msgstr "Магазин"
+
+msgid "Operations"
+msgstr "Работа магазина"
+
+msgid "Customers"
+msgstr "Покупатели"
+
+msgid "System"
+msgstr "Система"
+
+#: product and order admin
+msgid "stock level"
+msgstr "уровень запаса"
+
+msgid "Needs restocking"
+msgstr "Нужно пополнить"
+
+msgid "Healthy stock"
+msgstr "Запас в норме"
+
+msgid "Out of stock"
+msgstr "Нет в наличии"
+
+msgid "Find flowers by name, description, slug, or florist."
+msgstr "Найдите цветы по названию, описанию, слагу или флористу."
+
+msgid "No flower photo"
+msgstr "Нет фотографии цветов"
+
+msgid "Stock status"
+msgstr "Состояние запаса"
+
+msgid "In stock"
+msgstr "В наличии"
+
+msgid "Low stock"
+msgstr "Мало в наличии"
+
+msgid "Hidden"
+msgstr "Скрыт"
+
+msgid "Add a flower photo to help your team recognize this product."
+msgstr "Добавьте фотографию цветов, чтобы сотрудникам было проще найти этот товар."
+
+msgid "Find delivery zones by name, city, or description."
+msgstr "Найдите зоны доставки по названию, городу или описанию."
+
+msgid "Find notifications by order number, recipient, or message."
+msgstr "Найдите уведомления по номеру заказа, получателю или тексту сообщения."
+
+msgid "Find an order by number, customer, recipient, phone, address, or florist."
+msgstr "Найдите заказ по номеру, покупателю, получателю, телефону, адресу или флористу."
+
+msgid "Order details"
+msgstr "Данные заказа"
+
+msgid "Payment & totals"
+msgstr "Оплата и итоговая сумма"
+
+msgid "Recipient"
+msgstr "Получатель"
+
+msgid "Delivery map"
+msgstr "Карта доставок"
+
+msgid "Map"
+msgstr "Карта"
+
+msgid "No map point selected"
+msgstr "Точка на карте не выбрана"
+
+msgid "Payment"
+msgstr "Оплата"
+
+msgid "Mark selected orders as confirmed"
+msgstr "Подтвердить выбранные заказы"
+
+msgid "Mark selected orders as preparing"
+msgstr "Отметить выбранные заказы как готовящиеся"
+
+msgid "Mark selected orders as courier picked up"
+msgstr "Отметить выбранные заказы как переданные курьеру"
+
+msgid "Mark selected orders as delivered"
+msgstr "Отметить выбранные заказы как доставленные"
+
+msgid "Find a payment by reference or order number."
+msgstr "Найдите платёж по идентификатору или номеру заказа."
+
+msgid "Find an event by payment reference, event ID, or message."
+msgstr "Найдите событие по идентификатору платежа, события или тексту сообщения."
+
+msgid "Preparing"
+msgstr "Готовится"
+
+msgid "Courier picked up"
+msgstr "Передан курьеру"
+
+msgid "Unpaid"
+msgstr "Не оплачен"
+
+msgid "Paid"
+msgstr "Оплачен"
+
+msgid "Failed"
+msgstr "Ошибка"
+
+msgid "Refunded"
+msgstr "Возвращён"
+
+msgid "low stock threshold"
+msgstr "порог низкого остатка"
+
+msgid "Delivery zone"
+msgstr "Зона доставки"
+
+msgid "Delivery zones"
+msgstr "Зоны доставки"

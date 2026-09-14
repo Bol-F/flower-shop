@@ -26,15 +26,14 @@ def product_summary(product_id, request):
         'rating_average': round(agg['average'], 1) if agg['average'] else None,
         'rating_count': agg['count'],
         'my_review': my_review,
-        'reviews': ReviewSerializer(
-            reviews, many=True, context={'request': request}
-        ).data,
+        'reviews': ReviewSerializer(reviews, many=True, context={'request': request}).data,
     }
 
 
 class ProductSocialView(APIView):
     """GET the public summary of ratings + comments for a product.
     Readable by anyone; write actions live on the sibling endpoint."""
+
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get(self, request, product_id):
@@ -43,6 +42,7 @@ class ProductSocialView(APIView):
 
 class ReviewView(APIView):
     """Create/update (POST) or remove (DELETE) the caller's own review."""
+
     permission_classes = [permissions.IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'review_write'
@@ -55,9 +55,7 @@ class ReviewView(APIView):
             product=product_id,
             defaults=serializer.validated_data,
         )
-        return Response(
-            product_summary(product_id, request), status=status.HTTP_201_CREATED
-        )
+        return Response(product_summary(product_id, request), status=status.HTTP_201_CREATED)
 
     def delete(self, request, product_id):
         Review.objects.filter(user=request.user, product=product_id).delete()

@@ -11,8 +11,14 @@ class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
         fields = (
-            'id', 'name', 'slug', 'country', 'currency', 'is_active',
-            'default_delivery_fee', 'free_delivery_threshold',
+            'id',
+            'name',
+            'slug',
+            'country',
+            'currency',
+            'is_active',
+            'default_delivery_fee',
+            'free_delivery_threshold',
         )
 
 
@@ -22,8 +28,15 @@ class VendorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vendor
         fields = (
-            'id', 'name', 'slug', 'phone', 'address', 'city',
-            'is_active', 'commission_percent', 'created_at',
+            'id',
+            'name',
+            'slug',
+            'phone',
+            'address',
+            'city',
+            'is_active',
+            'commission_percent',
+            'created_at',
         )
 
 
@@ -35,8 +48,15 @@ class CourierSerializer(serializers.ModelSerializer):
     class Meta:
         model = Courier
         fields = (
-            'id', 'user', 'user_email', 'user_username', 'phone', 'city',
-            'is_active', 'current_status', 'created_at',
+            'id',
+            'user',
+            'user_email',
+            'user_username',
+            'phone',
+            'city',
+            'is_active',
+            'current_status',
+            'created_at',
         )
 
 

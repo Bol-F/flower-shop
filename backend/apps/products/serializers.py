@@ -16,11 +16,22 @@ class ProductListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = (
-            'id', 'name', 'slug', 'price', 'image',
-            'category', 'category_name', 'stock_quantity',
-            'city_name', 'city_slug', 'vendor_name', 'vendor_slug',
-            'is_available', 'is_in_stock',
-            'is_low_stock', 'stock_status',
+            'id',
+            'name',
+            'slug',
+            'price',
+            'image',
+            'category',
+            'category_name',
+            'stock_quantity',
+            'city_name',
+            'city_slug',
+            'vendor_name',
+            'vendor_slug',
+            'is_available',
+            'is_in_stock',
+            'is_low_stock',
+            'stock_status',
         )
 
 
@@ -42,10 +53,26 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = (
-            'id', 'name', 'slug', 'description', 'price',
-            'category', 'category_id', 'image', 'stock',
-            'stock_quantity', 'low_stock_threshold', 'is_available', 'is_in_stock',
-            'is_low_stock', 'stock_status', 'city_name', 'city_slug',
-            'vendor_name', 'vendor_slug', 'created_at', 'updated_at',
+            'id',
+            'name',
+            'slug',
+            'description',
+            'price',
+            'category',
+            'category_id',
+            'image',
+            'stock',
+            'stock_quantity',
+            'low_stock_threshold',
+            'is_available',
+            'is_in_stock',
+            'is_low_stock',
+            'stock_status',
+            'city_name',
+            'city_slug',
+            'vendor_name',
+            'vendor_slug',
+            'created_at',
+            'updated_at',
         )
         read_only_fields = ('slug', 'created_at', 'updated_at')

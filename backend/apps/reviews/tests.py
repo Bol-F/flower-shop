@@ -16,14 +16,12 @@ def api_client():
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(
-        username='petal', email='petal@example.com', password='pass123')
+    return User.objects.create_user(username='petal', email='petal@example.com', password='pass123')
 
 
 @pytest.fixture
 def other_user(db):
-    return User.objects.create_user(
-        username='bloom', email='bloom@example.com', password='pass123')
+    return User.objects.create_user(username='bloom', email='bloom@example.com', password='pass123')
 
 
 @pytest.mark.django_db
