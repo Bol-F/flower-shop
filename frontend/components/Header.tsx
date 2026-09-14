@@ -36,9 +36,11 @@ import {
   CardIcon,
   CartIcon,
   CashIcon,
+  ChevronIcon,
   CloseIcon,
   MenuIcon,
   MinusIcon,
+  PinIcon,
   PlusIcon,
   ShieldIcon,
   TrashIcon,
@@ -1023,28 +1025,25 @@ function LanguageSwitch() {
   const { language, setLanguage } = useStore();
 
   return (
-    <div className="flex items-center gap-1 rounded-full bg-blush px-2 py-1.5 text-sm font-extrabold text-blossomdeep">
-      {languages.map((item) => {
-        const active = language === item.id;
-        return (
-          <button
-            key={item.id}
-            type="button"
-            aria-pressed={active}
-            onClick={() => setLanguage(item.id)}
-            className={`rounded-full px-3 py-1 transition active:scale-95 ${
-              active ? "bg-blossomdeep text-white shadow-glow" : "hover:bg-white/70"
-            }`}
-          >
+    <div className="relative inline-flex items-center rounded-full bg-blush text-sm font-extrabold text-raspberry transition focus-within:ring-2 focus-within:ring-blossomdeep/30 hover:bg-blushdeep">
+      <select
+        value={language}
+        onChange={(event) => setLanguage(event.target.value as typeof language)}
+        aria-label="Interface language"
+        className="h-10 cursor-pointer appearance-none bg-transparent py-2 pl-3.5 pr-8 outline-none"
+      >
+        {languages.map((item) => (
+          <option key={item.id} value={item.id}>
             {item.label}
-          </button>
-        );
-      })}
+          </option>
+        ))}
+      </select>
+      <ChevronIcon className="pointer-events-none absolute right-2.5 size-3.5" />
     </div>
   );
 }
 
-function CitySwitch() {
+function CitySwitch({ className = "" }: { className?: string }) {
   const { city, setCity } = useStore();
   const [cities, setCities] = useState<ApiCity[]>([]);
 
@@ -1069,18 +1068,134 @@ function CitySwitch() {
     : ["Tashkent", "Samarkand", "Bukhara"];
 
   return (
-    <select
-      value={city}
-      onChange={(event) => setCity(event.target.value)}
-      aria-label="Delivery city"
-      className="rounded-full border border-line bg-blush px-3 py-2 text-sm font-extrabold text-blossomdeep outline-none transition focus:border-blossomdeep"
+    <div
+      className={`relative inline-flex items-center rounded-full border border-line bg-white text-sm font-bold text-ink/75 transition focus-within:border-blossomdeep focus-within:ring-2 focus-within:ring-blossomdeep/20 hover:border-blossomdeep/50 ${className}`}
     >
-      {options.map((item) => (
-        <option key={item} value={item}>
-          {item}
-        </option>
-      ))}
-    </select>
+      <PinIcon className="pointer-events-none absolute left-3 size-4 text-blossomdeep" />
+      <select
+        value={city}
+        onChange={(event) => setCity(event.target.value)}
+        aria-label="Delivery city"
+        className="h-10 w-full cursor-pointer appearance-none bg-transparent py-2 pl-9 pr-8 outline-none"
+      >
+        {options.map((item) => (
+          <option key={item} value={item}>
+            {item}
+          </option>
+        ))}
+      </select>
+      <ChevronIcon className="pointer-events-none absolute right-2.5 size-3.5 text-stone" />
+    </div>
+  );
+}
+
+interface AccountMenuProps {
+  displayName: string;
+  isStaff: boolean;
+  unreadCount: number;
+  onSignOut: () => void;
+}
+
+function AccountMenu({ displayName, isStaff, unreadCount, onSignOut }: AccountMenuProps) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  const initial = displayName.trim().charAt(0).toUpperCase();
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        aria-label={`Open account menu for ${displayName}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className={`flex h-10 items-center gap-2 rounded-full px-2 pr-3 text-sm font-bold transition ${
+          open ? "bg-blushdeep text-ink" : "bg-blush text-ink hover:bg-blushdeep"
+        }`}
+      >
+        <span className="grid size-7 place-items-center rounded-full bg-blossomdeep text-xs font-extrabold text-white shadow-glow">
+          {initial || <UserIcon className="size-4" />}
+        </span>
+        <span className="max-w-28 truncate">{displayName}</span>
+        <ChevronIcon className={`size-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open ? (
+        <div
+          role="menu"
+          aria-label="Account"
+          className="absolute right-0 top-[calc(100%+10px)] z-50 w-56 overflow-hidden rounded-2xl border border-line bg-white p-2 text-sm font-bold text-ink shadow-soft"
+        >
+          <Link
+            href="/profile"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-blush"
+          >
+            <UserIcon className="size-4.5 text-blossomdeep" />
+            Profile &amp; orders
+          </Link>
+          {!isStaff ? (
+            <Link
+              href="/profile#favorites"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="block rounded-xl px-3 py-2.5 transition hover:bg-blush"
+            >
+              Saved flowers
+            </Link>
+          ) : null}
+          {isStaff ? (
+            <Link
+              href="/admin"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-between rounded-xl px-3 py-2.5 transition hover:bg-blush"
+            >
+              <span>Messages</span>
+              {unreadCount > 0 ? (
+                <span className="grid min-w-5 place-items-center rounded-full bg-blossomdeep px-1.5 text-[11px] leading-5 text-white">
+                  {unreadCount}
+                </span>
+              ) : null}
+            </Link>
+          ) : null}
+          <div className="my-1 border-t border-line" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onSignOut();
+              setOpen(false);
+            }}
+            className="w-full rounded-xl px-3 py-2.5 text-left text-stone transition hover:bg-blush hover:text-blossomdeep"
+          >
+            Sign out
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -1154,44 +1269,22 @@ export default function Header() {
           </span>
         </Link>
 
-        <nav className="ml-auto hidden items-center gap-8 text-base font-bold text-ink/80 lg:flex">
+        <nav className="ml-auto hidden items-center gap-2 text-base font-bold text-ink/80 lg:flex">
           {!isStaff && (
-            <a href="#catalog" className="transition hover:text-blossomdeep">
+            <a
+              href="#catalog"
+              className="rounded-full px-3 py-2 transition hover:bg-blush hover:text-blossomdeep"
+            >
               {t.shop}
             </a>
           )}
           {isSignedIn ? (
-            <>
-              {isStaff && (
-                <Link
-                  href="/admin"
-                  className="relative inline-flex items-center gap-2 rounded-full bg-blush px-4 py-2 text-blossomdeep transition hover:bg-blushdeep"
-                >
-                  Messages
-                  {visibleAdminUnreadCount > 0 && (
-                    <span className="grid min-w-5 place-items-center rounded-full bg-blossomdeep px-1.5 text-[11px] font-extrabold leading-5 text-white">
-                      {visibleAdminUnreadCount}
-                    </span>
-                  )}
-                </Link>
-              )}
-              <Link
-                href="/profile"
-                className="flex items-center gap-2 rounded-full bg-blush px-2.5 py-1.5 pr-4 text-blossomdeep transition hover:bg-blushdeep"
-              >
-                <span className="grid size-8 place-items-center rounded-full bg-blossomdeep text-sm font-extrabold text-white shadow-glow">
-                  {displayName.trim().charAt(0).toUpperCase() || <UserIcon className="size-4" />}
-                </span>
-                <span className="max-w-32 truncate">{displayName}</span>
-              </Link>
-              <button
-                type="button"
-                onClick={signOut}
-                className="rounded-full border border-line px-4 py-2 text-sm font-extrabold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
-              >
-                Sign out
-              </button>
-            </>
+            <AccountMenu
+              displayName={displayName}
+              isStaff={isStaff}
+              unreadCount={visibleAdminUnreadCount}
+              onSignOut={signOut}
+            />
           ) : hydrated ? (
             <>
               <Link href="/profile?mode=login" className="transition hover:text-blossomdeep">
@@ -1307,7 +1400,7 @@ export default function Header() {
               </button>
             )}
             <div className="pt-1">
-              <CitySwitch />
+              <CitySwitch className="w-full" />
             </div>
             <div className="pt-1">
               <LanguageSwitch />

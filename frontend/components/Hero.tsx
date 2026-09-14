@@ -46,7 +46,7 @@ export default function Hero() {
         <div className="mt-8 flex w-[calc(100vw-2.5rem)] max-w-[560px] flex-col justify-center gap-4 sm:w-full sm:flex-row">
           <a
             href="#catalog"
-            className="rounded-full bg-blossomdeep px-8 py-3.5 text-base font-extrabold text-white shadow-glow transition hover:-translate-y-1 hover:bg-raspberry active:translate-y-0"
+            className="rounded-full bg-raspberry px-8 py-3.5 text-base font-extrabold text-white shadow-glow transition hover:-translate-y-1 hover:bg-[#b51060] active:translate-y-0"
           >
             {t.primary}
           </a>

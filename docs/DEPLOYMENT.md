@@ -80,6 +80,11 @@ DATABASE_URL=<supabase-postgres-url>
 CORS_ALLOWED_ORIGINS=https://<your-vercel-project>.vercel.app
 CSRF_TRUSTED_ORIGINS=https://<your-render-service>.onrender.com
 REDIS_URL=redis://...
+FRONTEND_URL=https://<your-vercel-project>.vercel.app
+OAUTH_FRONTEND_CALLBACK_URL=https://<your-vercel-project>.vercel.app/auth/callback
+OAUTH_ATTEMPT_TTL_SECONDS=600
+OAUTH_EXCHANGE_TTL_SECONDS=60
+OAUTH_HTTP_TIMEOUT_SECONDS=10
 ```
 
 If you are not running Redis yet, use a managed Redis service before enabling
@@ -121,10 +126,98 @@ For Click instead, set `PAYMENT_PROVIDER=click` plus `CLICK_SERVICE_ID`,
 `CLICK_CHECKOUT_URL=https://my.click.uz/services/pay`. Configure the exact
 callback URLs from `README.md` in the chosen provider dashboard.
 
-OAuth is optional per provider. When enabled, set its client ID, backend-only
-client secret, and exact HTTPS Django callback URI. Also set
-`FRONTEND_URL` and `OAUTH_FRONTEND_CALLBACK_URL` to the Vercel origin and
-`/auth/callback` route respectively.
+### OAuth environment and provider dashboards
+
+Google, GitHub, and Microsoft are optional independently. A provider is shown
+as available only after both its client ID and backend-only client secret are
+set. The repository contains no real provider credentials, so a live consent
+flow cannot work until you create an application with that provider and add
+the values to Render.
+
+For local development, register these exact provider callback URLs (create
+separate development and production provider applications where a provider
+allows only one callback):
+
+```text
+http://localhost:8000/api/auth/oauth/google/callback/
+http://localhost:8000/api/auth/oauth/github/callback/
+http://localhost:8000/api/auth/oauth/microsoft/callback/
+```
+
+The corresponding local backend values are:
+
+```env
+FRONTEND_URL=http://localhost:3000
+OAUTH_FRONTEND_CALLBACK_URL=http://localhost:3000/auth/callback
+OAUTH_ATTEMPT_TTL_SECONDS=600
+OAUTH_EXCHANGE_TTL_SECONDS=60
+OAUTH_HTTP_TIMEOUT_SECONDS=10
+
+GOOGLE_OAUTH_CLIENT_ID=<google-client-id>
+GOOGLE_OAUTH_CLIENT_SECRET=<google-client-secret>
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8000/api/auth/oauth/google/callback/
+
+GITHUB_OAUTH_CLIENT_ID=<github-client-id>
+GITHUB_OAUTH_CLIENT_SECRET=<github-client-secret>
+GITHUB_OAUTH_REDIRECT_URI=http://localhost:8000/api/auth/oauth/github/callback/
+
+MICROSOFT_OAUTH_CLIENT_ID=<microsoft-application-client-id>
+MICROSOFT_OAUTH_CLIENT_SECRET=<microsoft-client-secret-value>
+MICROSOFT_OAUTH_REDIRECT_URI=http://localhost:8000/api/auth/oauth/microsoft/callback/
+MICROSOFT_OAUTH_TENANT=common
+```
+
+For production, replace the two host placeholders below and paste the three
+resulting callback URLs exactly into the provider dashboards:
+
+```text
+https://<your-render-service>.onrender.com/api/auth/oauth/google/callback/
+https://<your-render-service>.onrender.com/api/auth/oauth/github/callback/
+https://<your-render-service>.onrender.com/api/auth/oauth/microsoft/callback/
+```
+
+Copy-ready Render variables for all three providers:
+
+```env
+FRONTEND_URL=https://<your-vercel-project>.vercel.app
+OAUTH_FRONTEND_CALLBACK_URL=https://<your-vercel-project>.vercel.app/auth/callback
+OAUTH_ATTEMPT_TTL_SECONDS=600
+OAUTH_EXCHANGE_TTL_SECONDS=60
+OAUTH_HTTP_TIMEOUT_SECONDS=10
+
+GOOGLE_OAUTH_CLIENT_ID=<google-client-id>
+GOOGLE_OAUTH_CLIENT_SECRET=<google-client-secret>
+GOOGLE_OAUTH_REDIRECT_URI=https://<your-render-service>.onrender.com/api/auth/oauth/google/callback/
+
+GITHUB_OAUTH_CLIENT_ID=<github-client-id>
+GITHUB_OAUTH_CLIENT_SECRET=<github-client-secret>
+GITHUB_OAUTH_REDIRECT_URI=https://<your-render-service>.onrender.com/api/auth/oauth/github/callback/
+
+MICROSOFT_OAUTH_CLIENT_ID=<microsoft-application-client-id>
+MICROSOFT_OAUTH_CLIENT_SECRET=<microsoft-client-secret-value>
+MICROSOFT_OAUTH_REDIRECT_URI=https://<your-render-service>.onrender.com/api/auth/oauth/microsoft/callback/
+MICROSOFT_OAUTH_TENANT=common
+```
+
+`MICROSOFT_OAUTH_TENANT` may be `common`, `organizations`, `consumers`, or an
+exact tenant UUID. Production startup rejects frontend URLs that are not HTTPS,
+do not share an origin, use localhost, or do not end at the exact
+`/auth/callback` route. It also rejects enabled provider callbacks with the
+wrong route, query string, fragment, user information, non-HTTPS scheme, or a
+hostname absent from `ALLOWED_HOSTS`.
+
+Provider dashboard fields:
+
+- Google Cloud: add the Google callback above as an **Authorized redirect URI**
+  on a **Web application** OAuth client.
+- GitHub: set **Authorization callback URL** to the GitHub callback above.
+- Microsoft Entra: add the Microsoft callback above under
+  **Authentication → Web → Redirect URIs**, then create a client secret and
+  copy its **value** while it is visible.
+
+After saving credentials, redeploy the backend and confirm
+`GET /api/auth/oauth/providers/` reports only the intended providers as
+configured before testing each consent flow.
 
 Media/storage placeholders:
 
@@ -152,6 +245,13 @@ In Render Shell:
 
 ```bash
 python manage.py migrate
+```
+
+Schedule the following maintenance command daily (for example with a Render
+Cron Job) so abandoned OAuth attempts and expired one-time codes are removed:
+
+```bash
+python manage.py purge_expired_oauth
 ```
 
 Create a production superuser:

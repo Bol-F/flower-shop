@@ -2,7 +2,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import SocialIdentity, User
+from .models import User
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -29,6 +29,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({'password': 'Passwords do not match.'})
         return attrs
+
+    def validate_email(self, value):
+        normalized = User.objects.normalize_email(value).strip().lower()
+        if User.objects.filter(email__iexact=normalized).exists():
+            raise serializers.ValidationError('A user with this email already exists.')
+        return normalized
 
     def create(self, validated_data):
         validated_data.pop('password_confirm')

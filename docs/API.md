@@ -20,6 +20,7 @@ issue the same SimpleJWT access/refresh pair.
 | `POST` | `/api/auth/oauth/{provider}/link/` | JWT | Begin authenticated account linking |
 | `GET` | `/api/auth/oauth/{provider}/callback/` | Provider | Backend callback registered with the provider |
 | `POST` | `/api/auth/oauth/exchange/` | No | Consume the one-time frontend code and issue JWTs |
+| `POST` | `/api/auth/oauth/link/exchange/` | JWT | Finalize a one-time account-link code for its initiating user |
 
 Supported provider path values are `google`, `github`, and `microsoft`.
 
@@ -48,17 +49,21 @@ GET /api/auth/oauth/google/start/?next=/profile
 ```
 
 `next` must be a relative same-site path; unsafe values are replaced with
-`/profile`. Django creates an expiring one-time attempt and redirects to the
-provider with state, PKCE S256, and (for OIDC providers) nonce. The provider
-returns to Django, not directly to Next.js.
+`/profile`. Django creates an expiring one-time attempt, binds its hashed state
+to the initiating browser's HttpOnly/SameSite session, and redirects to the
+provider with PKCE S256 and (for OIDC providers) nonce. The provider returns to
+Django, not directly to Next.js. A valid state copied to another browser is
+rejected.
 
 After provider verification Django redirects to:
 
 ```text
-https://shop.example.com/auth/callback?code=<opaque-one-time-code>&next=%2Fprofile
+https://shop.example.com/auth/callback#code=<opaque-one-time-code>&next=%2Fprofile
 ```
 
-The code is not a JWT and expires after 60 seconds by default. Exchange it once:
+The fragment is not sent in the frontend HTTP request or referrer. Client code
+removes it before exchanging the opaque code, which is not a JWT and expires
+after 60 seconds by default. Exchange it once:
 
 ```http
 POST /api/auth/oauth/exchange/
@@ -99,9 +104,22 @@ Authorization: Bearer <access-token>
 ```
 
 Navigate to that URL. On success the backend redirects to
-`/profile?connected=microsoft`, and the profile's `social_identities` list
-contains the linked identity. If that stable provider identity belongs to
-another user, the callback fails with `identity_in_use`.
+`/auth/callback#link_code=...`. The callback page submits that code with the
+existing JWT to finish linking:
+
+```http
+POST /api/auth/oauth/link/exchange/
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{"code": "opaque-one-time-link-code"}
+```
+
+No social identity is changed before this authenticated finalization. The code
+is accepted only for the active user who began the link and only once. A
+successful response is `{ "user": { ... } }` with the refreshed
+`social_identities` list. If the stable provider identity belongs to another
+user, finalization fails with `identity_in_use`.
 
 The backend automatically matches a local account by email only when the
 provider proves that email verified. An unverified email collision returns

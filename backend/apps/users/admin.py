@@ -20,9 +20,17 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(SocialIdentity)
 class SocialIdentityAdmin(admin.ModelAdmin):
-    list_display = ('provider', 'subject', 'user', 'email', 'email_verified', 'created_at')
+    list_display = (
+        'provider',
+        'issuer',
+        'subject',
+        'user',
+        'email',
+        'email_verified',
+        'created_at',
+    )
     list_filter = ('provider', 'email_verified', 'created_at')
-    search_fields = ('subject', 'email', 'user__email', 'user__username')
+    search_fields = ('issuer', 'subject', 'email', 'user__email', 'user__username')
     readonly_fields = tuple(field.name for field in SocialIdentity._meta.fields)
 
     def has_add_permission(self, request):

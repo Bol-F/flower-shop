@@ -1,15 +1,17 @@
 from django.urls import path
+
 from .views import (
     ChangePasswordView,
     CustomTokenObtainPairView,
     CustomTokenRefreshView,
-    ProfileView,
-    RegisterView,
     OAuthCallbackView,
     OAuthExchangeView,
+    OAuthLinkExchangeView,
     OAuthLinkStartView,
     OAuthProvidersView,
     OAuthStartView,
+    ProfileView,
+    RegisterView,
 )
 
 urlpatterns = [
@@ -20,6 +22,11 @@ urlpatterns = [
     path('profile/password/', ChangePasswordView.as_view(), name='profile-password'),
     path('oauth/providers/', OAuthProvidersView.as_view(), name='oauth-providers'),
     path('oauth/exchange/', OAuthExchangeView.as_view(), name='oauth-exchange'),
+    path(
+        'oauth/link/exchange/',
+        OAuthLinkExchangeView.as_view(),
+        name='oauth-link-exchange',
+    ),
     path('oauth/<str:provider>/start/', OAuthStartView.as_view(), name='oauth-start'),
     path('oauth/<str:provider>/link/', OAuthLinkStartView.as_view(), name='oauth-link-start'),
     path('oauth/<str:provider>/callback/', OAuthCallbackView.as_view(), name='oauth-callback'),

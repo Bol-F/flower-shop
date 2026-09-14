@@ -5,7 +5,7 @@ import re
 import secrets
 from dataclasses import dataclass
 from datetime import timedelta
-from urllib.parse import urlencode, urlparse
+from urllib.parse import unquote, urlencode, urlparse
 
 import requests
 from django.conf import settings
@@ -31,6 +31,7 @@ class ProviderIdentity:
     subject: str
     email: str
     email_verified: bool
+    issuer: str = ''
     username: str = ''
     first_name: str = ''
     last_name: str = ''
@@ -53,6 +54,15 @@ PROVIDER_ENDPOINTS = {
     },
 }
 
+GOOGLE_ISSUER = 'https://accounts.google.com'
+GITHUB_ISSUER = 'https://github.com'
+MICROSOFT_CONSUMER_TENANT_ID = '9188040d-6c67-4c5b-b112-36a304b66dad'
+MICROSOFT_TENANT_ALIASES = {'common', 'organizations', 'consumers'}
+MICROSOFT_TENANT_ID_RE = re.compile(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+    re.IGNORECASE,
+)
+
 
 def _sha256(value: str) -> str:
     return hashlib.sha256(value.encode('utf-8')).hexdigest()
@@ -72,24 +82,50 @@ def provider_config(provider: str) -> dict:
             'provider_unavailable',
             f'{provider.title()} sign-in is not configured.',
         )
+    if provider == 'microsoft':
+        _microsoft_tenant(config)
     return config
 
 
+def _microsoft_tenant(config: dict) -> str:
+    tenant = str(config.get('tenant') or 'common').strip().lower()
+    if tenant not in MICROSOFT_TENANT_ALIASES and not MICROSOFT_TENANT_ID_RE.fullmatch(tenant):
+        raise OAuthError(
+            'provider_configuration',
+            'Microsoft sign-in has an invalid tenant configuration.',
+        )
+    return tenant
+
+
 def configured_providers() -> list[str]:
-    return [
-        provider
-        for provider in PROVIDER_ENDPOINTS
-        if settings.OAUTH_PROVIDERS.get(provider, {}).get('client_id')
-        and settings.OAUTH_PROVIDERS.get(provider, {}).get('client_secret')
-    ]
+    configured = []
+    for provider in PROVIDER_ENDPOINTS:
+        try:
+            provider_config(provider)
+        except OAuthError:
+            continue
+        configured.append(provider)
+    return configured
 
 
 def safe_next_path(value: str | None, default: str = '/profile') -> str:
     value = (value or '').strip()
-    parsed = urlparse(value)
-    if not value.startswith('/') or value.startswith('//') or parsed.scheme or parsed.netloc:
+    if not value or len(value) > 500:
         return default
-    return value[:500]
+    decoded = value
+    for _ in range(2):
+        decoded = unquote(decoded)
+    parsed = urlparse(decoded)
+    if (
+        not decoded.startswith('/')
+        or decoded.startswith('//')
+        or '\\' in decoded
+        or any(ord(character) < 32 or ord(character) == 127 for character in decoded)
+        or parsed.scheme
+        or parsed.netloc
+    ):
+        return default
+    return value
 
 
 def create_login_attempt(provider: str, *, next_path: str = '', linking_user=None):
@@ -124,7 +160,7 @@ def _authorization_url(provider: str, config: dict, state: str, verifier: str, n
         endpoint = PROVIDER_ENDPOINTS[provider]['authorize']
     elif provider == 'microsoft':
         common.update({'nonce': nonce, 'prompt': 'select_account'})
-        tenant = config.get('tenant') or 'common'
+        tenant = _microsoft_tenant(config)
         endpoint = f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize'
     else:
         common['allow_signup'] = 'true'
@@ -133,7 +169,12 @@ def _authorization_url(provider: str, config: dict, state: str, verifier: str, n
 
 
 @transaction.atomic
-def consume_login_attempt(provider: str, state: str) -> OAuthLoginAttempt:
+def consume_login_attempt(
+    provider: str,
+    state: str,
+    *,
+    anonymous_attempt_id: int | None = None,
+) -> OAuthLoginAttempt:
     state_digest = _sha256(state or '')
     attempt = (
         OAuthLoginAttempt.objects.select_for_update()
@@ -142,6 +183,8 @@ def consume_login_attempt(provider: str, state: str) -> OAuthLoginAttempt:
         .first()
     )
     if attempt is None or not hmac.compare_digest(attempt.state_digest, state_digest):
+        raise OAuthError('invalid_state', 'The sign-in request could not be verified.')
+    if attempt.linking_user_id is None and attempt.id != anonymous_attempt_id:
         raise OAuthError('invalid_state', 'The sign-in request could not be verified.')
     if attempt.used_at is not None:
         raise OAuthError('already_used', 'This sign-in request has already been used.')
@@ -168,6 +211,7 @@ def exchange_provider_code(
             subject=str(claims['sub']),
             email=str(claims.get('email') or '').strip().lower(),
             email_verified=claims.get('email_verified') is True,
+            issuer=GOOGLE_ISSUER,
             username=str(claims.get('name') or ''),
             first_name=str(claims.get('given_name') or ''),
             last_name=str(claims.get('family_name') or ''),
@@ -179,6 +223,7 @@ def exchange_provider_code(
         subject=str(claims['sub']),
         email=email if '@' in email else '',
         email_verified=False,
+        issuer=str(claims['iss']),
         username=str(claims.get('name') or ''),
         first_name=str(claims.get('given_name') or ''),
         last_name=str(claims.get('family_name') or ''),
@@ -189,7 +234,7 @@ def _token_exchange(provider: str, config: dict, code: str, verifier: str) -> di
     if not code:
         raise OAuthError('missing_code', 'The identity provider did not return a code.')
     if provider == 'microsoft':
-        tenant = config.get('tenant') or 'common'
+        tenant = _microsoft_tenant(config)
         endpoint = f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token'
     else:
         endpoint = PROVIDER_ENDPOINTS[provider]['token']
@@ -247,18 +292,20 @@ def _verified_oidc_claims(provider: str, config: dict, id_token: str, nonce: str
     except (JoseError, ValueError, TypeError, KeyError) as exc:
         raise OAuthError('invalid_token', 'The identity token could not be verified.') from exc
 
-    issuer = str(claims.get('iss') or '')
     if provider == 'google':
         valid_issuers = ['https://accounts.google.com', 'accounts.google.com']
     else:
-        tenant = config.get('tenant') or 'common'
-        tenant_id = str(claims.get('tid') or '')
-        if tenant in {'common', 'organizations', 'consumers'}:
-            valid_issuers = (
-                [f'https://login.microsoftonline.com/{tenant_id}/v2.0'] if tenant_id else []
-            )
-        else:
-            valid_issuers = [f'https://login.microsoftonline.com/{tenant}/v2.0']
+        tenant = _microsoft_tenant(config)
+        tenant_id = str(claims.get('tid') or '').strip().lower()
+        if not MICROSOFT_TENANT_ID_RE.fullmatch(tenant_id):
+            raise OAuthError('invalid_token', 'The identity token issuer is not trusted.')
+        if tenant == 'organizations' and tenant_id == MICROSOFT_CONSUMER_TENANT_ID:
+            raise OAuthError('invalid_token', 'The identity token issuer is not trusted.')
+        if tenant == 'consumers' and tenant_id != MICROSOFT_CONSUMER_TENANT_ID:
+            raise OAuthError('invalid_token', 'The identity token issuer is not trusted.')
+        if tenant not in MICROSOFT_TENANT_ALIASES and tenant_id != tenant:
+            raise OAuthError('invalid_token', 'The identity token issuer is not trusted.')
+        valid_issuers = [f'https://login.microsoftonline.com/{tenant_id}/v2.0']
     if not valid_issuers:
         raise OAuthError('invalid_token', 'The identity token issuer is not trusted.')
     try:
@@ -267,6 +314,7 @@ def _verified_oidc_claims(provider: str, config: dict, id_token: str, nonce: str
             iss={'essential': True, 'values': valid_issuers},
             aud={'essential': True, 'value': config['client_id']},
             exp={'essential': True},
+            iat={'essential': True},
             sub={'essential': True},
             nonce={'essential': True, 'value': nonce},
         ).validate(claims)
@@ -274,6 +322,13 @@ def _verified_oidc_claims(provider: str, config: dict, id_token: str, nonce: str
         raise OAuthError(
             'invalid_token', 'The identity token claims could not be verified.'
         ) from exc
+    audience = claims.get('aud')
+    if (
+        isinstance(audience, (list, tuple))
+        and len(audience) > 1
+        and claims.get('azp') != config['client_id']
+    ):
+        raise OAuthError('invalid_token', 'The identity token claims could not be verified.')
     return claims
 
 
@@ -293,6 +348,7 @@ def _github_identity(token: dict) -> ProviderIdentity:
         subject=str(profile.get('id') or ''),
         email=email,
         email_verified=bool(selected),
+        issuer=GITHUB_ISSUER,
         username=str(profile.get('login') or full_name),
         first_name=first_name,
         last_name=last_name,
@@ -314,21 +370,31 @@ def _unique_username(identity: ProviderIdentity) -> str:
 def resolve_social_user(provider: str, identity: ProviderIdentity, *, linking_user=None) -> User:
     if not identity.subject:
         raise OAuthError('invalid_profile', 'The provider profile has no stable identifier.')
-    existing_identity = (
+    identities = (
         SocialIdentity.objects.select_for_update()
         .select_related('user')
         .filter(provider=provider, subject=identity.subject)
-        .first()
     )
+    existing_identity = identities.filter(issuer=identity.issuer).first()
+    if existing_identity is None and identity.issuer:
+        # Preserve identities created before issuer-aware OAuth was introduced.
+        existing_identity = identities.filter(issuer='').first()
     if existing_identity:
         if linking_user and existing_identity.user_id != linking_user.id:
             raise OAuthError('identity_in_use', 'This provider account is linked elsewhere.')
+        if not existing_identity.user.is_active:
+            raise OAuthError('account_inactive', 'This account is not available.')
+        existing_identity.issuer = identity.issuer
         existing_identity.email = identity.email
         existing_identity.email_verified = identity.email_verified
-        existing_identity.save(update_fields=('email', 'email_verified', 'updated_at'))
+        existing_identity.save(update_fields=('issuer', 'email', 'email_verified', 'updated_at'))
+        existing_identity.user.last_login = timezone.now()
+        existing_identity.user.save(update_fields=('last_login',))
         return existing_identity.user
 
     user = linking_user
+    if user is not None and not user.is_active:
+        raise OAuthError('account_inactive', 'This account is not available.')
     if user is None:
         if not identity.email:
             raise OAuthError(
@@ -336,6 +402,8 @@ def resolve_social_user(provider: str, identity: ProviderIdentity, *, linking_us
                 'A usable email address is required to create an account.',
             )
         user = User.objects.filter(email__iexact=identity.email).first()
+        if user and not user.is_active:
+            raise OAuthError('account_inactive', 'This account is not available.')
         if user and not identity.email_verified:
             raise OAuthError(
                 'account_exists',
@@ -351,10 +419,20 @@ def resolve_social_user(provider: str, identity: ProviderIdentity, *, linking_us
             user.set_unusable_password()
             user.save()
 
+    # Serialize links for this local account and keep the UI/model contract to
+    # one identity per provider. Existing matching identities returned above.
+    user = User.objects.select_for_update().get(pk=user.pk)
+    if SocialIdentity.objects.filter(user=user, provider=provider).exists():
+        raise OAuthError(
+            'provider_already_linked',
+            f'{provider.title()} is already connected to this account.',
+        )
+
     try:
         SocialIdentity.objects.create(
             user=user,
             provider=provider,
+            issuer=identity.issuer,
             subject=identity.subject,
             email=identity.email,
             email_verified=identity.email_verified,

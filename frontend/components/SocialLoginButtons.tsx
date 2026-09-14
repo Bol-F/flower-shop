@@ -9,6 +9,10 @@ const providers: Array<{ id: OAuthProvider; label: string }> = [
   { id: "microsoft", label: "Continue with Microsoft" },
 ];
 
+type ProviderDiscovery =
+  | { status: "loading" | "error"; enabled: Set<OAuthProvider> }
+  | { status: "ready"; enabled: Set<OAuthProvider> };
+
 function ProviderIcon({ provider }: { provider: OAuthProvider }) {
   if (provider === "google") {
     return (
@@ -55,29 +59,37 @@ export default function SocialLoginButtons({
 }: {
   onNavigate?: (provider: OAuthProvider) => void;
 }) {
-  const [enabled, setEnabled] = useState<Set<OAuthProvider> | null>(null);
+  const [discovery, setDiscovery] = useState<ProviderDiscovery>({
+    status: "loading",
+    enabled: new Set(),
+  });
+  const [discoveryAttempt, setDiscoveryAttempt] = useState(0);
   const [leavingFor, setLeavingFor] = useState<OAuthProvider | null>(null);
 
   useEffect(() => {
     let active = true;
     void fetchOAuthProviders()
       .then((items) => {
-        if (active)
-          setEnabled(new Set(items.filter((item) => item.enabled).map((item) => item.id)));
+        if (active) {
+          setDiscovery({
+            status: "ready",
+            enabled: new Set(items.filter((item) => item.enabled).map((item) => item.id)),
+          });
+        }
       })
       .catch(() => {
-        if (active) setEnabled(new Set());
+        if (active) setDiscovery({ status: "error", enabled: new Set() });
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [discoveryAttempt]);
 
   return (
     <div className="mt-6 grid gap-2" aria-label="Social sign in">
       {providers.map((provider) => {
-        const capabilityLoaded = enabled !== null;
-        const available = enabled?.has(provider.id) ?? false;
+        const capabilityLoaded = discovery.status === "ready";
+        const available = capabilityLoaded && discovery.enabled.has(provider.id);
         const loading = leavingFor === provider.id;
         return (
           <button
@@ -93,7 +105,9 @@ export default function SocialLoginButtons({
             <ProviderIcon provider={provider.id} />
             <span>{loading ? "Opening provider…" : provider.label}</span>
             {!capabilityLoaded && (
-              <span className="text-xs font-semibold text-stone">Checking…</span>
+              <span className="text-xs font-semibold text-stone">
+                {discovery.status === "error" ? "Unavailable" : "Checking…"}
+              </span>
             )}
             {capabilityLoaded && !available && (
               <span className="text-xs font-semibold text-stone">Not configured</span>
@@ -101,6 +115,24 @@ export default function SocialLoginButtons({
           </button>
         );
       })}
+      {discovery.status === "error" && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-paper px-4 py-3 text-xs font-semibold text-stone"
+        >
+          <span>Couldn&apos;t check social sign-in right now.</span>
+          <button
+            type="button"
+            onClick={() => {
+              setDiscovery({ status: "loading", enabled: new Set() });
+              setDiscoveryAttempt((attempt) => attempt + 1);
+            }}
+            className="shrink-0 rounded-full border border-line bg-white px-3 py-1.5 font-extrabold text-ink transition hover:border-blossomdeep hover:text-blossomdeep"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <div className="flex items-center gap-3 py-1" aria-hidden="true">
         <span className="h-px flex-1 bg-line" />
         <span className="text-xs font-bold uppercase tracking-widest text-stone">or use email</span>

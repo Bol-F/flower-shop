@@ -46,7 +46,7 @@ export default function ProductCard({ product }: { product: Product }) {
             </span>
           )}
           {product.isNew && (
-            <span className="rounded-full bg-mint px-2.5 py-1 text-[11px] font-bold text-leaf">
+            <span className="rounded-full bg-mint px-2.5 py-1 text-[11px] font-bold text-pine">
               {t.new}
             </span>
           )}

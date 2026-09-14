@@ -12,9 +12,12 @@ export default async function OAuthCallbackPage({ searchParams }: { searchParams
     <main className="grid min-h-[calc(100vh-66px)] place-items-center bg-gradient-to-br from-[#ffe8f3] via-[#fff3f8] to-white px-5 py-10">
       <OAuthCallbackClient
         code={first(query.code)}
+        linkCode={first(query.link_code)}
         error={first(query.error)}
+        flow={first(query.flow)}
         message={first(query.message)}
         next={first(query.next) || "/profile"}
+        provider={first(query.provider)}
       />
     </main>
   );

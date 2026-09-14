@@ -486,6 +486,17 @@ export async function completeOAuth(code: string): Promise<AuthUser> {
   return data.user;
 }
 
+export async function completeOAuthLink(linkCode: string): Promise<AuthUser> {
+  const data = await request<{ user: AuthUser }>("/api/auth/oauth/link/exchange/", {
+    method: "POST",
+    body: { code: linkCode },
+    auth: true,
+  });
+  const stored = loadAuth();
+  if (stored) saveAuth({ ...stored, user: data.user });
+  return data.user;
+}
+
 export async function startOAuthLink(provider: OAuthProvider): Promise<string> {
   const data = await request<{ authorization_url: string }>(`/api/auth/oauth/${provider}/link/`, {
     method: "POST",

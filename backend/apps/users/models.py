@@ -64,6 +64,9 @@ class SocialIdentity(models.Model):
         related_name='social_identities',
     )
     provider = models.CharField(max_length=20, choices=Provider.choices)
+    # OIDC subjects are unique within an issuer, not globally.  Keeping the
+    # canonical issuer also makes Microsoft multi-tenant identities safe.
+    issuer = models.CharField(max_length=255, blank=True)
     subject = models.CharField(max_length=255)
     email = models.EmailField(blank=True)
     email_verified = models.BooleanField(default=False)
@@ -73,14 +76,14 @@ class SocialIdentity(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=('provider', 'subject'),
-                name='unique_social_provider_subject',
+                fields=('provider', 'issuer', 'subject'),
+                name='unique_social_provider_issuer_subject',
             ),
         ]
         ordering = ('provider',)
 
     def __str__(self):
-        return f'{self.provider}:{self.subject}'
+        return f'{self.provider}:{self.issuer}:{self.subject}'
 
 
 class OAuthLoginAttempt(models.Model):
@@ -96,7 +99,7 @@ class OAuthLoginAttempt(models.Model):
         blank=True,
         related_name='oauth_link_attempts',
     )
-    expires_at = models.DateTimeField()
+    expires_at = models.DateTimeField(db_index=True)
     used_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -111,7 +114,29 @@ class OAuthExchangeCode(models.Model):
         related_name='oauth_exchange_codes',
     )
     token_digest = models.CharField(max_length=64, unique=True)
-    expires_at = models.DateTimeField()
+    expires_at = models.DateTimeField(db_index=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+
+
+class OAuthLinkExchangeCode(models.Model):
+    """Short-lived provider identity awaiting confirmation by the JWT user."""
+
+    linking_user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='oauth_link_exchange_codes',
+    )
+    provider = models.CharField(max_length=20, choices=SocialIdentity.Provider.choices)
+    issuer = models.CharField(max_length=255, blank=True)
+    subject = models.CharField(max_length=255)
+    email = models.EmailField(blank=True)
+    email_verified = models.BooleanField(default=False)
+    token_digest = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField(db_index=True)
     used_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -25,9 +25,9 @@ adjustments.
 - Delivery zones, map coordinates, recipient details, gift notes, promos,
   courier assignment, order history, and fulfillment timelines.
 - Email/password JWT login and backend-owned OAuth authorization-code flows for
-  Google, GitHub, and Microsoft. OAuth uses state, PKCE S256, OIDC nonce,
-  signed-token verification, short-lived one-time exchange codes, and stable
-  provider subject identifiers.
+  Google, GitHub, and Microsoft. OAuth uses browser-session-bound state, PKCE
+  S256, OIDC nonce, signed-token verification, short-lived one-time exchange
+  codes, and stable provider issuer/subject identifiers.
 - Authenticated provider linking in Profile. A provider email is only used for
   automatic account matching when that provider proves it is verified;
   ambiguous matches must be linked from an already authenticated account.
@@ -61,7 +61,8 @@ Important modules:
   verifies OIDC tokens, retrieves the GitHub profile, and resolves account
   linking rules.
 - `backend/apps/users/models.py` stores stable social identities and hashed,
-  expiring OAuth state/exchange records. Provider access/refresh tokens are not
+  expiring OAuth state/exchange records. Account-link codes remain pending until
+  the initiating JWT user confirms them. Provider access/refresh tokens are not
   persisted.
 - `backend/apps/orders/payments.py` owns provider selection, idempotent payment
   creation, legal state transitions, audit events, and inventory release.
@@ -163,14 +164,16 @@ stable numeric GitHub user ID.
 4. Set `MICROSOFT_OAUTH_CLIENT_ID`, `MICROSOFT_OAUTH_CLIENT_SECRET`,
    `MICROSOFT_OAUTH_REDIRECT_URI`, and `MICROSOFT_OAUTH_TENANT`.
 
-Microsoft's signed `sub` is used as the identity key. Email and
+Microsoft's signed issuer plus `sub` are used as the identity key. Email and
 `preferred_username` are treated as mutable and therefore cannot silently link
 an existing local account; use Profile → Connected accounts for that case.
 
 OAuth redirects always terminate at the Django callback. Django then sends an
-opaque, single-use code to `OAUTH_FRONTEND_CALLBACK_URL`; the frontend exchanges
-it for the same SimpleJWT access/refresh pair used by password login. JWTs and
-provider tokens are never put in redirect URLs.
+opaque, single-use code in the URL fragment at `OAUTH_FRONTEND_CALLBACK_URL`;
+the frontend removes the fragment before exchanging it for the same SimpleJWT
+access/refresh pair used by password login. JWTs and provider tokens are never
+put in redirect URLs. Linking uses a separate one-time fragment code that must
+be finalized by the active JWT user who started it.
 
 ## Payment provider setup
 
@@ -315,9 +318,10 @@ screens require credentials supplied by the project owner.
 
 ## Security notes
 
-- OAuth state and frontend exchange codes are random, hashed at rest, expiring,
-  and consumed under a database lock. PKCE verifier and nonce are cleared after
-  the callback attempt.
+- OAuth state is bound to the initiating browser session. State and frontend
+  exchange codes are random, hashed at rest, expiring, and consumed under a
+  database lock. PKCE verifier and nonce are cleared after the callback attempt;
+  `python manage.py purge_expired_oauth` removes abandoned expired records.
 - OIDC signatures use a strict RS256 allowlist and provider JWKS. Audience,
   expiry, nonce, issuer, and subject are required.
 - Provider tokens are used only for the immediate backend profile request and

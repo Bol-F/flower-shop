@@ -331,7 +331,7 @@ export default function SupportChat() {
         aria-label={open ? "Close support chat" : "Open support chat"}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="ml-auto grid size-14 place-items-center rounded-full border-2 border-ink bg-blossomdeep text-xs font-extrabold uppercase tracking-wider text-white shadow-[0_16px_44px_-16px_rgba(236,22,130,0.85)] transition hover:-translate-y-1 hover:bg-raspberry active:translate-y-0 sm:size-[68px]"
+        className="ml-auto grid size-14 place-items-center rounded-full border-2 border-ink bg-raspberry text-xs font-extrabold uppercase tracking-wider text-white shadow-[0_16px_44px_-16px_rgba(236,22,130,0.85)] transition hover:-translate-y-1 hover:bg-[#b51060] active:translate-y-0 sm:size-[68px]"
       >
         {open ? "Close" : "Help"}
       </button>

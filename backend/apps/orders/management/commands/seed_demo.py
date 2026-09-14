@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -20,6 +21,7 @@ from apps.products.models import Product
 from apps.reviews.models import Review
 
 DEMO_PASSWORD = 'demo12345'
+DEMO_ASSET_DIR = Path(__file__).with_name('demo_assets')
 
 
 CATEGORIES = [
@@ -63,7 +65,6 @@ PRODUCTS = [
         'stock': 24,
         'low_stock_threshold': 5,
         'is_available': True,
-        'color': '#b91c1c',
     },
     {
         'name': 'White Lily Bouquet',
@@ -73,7 +74,6 @@ PRODUCTS = [
         'stock': 16,
         'low_stock_threshold': 4,
         'is_available': True,
-        'color': '#f8fafc',
     },
     {
         'name': 'Tulip Spring Mix',
@@ -83,7 +83,6 @@ PRODUCTS = [
         'stock': 30,
         'low_stock_threshold': 6,
         'is_available': True,
-        'color': '#f97316',
     },
     {
         'name': 'Birthday Flower Box',
@@ -93,7 +92,6 @@ PRODUCTS = [
         'stock': 12,
         'low_stock_threshold': 3,
         'is_available': True,
-        'color': '#ec4899',
     },
     {
         'name': 'Romantic Pink Roses',
@@ -103,7 +101,6 @@ PRODUCTS = [
         'stock': 2,
         'low_stock_threshold': 4,
         'is_available': True,
-        'color': '#f9a8d4',
     },
     {
         'name': 'Premium Orchid Basket',
@@ -113,7 +110,6 @@ PRODUCTS = [
         'stock': 1,
         'low_stock_threshold': 3,
         'is_available': True,
-        'color': '#7c3aed',
     },
     {
         'name': 'Wedding Bouquet',
@@ -123,7 +119,6 @@ PRODUCTS = [
         'stock': 0,
         'low_stock_threshold': 2,
         'is_available': True,
-        'color': '#fde68a',
     },
     {
         'name': 'Sunflower Joy Bouquet',
@@ -133,7 +128,6 @@ PRODUCTS = [
         'stock': 20,
         'low_stock_threshold': 5,
         'is_available': True,
-        'color': '#eab308',
     },
 ]
 
@@ -313,7 +307,7 @@ class Command(BaseCommand):
         products = {}
         for data in PRODUCTS:
             slug = slugify(data['name'])
-            image_path = self._write_placeholder_svg(slug, data['name'], data['color'])
+            image_path = self._install_demo_image(slug)
             product, _ = Product.objects.update_or_create(
                 slug=slug,
                 defaults={
@@ -332,28 +326,16 @@ class Command(BaseCommand):
             products[data['name']] = product
         return products
 
-    def _write_placeholder_svg(self, slug, title, color):
-        relative_path = Path('products') / 'demo' / f'{slug}.svg'
+    def _install_demo_image(self, slug):
+        filename = f'{slug}-v2.webp'
+        source_path = DEMO_ASSET_DIR / filename
+        if not source_path.is_file():
+            raise FileNotFoundError(f'Missing demo product image: {source_path}')
+
+        relative_path = Path('products') / 'demo' / filename
         output_path = Path(settings.MEDIA_ROOT) / relative_path
         output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        safe_title = (
-            title.replace('&', '&amp;')
-            .replace('<', '&lt;')
-            .replace('>', '&gt;')
-            .replace('"', '&quot;')
-        )
-        svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
-  <rect width="1200" height="900" fill="#f8fafc"/>
-  <circle cx="600" cy="385" r="210" fill="{color}" opacity="0.9"/>
-  <circle cx="470" cy="330" r="120" fill="#ffffff" opacity="0.42"/>
-  <circle cx="730" cy="330" r="120" fill="#ffffff" opacity="0.28"/>
-  <rect x="0" y="680" width="1200" height="220" fill="#111827"/>
-  <text x="600" y="770" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#ffffff">{safe_title}</text>
-  <text x="600" y="830" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#d1d5db">Bloom &amp; Petal demo image</text>
-</svg>
-'''
-        output_path.write_text(svg, encoding='utf-8')
+        shutil.copyfile(source_path, output_path)
         return str(relative_path).replace('\\', '/')
 
     def _upsert_delivery_zones(self, city):
