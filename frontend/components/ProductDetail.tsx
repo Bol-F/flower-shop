@@ -11,19 +11,10 @@ import { useStore } from "@/lib/store";
 import BouquetArt from "./BouquetArt";
 import ProductCard from "./ProductCard";
 import ProductReviews from "./ProductReviews";
-import {
-  BoltIcon,
-  CameraIcon,
-  HeartIcon,
-  LeafIcon,
-  MinusIcon,
-  PlusIcon,
-  StarIcon,
-} from "./icons";
+import { BoltIcon, CameraIcon, HeartIcon, LeafIcon, MinusIcon, PlusIcon, StarIcon } from "./icons";
 
 export default function ProductDetail({ product }: { product: Product }) {
-  const { currency, language, favorites, toggleFavorite, addToCart, showToast } =
-    useStore();
+  const { currency, language, favorites, toggleFavorite, addToCart, showToast } = useStore();
   const t = copy[language].detail;
   const [sizeId, setSizeId] = useState<"S" | "M" | "L">("M");
   // The 3 gallery shots map 1:1 to the S / M / L sizes, so choosing one keeps
@@ -46,19 +37,14 @@ export default function ProductDetail({ product }: { product: Product }) {
   const purchasable = product.isAvailable !== false && product.isInStock !== false;
   const category = categories.find((c) => c.id === product.category);
   const size = bouquetSizes.find((s) => s.id === sizeId)!;
-  const unitPrice = product.hasSizes
-    ? Math.round(product.price * size.multiplier)
-    : product.price;
-  const discount = product.oldPrice
-    ? Math.round((1 - product.price / product.oldPrice) * 100)
-    : 0;
+  const unitPrice = product.hasSizes ? Math.round(product.price * size.multiplier) : product.price;
+  const discount = product.oldPrice ? Math.round((1 - product.price / product.oldPrice) * 100) : 0;
 
   const similar = products
     .filter((p) => p.id !== product.id)
     .sort(
       (a, b) =>
-        Number(b.category === product.category) -
-          Number(a.category === product.category) ||
+        Number(b.category === product.category) - Number(a.category === product.category) ||
         b.popularity - a.popularity,
     )
     .slice(0, 4);
@@ -162,7 +148,9 @@ export default function ProductDetail({ product }: { product: Product }) {
           <div className="flex items-center gap-2 text-sm">
             <StarIcon className="size-4 text-blossom" />
             <span className="font-bold">{product.rating.toFixed(1)}</span>
-            <span className="text-stone">({product.reviews} {t.reviews})</span>
+            <span className="text-stone">
+              ({product.reviews} {t.reviews})
+            </span>
             <span className="text-stone">/</span>
             <span className="font-semibold text-ink/80">{product.shop}</span>
           </div>
@@ -216,9 +204,7 @@ export default function ProductDetail({ product }: { product: Product }) {
           {/* size picker */}
           {product.hasSizes && (
             <div className="mt-6">
-              <p className="text-sm font-bold uppercase tracking-wider text-stone">
-                {t.size}
-              </p>
+              <p className="text-sm font-bold uppercase tracking-wider text-stone">{t.size}</p>
               <div className="mt-2.5 flex gap-2.5">
                 {bouquetSizes.map((s) => (
                   <button
@@ -274,9 +260,7 @@ export default function ProductDetail({ product }: { product: Product }) {
                 showToast(
                   qty === 1
                     ? t.addedOne.replace("{name}", product.name)
-                    : t.addedMany
-                        .replace("{qty}", String(qty))
-                        .replace("{name}", product.name),
+                    : t.addedMany.replace("{qty}", String(qty)).replace("{name}", product.name),
                 );
                 setQty(1);
               }}
@@ -297,31 +281,21 @@ export default function ProductDetail({ product }: { product: Product }) {
               </p>
             </div>
             <div>
-              <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
-                Stock
-              </p>
+              <p className="text-xs font-extrabold uppercase tracking-wider text-stone">Stock</p>
               <p className="mt-1 font-bold text-ink">
-                {typeof product.stock === "number"
-                  ? `${product.stock} available`
-                  : "Live stock"}
+                {typeof product.stock === "number" ? `${product.stock} available` : "Live stock"}
               </p>
             </div>
             <div>
-              <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
-                Checkout
-              </p>
-              <p className="mt-1 font-bold text-ink">
-                Cash, card, or online test payment
-              </p>
+              <p className="text-xs font-extrabold uppercase tracking-wider text-stone">Checkout</p>
+              <p className="mt-1 font-bold text-ink">Cash, card, or online test payment</p>
             </div>
           </div>
 
           {/* description */}
           <div className="mt-8 rounded-3xl bg-card p-6 shadow-soft">
             <h2 className="font-display text-lg font-semibold">{t.about}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-ink/80">
-              {product.description}
-            </p>
+            <p className="mt-2 text-sm leading-relaxed text-ink/80">{product.description}</p>
             <h3 className="mt-5 text-sm font-bold uppercase tracking-wider text-stone">
               {t.inside}
             </h3>
@@ -359,9 +333,7 @@ export default function ProductDetail({ product }: { product: Product }) {
 
       {/* similar */}
       <section aria-label={t.similar} className="mt-14">
-        <h2 className="font-display text-2xl font-semibold sm:text-3xl">
-          {t.similar}
-        </h2>
+        <h2 className="font-display text-2xl font-semibold sm:text-3xl">{t.similar}</h2>
         <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
           {similar.map((p) => (
             <ProductCard key={p.id} product={p} />

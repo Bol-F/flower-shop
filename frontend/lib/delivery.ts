@@ -7,12 +7,8 @@ function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-export const FIXED_CITY_DELIVERY_FEE = roundMoney(
-  FIXED_CITY_DELIVERY_FEE_UZS / UZS_PER_USD,
-);
-export const FREE_DELIVERY_MIN_AMOUNT = roundMoney(
-  FREE_DELIVERY_MIN_AMOUNT_UZS / UZS_PER_USD,
-);
+export const FIXED_CITY_DELIVERY_FEE = roundMoney(FIXED_CITY_DELIVERY_FEE_UZS / UZS_PER_USD);
+export const FREE_DELIVERY_MIN_AMOUNT = roundMoney(FREE_DELIVERY_MIN_AMOUNT_UZS / UZS_PER_USD);
 
 export interface DeliveryZoneOption {
   id: number;

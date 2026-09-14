@@ -35,9 +35,7 @@ export default function Hero() {
         <div className="mt-10 grid w-full max-w-3xl gap-2 rounded-[1.75rem] border border-line bg-white/65 p-2 text-left shadow-soft backdrop-blur sm:grid-cols-3">
           {proofPoints.map(([value, label]) => (
             <div key={value} className="rounded-[1.25rem] bg-white px-4 py-3">
-              <p className="font-display text-xl font-extrabold text-ink">
-                {value}
-              </p>
+              <p className="font-display text-xl font-extrabold text-ink">{value}</p>
               <p className="mt-0.5 text-xs font-bold uppercase tracking-[0.12em] text-stone">
                 {label}
               </p>

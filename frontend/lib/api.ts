@@ -161,21 +161,10 @@ export interface ApiOrderStatusStep {
 }
 
 export type ApiPaymentMethod = "cash" | "card" | "online";
-export type ApiPaymentStatus =
-  | "unpaid"
-  | "pending"
-  | "paid"
-  | "failed"
-  | "refunded";
+export type ApiPaymentStatus = "unpaid" | "pending" | "paid" | "failed" | "refunded";
 
 export type ApiPaymentAttemptStatus =
-  | "created"
-  | "pending"
-  | "processing"
-  | "paid"
-  | "failed"
-  | "cancelled"
-  | "refunded";
+  "created" | "pending" | "processing" | "paid" | "failed" | "cancelled" | "refunded";
 
 export interface ApiPaymentAttempt {
   id: string;
@@ -375,11 +364,7 @@ export class ApiError extends Error {
   status: number;
 
   constructor(status: number, details: Record<string, unknown>) {
-    super(
-      typeof details.detail === "string"
-        ? details.detail
-        : `Request failed (${status})`,
-    );
+    super(typeof details.detail === "string" ? details.detail : `Request failed (${status})`);
     this.status = status;
     this.details = details;
   }
@@ -502,10 +487,11 @@ export async function completeOAuth(code: string): Promise<AuthUser> {
 }
 
 export async function startOAuthLink(provider: OAuthProvider): Promise<string> {
-  const data = await request<{ authorization_url: string }>(
-    `/api/auth/oauth/${provider}/link/`,
-    { method: "POST", body: {}, auth: true },
-  );
+  const data = await request<{ authorization_url: string }>(`/api/auth/oauth/${provider}/link/`, {
+    method: "POST",
+    body: {},
+    auth: true,
+  });
   return data.authorization_url;
 }
 
@@ -541,11 +527,8 @@ export async function fetchProfile(): Promise<AuthUser> {
 
 export async function updateProfile(
   patch: Partial<
-    Pick<
-      AuthUser,
-      "username" | "phone" | "address" | "bio" | "city" | "language" | "currency"
-    >
->,
+    Pick<AuthUser, "username" | "phone" | "address" | "bio" | "city" | "language" | "currency">
+  >,
 ): Promise<AuthUser> {
   const user = await request<AuthUser>("/api/auth/profile/", {
     method: "PATCH",
@@ -590,9 +573,10 @@ export async function sendSupportMessage(body: string): Promise<SupportMessage> 
 }
 
 export async function fetchAdminSupportMessages(): Promise<AdminSupportMessage[]> {
-  const data = await request<
-    AdminSupportMessage[] | { results: AdminSupportMessage[] }
-  >("/api/contact/admin/messages/?page_size=100", { auth: true });
+  const data = await request<AdminSupportMessage[] | { results: AdminSupportMessage[] }>(
+    "/api/contact/admin/messages/?page_size=100",
+    { auth: true },
+  );
   return Array.isArray(data) ? data : data.results;
 }
 
@@ -631,14 +615,16 @@ export async function fetchCities(): Promise<ApiCity[]> {
   return Array.isArray(data) ? data : data.results;
 }
 
-export async function fetchProducts(params: {
-  search?: string;
-  category?: string | null;
-  city?: string | null;
-  vendor?: string | null;
-  ordering?: string;
-  page_size?: number;
-} = {}): Promise<ApiProductListItem[]> {
+export async function fetchProducts(
+  params: {
+    search?: string;
+    category?: string | null;
+    city?: string | null;
+    vendor?: string | null;
+    ordering?: string;
+    page_size?: number;
+  } = {},
+): Promise<ApiProductListItem[]> {
   const query = new URLSearchParams();
   query.set("page_size", String(params.page_size ?? 100));
   if (params.search) query.set("search", params.search);
@@ -647,9 +633,9 @@ export async function fetchProducts(params: {
   if (params.vendor) query.set("vendor", params.vendor);
   if (params.ordering) query.set("ordering", params.ordering);
 
-  const data = await request<
-    ApiProductListItem[] | PaginatedResponse<ApiProductListItem>
-  >(`/api/products/?${query.toString()}`);
+  const data = await request<ApiProductListItem[] | PaginatedResponse<ApiProductListItem>>(
+    `/api/products/?${query.toString()}`,
+  );
   return Array.isArray(data) ? data : data.results;
 }
 
@@ -675,10 +661,7 @@ export async function fetchCouriers(): Promise<ApiCourier[]> {
   return Array.isArray(data) ? data : data.results;
 }
 
-export async function validatePromoCode(payload: {
-  code: string;
-  subtotal: string;
-}): Promise<{
+export async function validatePromoCode(payload: { code: string; subtotal: string }): Promise<{
   code: string;
   discount_type: "fixed_amount" | "percent";
   discount_value: string;
@@ -702,10 +685,7 @@ export async function addCartItem(productId: number, quantity = 1): Promise<ApiC
   });
 }
 
-export async function updateCartItem(
-  productId: number,
-  quantity: number,
-): Promise<ApiCart> {
+export async function updateCartItem(productId: number, quantity: number): Promise<ApiCart> {
   return request<ApiCart>(`/api/cart/items/${productId}/`, {
     method: "PATCH",
     body: { quantity },
@@ -750,9 +730,7 @@ export async function createOrder(payload: {
 }
 
 export async function fetchPaymentMethods(): Promise<ApiPaymentOption[]> {
-  const data = await request<{ methods: ApiPaymentOption[] }>(
-    "/api/orders/payment-methods/",
-  );
+  const data = await request<{ methods: ApiPaymentOption[] }>("/api/orders/payment-methods/");
   return data.methods.filter((method) => method.enabled);
 }
 
@@ -768,10 +746,7 @@ export async function initializePayment(
   });
 }
 
-export async function fetchPayment(
-  orderId: number,
-  paymentId: string,
-): Promise<ApiPaymentAttempt> {
+export async function fetchPayment(orderId: number, paymentId: string): Promise<ApiPaymentAttempt> {
   return request<ApiPaymentAttempt>(
     `/api/orders/${orderId}/payments/${encodeURIComponent(paymentId)}/`,
     { auth: true },
@@ -829,10 +804,7 @@ export async function payTestOrder(id: number): Promise<ApiOrder> {
   });
 }
 
-export async function assignCourier(
-  id: number,
-  courierId: number | null,
-): Promise<ApiOrder> {
+export async function assignCourier(id: number, courierId: number | null): Promise<ApiOrder> {
   return request<ApiOrder>(`/api/orders/${id}/courier/`, {
     method: "PATCH",
     body: { courier_id: courierId },

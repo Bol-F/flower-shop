@@ -100,14 +100,7 @@ export default function BouquetArt({
       </g>
       {/* blooms — colors cycle through the product palette */}
       {blooms.map(([cx, cy, r], i) => (
-        <Bloom
-          key={i}
-          cx={cx}
-          cy={cy}
-          r={r}
-          petal={petals[i % petals.length]}
-          center={center}
-        />
+        <Bloom key={i} cx={cx} cy={cy} r={r} petal={petals[i % petals.length]} center={center} />
       ))}
       {/* kraft wrap */}
       <path

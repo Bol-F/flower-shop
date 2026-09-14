@@ -33,11 +33,14 @@ import { useStore } from "@/lib/store";
 import BouquetArt from "./BouquetArt";
 import DeliveryMapPicker, { type DeliveryMapValue } from "./DeliveryMapPicker";
 import {
+  CardIcon,
   CartIcon,
+  CashIcon,
   CloseIcon,
   MenuIcon,
   MinusIcon,
   PlusIcon,
+  ShieldIcon,
   TrashIcon,
   UserIcon,
 } from "./icons";
@@ -72,8 +75,8 @@ const fallbackPaymentOptions: ApiPaymentOption[] = [
     id: "cash",
     payment_method: "cash",
     provider: "cash",
-    label: "Cash",
-    detail: "Pay when your flowers arrive",
+    label: "Cash on delivery",
+    detail: "Pay the courier when your flowers arrive",
     enabled: true,
     test_mode: false,
   },
@@ -113,27 +116,22 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
   });
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [paymentOptions, setPaymentOptions] = useState<ApiPaymentOption[]>(fallbackPaymentOptions);
-  const [selectedPaymentOptionId, setSelectedPaymentOptionId] = useState<ApiPaymentOption["id"]>("cash");
+  const [selectedPaymentOptionId, setSelectedPaymentOptionId] =
+    useState<ApiPaymentOption["id"]>("cash");
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
+  const [paymentMethodsError, setPaymentMethodsError] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [promoDiscount, setPromoDiscount] = useState(0);
   const [promoLoading, setPromoLoading] = useState(false);
-  const [deliveryZones, setDeliveryZones] =
-    useState<DeliveryZoneOption[]>(fallbackDeliveryZones);
-  const [selectedDeliveryZoneId, setSelectedDeliveryZoneId] = useState(
-    fallbackDeliveryZones[0].id,
-  );
-  const [deliveryDayMode, setDeliveryDayMode] =
-    useState<DeliveryDayMode>("today");
-  const [customDeliveryDate, setCustomDeliveryDate] = useState(
-    relativeDeliveryDate("today"),
-  );
-  const [deliveryTimeSlot, setDeliveryTimeSlot] =
-    useState<DeliveryTimeSlot>(deliveryTimeSlots[1]);
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZoneOption[]>(fallbackDeliveryZones);
+  const [selectedDeliveryZoneId, setSelectedDeliveryZoneId] = useState(fallbackDeliveryZones[0].id);
+  const [deliveryDayMode, setDeliveryDayMode] = useState<DeliveryDayMode>("today");
+  const [customDeliveryDate, setCustomDeliveryDate] = useState(relativeDeliveryDate("today"));
+  const [deliveryTimeSlot, setDeliveryTimeSlot] = useState<DeliveryTimeSlot>(deliveryTimeSlots[1]);
   const [recipientName, setRecipientName] = useState(user?.username ?? "");
   const [recipientPhone, setRecipientPhone] = useState(user?.phone ?? "");
   const [giftNote, setGiftNote] = useState("");
-  const [callRecipientBeforeDelivery, setCallRecipientBeforeDelivery] =
-    useState(true);
+  const [callRecipientBeforeDelivery, setCallRecipientBeforeDelivery] = useState(true);
   const [notes, setNotes] = useState("");
   const [sendAsGift, setSendAsGift] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
@@ -147,18 +145,15 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState("");
   const total = cartLines.reduce((sum, item) => sum + item.subtotal, 0);
   const selectedPaymentOption =
-    paymentOptions.find((method) => method.id === selectedPaymentOptionId) ?? paymentOptions[0];
+    paymentOptions.find((method) => method.id === selectedPaymentOptionId && method.enabled) ??
+    paymentOptions.find((method) => method.enabled);
   const paymentMethod: ApiPaymentMethod = selectedPaymentOption?.payment_method ?? "cash";
   const selectedDeliveryZone =
-    deliveryZones.find((zone) => zone.id === selectedDeliveryZoneId) ??
-    deliveryZones[0] ??
-    null;
+    deliveryZones.find((zone) => zone.id === selectedDeliveryZoneId) ?? deliveryZones[0] ?? null;
   const deliveryFee = calculateDeliveryFee(total, selectedDeliveryZone);
   const finalTotal = Math.max(total + deliveryFee - promoDiscount, 0);
   const selectedDeliveryDate =
-    deliveryDayMode === "custom"
-      ? customDeliveryDate
-      : relativeDeliveryDate(deliveryDayMode);
+    deliveryDayMode === "custom" ? customDeliveryDate : relativeDeliveryDate(deliveryDayMode);
   const minDeliveryDate = relativeDeliveryDate("today");
 
   useEffect(() => {
@@ -189,9 +184,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
         }));
         setDeliveryZones(mappedZones);
         setSelectedDeliveryZoneId((current) =>
-          mappedZones.some((zone) => zone.id === current)
-            ? current
-            : mappedZones[0].id,
+          mappedZones.some((zone) => zone.id === current) ? current : mappedZones[0].id,
         );
       } catch {
         if (active) setDeliveryZones(fallbackDeliveryZones);
@@ -213,16 +206,31 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
         if (!active || methods.length === 0) return;
         setPaymentOptions(methods);
         setSelectedPaymentOptionId((current) =>
-          methods.some((method) => method.id === current) ? current : methods[0].id,
+          methods.some((method) => method.id === current && method.enabled)
+            ? current
+            : (methods.find((method) => method.enabled)?.id ?? "cash"),
         );
       })
       .catch(() => {
-        if (active) setPaymentOptions(fallbackPaymentOptions);
+        if (active) {
+          setPaymentOptions(fallbackPaymentOptions);
+          setSelectedPaymentOptionId("cash");
+          setPaymentMethodsError("Card payment is temporarily unavailable. Cash is still ready.");
+        }
+      })
+      .finally(() => {
+        if (active) setPaymentMethodsLoading(false);
       });
     return () => {
       active = false;
     };
   }, [checkoutOpen]);
+
+  function openCheckout() {
+    setPaymentMethodsLoading(true);
+    setPaymentMethodsError("");
+    setCheckoutOpen(true);
+  }
 
   async function preparePayment(order: ApiOrder) {
     if (!selectedPaymentOption || selectedPaymentOption.provider === "cash") return;
@@ -243,7 +251,9 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
       );
       setCreatedPayment(payment);
     } catch (err) {
-      setTestPayError(firstApiMessage(err, "Could not prepare payment. Your order is safe; please retry."));
+      setTestPayError(
+        firstApiMessage(err, "Could not prepare payment. Your order is safe; please retry."),
+      );
     } finally {
       setPaymentPreparing(false);
     }
@@ -292,15 +302,17 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
       setError("Choose a delivery date and time slot.");
       return;
     }
+    if (!selectedPaymentOption?.enabled) {
+      setError("Choose an available payment method.");
+      return;
+    }
 
     try {
       setSubmitting(true);
       const resolvedRecipientName = sendAsGift
         ? recipientName.trim()
         : user.username || "Recipient";
-      const resolvedRecipientPhone = sendAsGift
-        ? recipientPhone.trim()
-        : phone.trim();
+      const resolvedRecipientPhone = sendAsGift ? recipientPhone.trim() : phone.trim();
       const order = await createOrder({
         shipping_address: deliveryLocation.address.trim(),
         phone: phone.trim(),
@@ -311,16 +323,13 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
         delivery_date: selectedDeliveryDate,
         delivery_time_slot: deliveryTimeSlot,
         delivery_zone_id:
-          selectedDeliveryZone && selectedDeliveryZone.id > 0
-            ? selectedDeliveryZone.id
-            : null,
+          selectedDeliveryZone && selectedDeliveryZone.id > 0 ? selectedDeliveryZone.id : null,
         city_slug: cityToSlug(city),
         promo_code: promoCode.trim(),
         recipient_name: resolvedRecipientName,
         recipient_phone: resolvedRecipientPhone,
         gift_note: giftNote.trim(),
-        call_recipient_before_delivery:
-          sendAsGift && callRecipientBeforeDelivery,
+        call_recipient_before_delivery: sendAsGift && callRecipientBeforeDelivery,
         notes: notes.trim(),
       });
       clearCart();
@@ -329,8 +338,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
       setTestPayError("");
       setCheckoutOpen(false);
       showToast(`Order #${order.id} created`);
-      if (order.payment_method === "cash") onClose();
-      else await preparePayment(order);
+      if (order.payment_method !== "cash") await preparePayment(order);
     } catch (err) {
       setError(firstApiMessage(err, "Could not create order."));
     } finally {
@@ -349,10 +357,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
       showToast(`Order #${updated.id} paid`);
     } catch (err) {
       setTestPayError(
-        firstApiMessage(
-          err,
-          "Could not complete this test payment. Please try again.",
-        ),
+        firstApiMessage(err, "Could not complete this test payment. Please try again."),
       );
     } finally {
       setTestPaying(false);
@@ -362,592 +367,653 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
   const createdOrderNeedsTestPayment =
     createdOrder &&
     createdPayment?.provider === "test" &&
-    (createdOrder.payment_method === "card" ||
-      createdOrder.payment_method === "online") &&
+    (createdOrder.payment_method === "card" || createdOrder.payment_method === "online") &&
     createdPayment.status === "pending";
 
   return (
     <>
       <button
         type="button"
-        aria-label="Close cart"
+        aria-hidden="true"
+        tabIndex={-1}
         onClick={onClose}
         className="fixed inset-0 top-[66px] z-[60] bg-ink/25 backdrop-blur-[2px] sm:hidden"
       />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cart-title"
         className={`fixed inset-x-3 bottom-3 top-[78px] z-[70] animate-fade-up overflow-y-auto rounded-[1.5rem] border border-line bg-card p-3 shadow-lift sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-[calc(100%+14px)] sm:z-50 sm:max-h-[calc(100vh-6rem)] sm:rounded-[1.75rem] sm:p-4 ${
           checkoutOpen
             ? showMapPicker
-              ? "sm:w-[min(34rem,calc(100vw-2rem))]"
-              : "sm:w-[min(28rem,calc(100vw-2rem))]"
-            : "sm:w-[min(20rem,calc(100vw-2rem))]"
+              ? "sm:w-[min(58rem,calc(100vw-2rem))]"
+              : "sm:w-[min(54rem,calc(100vw-2rem))]"
+            : createdOrder
+              ? "sm:w-[min(30rem,calc(100vw-2rem))]"
+              : "sm:w-[min(20rem,calc(100vw-2rem))]"
         }`}
       >
         <div className="flex items-center justify-between gap-3">
-          <p className="font-display text-lg font-bold">{t.title}</p>
+          <p id="cart-title" className="font-display text-lg font-bold">
+            {t.title}
+          </p>
           <button
             type="button"
             aria-label="Close cart"
             onClick={onClose}
-            className="grid size-9 place-items-center rounded-full bg-blush text-blossomdeep transition active:scale-95 sm:hidden"
+            className="grid size-9 place-items-center rounded-full bg-blush text-blossomdeep transition hover:bg-blushdeep active:scale-95"
           >
             <CloseIcon className="size-4.5" />
           </button>
         </div>
 
-      {createdOrder ? (
-        <div className="mt-4 rounded-2xl bg-paper p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="font-display text-xl font-bold">
-                Order #{createdOrder.id}
-              </p>
-              <p className="mt-1 text-sm font-semibold text-stone">
-                {createdOrder.payment_method_display} /{" "}
+        {createdOrder ? (
+          <div className="mt-4 rounded-2xl bg-paper p-4" role="status" aria-live="polite">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-display text-xl font-bold">Order #{createdOrder.id}</p>
+                <p className="mt-1 text-sm font-semibold text-stone">
+                  {createdOrder.payment_method_display} · {createdOrder.payment_status_display}
+                </p>
+              </div>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-extrabold ${
+                  createdOrder.payment_status === "paid"
+                    ? "bg-mint text-leaf"
+                    : "bg-[#fff3d8] text-[#9a6410]"
+                }`}
+              >
                 {createdOrder.payment_status_display}
-              </p>
+              </span>
             </div>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-extrabold ${
-                createdOrder.payment_status === "paid"
-                  ? "bg-mint text-leaf"
-                  : "bg-[#fff3d8] text-[#9a6410]"
-              }`}
-            >
-              {createdOrder.payment_status_display}
-            </span>
-          </div>
 
-          {(createdPayment?.provider_reference || createdOrder.payment_reference) && (
-            <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-bold text-stone">
-              Payment ref {createdPayment?.provider_reference || createdOrder.payment_reference}
-            </p>
-          )}
-
-          {createdOrder.payment_method === "cash" ? (
-            <p className="mt-3 text-sm font-semibold text-stone">
-              Cash payment is due on delivery.
-            </p>
-          ) : createdPayment?.provider === "test" ? (
-            <div className="mt-3 rounded-2xl border border-line bg-white p-3">
-              <p className="text-sm font-bold text-ink">
-                This is a test payment. No real money will be charged.
+            {(createdPayment?.provider_reference || createdOrder.payment_reference) && (
+              <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-bold text-stone">
+                Payment ref {createdPayment?.provider_reference || createdOrder.payment_reference}
               </p>
-              <p className="mt-1 text-xs font-semibold text-stone">
-                No card details are needed or saved.
-              </p>
-              {createdOrderNeedsTestPayment ? (
-                <button
-                  type="button"
-                  disabled={testPaying}
-                  onClick={() => void onPayTestOrder()}
-                  className="mt-3 w-full rounded-full bg-ink py-2.5 text-sm font-extrabold text-white transition hover:bg-raspberry disabled:cursor-wait disabled:opacity-70"
-                >
-                  {testPaying ? "Paying..." : "Pay test order"}
-                </button>
-              ) : createdOrder.payment_status === "paid" ? (
-                <p className="mt-3 rounded-xl bg-mint px-3 py-2 text-sm font-bold text-leaf">
-                  Test payment complete.
-                </p>
-              ) : (
-                <p className="mt-3 rounded-xl bg-berrysoft px-3 py-2 text-sm font-bold text-berry">
-                  Payment is {createdOrder.payment_status_display.toLowerCase()}.
-                </p>
-              )}
-            </div>
-          ) : createdPayment?.checkout_url ? (
-            <div className="mt-3 rounded-2xl border border-line bg-white p-3">
-              <p className="text-sm font-bold text-ink">
-                Continue to <span className="capitalize">{createdPayment.provider}</span> to pay securely.
-              </p>
-              <p className="mt-1 text-xs font-semibold text-stone">
-                Card details are entered on the provider page and never touch Bloom &amp; Petal.
-              </p>
-              <button
-                type="button"
-                onClick={() => window.location.assign(createdPayment.checkout_url)}
-                className="mt-3 w-full rounded-full bg-blossomdeep py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
-              >
-                Continue to <span className="capitalize">{createdPayment.provider}</span>
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              disabled={paymentPreparing}
-              onClick={() => void preparePayment(createdOrder)}
-              className="mt-3 w-full rounded-full border border-blossomdeep py-2.5 text-sm font-extrabold text-blossomdeep disabled:cursor-wait disabled:opacity-60"
-            >
-              {paymentPreparing ? "Preparing secure checkout…" : "Retry secure checkout"}
-            </button>
-          )}
+            )}
 
-          {testPayError && (
-            <p className="mt-3 rounded-2xl bg-berrysoft px-3 py-2 text-xs font-bold text-berry">
-              {testPayError}
-            </p>
-          )}
-
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <Link
-              href="/profile"
-              onClick={onClose}
-              className="rounded-full border border-line py-2.5 text-center text-sm font-bold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
-            >
-              Order history
-            </Link>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full bg-blossomdeep py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      ) : cartLines.length === 0 ? (
-        <div className="py-8 text-center">
-          <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush text-blossomdeep">
-            <CartIcon className="size-6" />
-          </span>
-          <p className="mt-3 font-display text-xl font-bold text-ink">
-            {cartLoading ? "Syncing cart" : "Your cart is empty"}
-          </p>
-          <p className="mt-1 text-sm text-stone">
-            {cartLoading ? "Syncing cart..." : t.empty}
-          </p>
-          {!cartLoading && (
-            <a
-              href="#catalog"
-              onClick={onClose}
-              className="mt-5 inline-flex rounded-full bg-blossomdeep px-5 py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
-            >
-              Browse flowers
-            </a>
-          )}
-        </div>
-      ) : (
-        <>
-          <ul className="mt-3 flex max-h-72 flex-col gap-3 overflow-y-auto pr-1">
-            {cartLines.map(({ product, qty }) => (
-              <li key={product.id} className="flex items-center gap-3">
-                <Link
-                  href={`/product/${product.slug ?? product.id}`}
-                  onClick={onClose}
-                  className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-2xl"
-                  style={{ background: product.palette.backdrop }}
-                >
-                  {product.image ? (
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <BouquetArt palette={product.palette} className="h-12" />
-                  )}
-                </Link>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{product.name}</p>
-                  <p className="text-sm font-bold text-blossomdeep">
-                    {formatPrice(product.price * qty, currency)}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    aria-label={`Decrease ${product.name} quantity`}
-                    onClick={() => setCartQty(product.id, qty - 1)}
-                    className="grid size-7 place-items-center rounded-full bg-blush text-raspberry transition hover:bg-blushdeep active:scale-90"
-                  >
-                    <MinusIcon className="size-3.5" />
-                  </button>
-                  <span className="w-5 text-center text-sm font-bold">{qty}</span>
-                  <button
-                    type="button"
-                    aria-label={`Increase ${product.name} quantity`}
-                    onClick={() => setCartQty(product.id, qty + 1)}
-                    className="grid size-7 place-items-center rounded-full bg-blush text-raspberry transition hover:bg-blushdeep active:scale-90"
-                  >
-                    <PlusIcon className="size-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${product.name} from cart`}
-                    onClick={() => removeFromCart(product.id)}
-                    className="ml-1 grid size-7 place-items-center rounded-full text-stone transition hover:bg-berrysoft hover:text-berry active:scale-90"
-                  >
-                    <TrashIcon className="size-3.5" />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
-            <span className="text-sm text-stone">{t.total}</span>
-            <span className="font-display text-lg font-bold">
-              {formatPrice(total, currency)}
-            </span>
-          </div>
-          {(cartError || error) && (
-            <p className="mt-3 rounded-2xl bg-berrysoft px-3 py-2 text-xs font-bold text-berry">
-              {error || cartError}
-            </p>
-          )}
-
-          {!checkoutOpen ? (
-            user ? (
-              <button
-                type="button"
-                onClick={() => setCheckoutOpen(true)}
-                className="mt-3 w-full rounded-full bg-blossomdeep py-3 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry active:scale-95"
-              >
-                {t.checkout}
-              </button>
-            ) : (
-              <Link
-                href="/profile?mode=login"
-                onClick={onClose}
-                className="mt-3 block w-full rounded-full bg-blossomdeep py-3 text-center text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
-              >
-                Sign in to checkout
-              </Link>
-            )
-          ) : (
-            <form onSubmit={onCheckout} className="mt-3 grid gap-3">
-              <div className="rounded-2xl bg-ink px-4 py-3 text-white">
-                <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-white/60">
-                  Secure checkout
-                </p>
-                <div className="mt-1 flex items-center justify-between gap-3">
-                  <span className="text-sm font-bold">
-                    {cartLines.length} item{cartLines.length === 1 ? "" : "s"}
-                  </span>
-                  <span className="font-display text-lg font-extrabold">
-                    {formatPrice(finalTotal, currency)}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs font-semibold text-white/70">
-                  {selectedPaymentOption?.provider === "test"
-                    ? "Development test mode — no real money is charged."
-                    : selectedPaymentOption?.provider === "cash"
-                      ? "Pay the florist when your flowers arrive."
-                      : `Online payment continues on ${selectedPaymentOption?.label ?? "the provider"}.`}
-                </p>
-              </div>
-
-              <div>
-                <div className="mb-1.5 flex items-center justify-between gap-3">
-                  <label className="text-xs font-extrabold uppercase tracking-wider text-stone">
-                    Delivery address
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowMapPicker((open) => !open)}
-                    className="text-xs font-extrabold text-blossomdeep transition hover:text-raspberry"
-                  >
-                    {showMapPicker ? "Use simple address" : "Choose on map"}
-                  </button>
-                </div>
-                {showMapPicker ? (
-                  <DeliveryMapPicker
-                    value={deliveryLocation}
-                    onChange={setDeliveryLocation}
-                  />
-                ) : (
-                  <input
-                    required
-                    value={deliveryLocation.address}
-                    onChange={(event) =>
-                      setDeliveryLocation({
-                        address: event.target.value,
-                        lat: null,
-                        lng: null,
-                      })
-                    }
-                    placeholder="Street, building, apartment"
-                    className="w-full min-w-0 rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
-                  />
-                )}
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
-                  Contact phone
-                </label>
-                <input
-                  required
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder="+998 90 123 45 67"
-                  className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
-                />
-              </div>
-
-              <div>
-                <p className="mb-1.5 text-xs font-extrabold uppercase tracking-wider text-stone">
-                  Delivery date and time
-                </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
-                    Day
-                  </span>
-                  <select
-                    value={deliveryDayMode}
-                    onChange={(event) =>
-                      setDeliveryDayMode(event.target.value as DeliveryDayMode)
-                    }
-                    className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm font-bold outline-none transition focus:border-blossomdeep"
-                  >
-                    <option value="today">Today</option>
-                    <option value="tomorrow">Tomorrow</option>
-                    <option value="custom">Choose date</option>
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
-                    Zone
-                  </span>
-                  <select
-                    value={selectedDeliveryZoneId}
-                    onChange={(event) =>
-                      setSelectedDeliveryZoneId(Number(event.target.value))
-                    }
-                    className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm font-bold outline-none transition focus:border-blossomdeep"
-                  >
-                    {deliveryZones.map((zone) => (
-                      <option key={zone.id} value={zone.id}>
-                        {zone.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
-                    Time
-                  </span>
-                  <select
-                    value={deliveryTimeSlot}
-                    onChange={(event) =>
-                      setDeliveryTimeSlot(event.target.value as DeliveryTimeSlot)
-                    }
-                    className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm font-bold outline-none transition focus:border-blossomdeep"
-                  >
-                    {deliveryTimeSlots.map((slot) => (
-                      <option key={slot} value={slot}>
-                        {slot}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {selectedDeliveryZone?.requiresManualConfirmation && (
-                  <p className="rounded-2xl bg-[#fff3d8] px-3 py-2 text-xs font-bold text-[#9a6410] sm:col-span-2">
-                    Staff will confirm delivery availability and final fee for this zone.
-                  </p>
-                )}
-                {deliveryDayMode === "custom" && (
-                  <input
-                    required
-                    type="date"
-                    min={minDeliveryDate}
-                    value={customDeliveryDate}
-                    onChange={(event) => setCustomDeliveryDate(event.target.value)}
-                    className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition focus:border-blossomdeep sm:col-span-2"
-                  />
-                )}
-                </div>
-              </div>
-
-              <div className="grid gap-2 rounded-2xl bg-paper p-3">
+            {createdOrder.payment_method === "cash" ? (
+              <div className="mt-3 flex gap-3 rounded-2xl border border-[#bfe6cc] bg-mint p-3 text-leaf">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white">
+                  <CashIcon className="size-5" />
+                </span>
                 <div>
-                  <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
-                    Recipient details
-                  </p>
-                  <p className="mt-1 text-xs font-semibold text-stone">
-                    Use gift details when the flowers are going to someone else.
+                  <p className="text-sm font-extrabold">Cash on delivery confirmed</p>
+                  <p className="mt-1 text-xs font-semibold leading-relaxed">
+                    Pay the courier when your flowers arrive. No card payment is required now.
                   </p>
                 </div>
-                <label className="flex items-center gap-2 rounded-2xl bg-paper px-3.5 py-2.5 text-sm font-bold text-ink">
-                  <input
-                    type="checkbox"
-                    checked={sendAsGift}
-                    onChange={(event) => setSendAsGift(event.target.checked)}
-                    className="size-4 accent-blossomdeep"
-                  />
-                  Send to someone else
-                </label>
-
-                {sendAsGift && (
-                  <div className="grid gap-2">
-                    <input
-                      required={sendAsGift}
-                      value={recipientName}
-                      onChange={(event) => setRecipientName(event.target.value)}
-                      placeholder="Recipient name"
-                      className="w-full rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
-                    />
-                    <input
-                      required={sendAsGift}
-                      value={recipientPhone}
-                      onChange={(event) => setRecipientPhone(event.target.value)}
-                      placeholder="Recipient phone"
-                      className="w-full rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
-                    />
-                    <textarea
-                      value={giftNote}
-                      onChange={(event) => setGiftNote(event.target.value)}
-                      rows={2}
-                      placeholder="Gift note"
-                      className="w-full resize-none rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
-                    />
-                    <label className="flex items-center gap-2 px-1 text-sm font-bold text-ink">
-                      <input
-                        type="checkbox"
-                        checked={callRecipientBeforeDelivery}
-                        onChange={(event) =>
-                          setCallRecipientBeforeDelivery(event.target.checked)
-                        }
-                        className="size-4 accent-blossomdeep"
-                      />
-                      Call recipient before delivery
-                    </label>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setShowExtraDetails((open) => !open)}
-                  className="rounded-2xl border border-line bg-white px-3.5 py-2.5 text-left text-sm font-extrabold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
-                >
-                  {showExtraDetails ? "Hide courier note" : "Add courier note"}
-                </button>
-                {showExtraDetails && (
-                  <textarea
-                    value={notes}
-                    onChange={(event) => setNotes(event.target.value)}
-                    rows={2}
-                    placeholder="Entrance, floor, landmark..."
-                    className="w-full resize-none rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
-                  />
-                )}
               </div>
-
-              <fieldset className="rounded-2xl bg-paper p-2">
-                <legend className="px-1 text-xs font-extrabold uppercase tracking-wider text-stone">
-                  Payment method
-                </legend>
-                <div className="mt-1 grid gap-2 sm:grid-cols-3">
-                  {paymentOptions.map((method) => {
-                    const active = selectedPaymentOptionId === method.id;
-                    return (
-                      <button
-                        key={method.id}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => setSelectedPaymentOptionId(method.id)}
-                        className={`min-h-20 rounded-xl px-3 py-2 text-left transition ${
-                          active
-                            ? "bg-blossomdeep text-white shadow-glow"
-                            : "bg-white text-stone hover:text-ink"
-                        }`}
-                      >
-                        <span className="block text-sm font-extrabold">
-                          {method.label}
-                        </span>
-                        <span
-                          className={`mt-1 block text-xs font-bold leading-snug ${
-                            active ? "text-white/80" : "text-stone"
-                          }`}
-                        >
-                          {method.detail}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </fieldset>
-
-              <div className="flex gap-2 rounded-2xl bg-paper p-2">
-                <input
-                  value={promoCode}
-                  onChange={(event) => {
-                    setPromoCode(event.target.value);
-                    setPromoDiscount(0);
-                  }}
-                  placeholder="Promo code"
-                  className="min-w-0 flex-1 rounded-xl border border-line bg-white px-3 py-2 text-sm font-bold uppercase outline-none transition placeholder:normal-case placeholder:text-stone focus:border-blossomdeep"
-                />
-                <button
-                  type="button"
-                  disabled={promoLoading}
-                  onClick={() => void onApplyPromo()}
-                  className="rounded-xl bg-ink px-4 py-2 text-sm font-extrabold text-white transition hover:bg-raspberry disabled:cursor-wait disabled:opacity-70"
-                >
-                  {promoLoading ? "..." : "Apply"}
-                </button>
-              </div>
-
-              <div className="rounded-2xl border border-line bg-paper p-3 text-sm">
-                <p className="mb-2 text-xs font-extrabold uppercase tracking-wider text-stone">
-                  Order summary
+            ) : createdPayment?.provider === "test" ? (
+              <div className="mt-3 rounded-2xl border border-line bg-white p-3">
+                <p className="text-sm font-bold text-ink">
+                  This is a test payment. No real money will be charged.
                 </p>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-stone">Flowers</span>
-                  <span className="font-bold">{formatPrice(total, currency)}</span>
-                </div>
-                <div className="mt-1 flex items-center justify-between gap-3">
-                  <span className="text-stone">Payment</span>
-                  <span className="font-bold">
-                    {selectedPaymentOption?.label}
-                  </span>
-                </div>
-                <div className="mt-1 flex items-center justify-between gap-3">
-                  <span className="text-stone">
-                    Delivery
-                    {selectedDeliveryZone ? ` (${selectedDeliveryZone.name})` : ""}
-                  </span>
-                  <span className="font-bold">
-                    {deliveryFee === 0 ? "Free" : formatPrice(deliveryFee, currency)}
-                  </span>
-                </div>
-                {promoDiscount > 0 && (
-                  <div className="mt-1 flex items-center justify-between gap-3">
-                    <span className="text-stone">Promo</span>
-                    <span className="font-bold text-leaf">
-                      -{formatPrice(promoDiscount, currency)}
+                <p className="mt-1 text-xs font-semibold text-stone">
+                  No card details are needed or saved.
+                </p>
+                {createdOrderNeedsTestPayment ? (
+                  <button
+                    type="button"
+                    disabled={testPaying}
+                    onClick={() => void onPayTestOrder()}
+                    className="mt-3 w-full rounded-full bg-ink py-2.5 text-sm font-extrabold text-white transition hover:bg-raspberry disabled:cursor-wait disabled:opacity-70"
+                  >
+                    {testPaying ? "Paying..." : "Pay test order"}
+                  </button>
+                ) : createdOrder.payment_status === "paid" ? (
+                  <p className="mt-3 rounded-xl bg-mint px-3 py-2 text-sm font-bold text-leaf">
+                    Test payment complete.
+                  </p>
+                ) : (
+                  <p className="mt-3 rounded-xl bg-berrysoft px-3 py-2 text-sm font-bold text-berry">
+                    Payment is {createdOrder.payment_status_display.toLowerCase()}.
+                  </p>
+                )}
+              </div>
+            ) : createdPayment?.checkout_url ? (
+              <div className="mt-3 rounded-2xl border border-line bg-white p-3">
+                <p className="text-sm font-bold text-ink">
+                  Continue to <span className="capitalize">{createdPayment.provider}</span> to pay
+                  securely.
+                </p>
+                <p className="mt-1 text-xs font-semibold text-stone">
+                  Card details are entered on the provider page and never touch Bloom &amp; Petal.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => window.location.assign(createdPayment.checkout_url)}
+                  className="mt-3 w-full rounded-full bg-blossomdeep py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
+                >
+                  Continue to <span className="capitalize">{createdPayment.provider}</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={paymentPreparing}
+                onClick={() => void preparePayment(createdOrder)}
+                className="mt-3 w-full rounded-full border border-blossomdeep py-2.5 text-sm font-extrabold text-blossomdeep disabled:cursor-wait disabled:opacity-60"
+              >
+                {paymentPreparing ? "Preparing secure checkout…" : "Retry secure checkout"}
+              </button>
+            )}
+
+            {testPayError && (
+              <p className="mt-3 rounded-2xl bg-berrysoft px-3 py-2 text-xs font-bold text-berry">
+                {testPayError}
+              </p>
+            )}
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Link
+                href="/profile"
+                onClick={onClose}
+                className="rounded-full border border-line py-2.5 text-center text-sm font-bold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
+              >
+                Order history
+              </Link>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full bg-blossomdeep py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : cartLines.length === 0 ? (
+          <div className="py-8 text-center">
+            <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush text-blossomdeep">
+              <CartIcon className="size-6" />
+            </span>
+            <p className="mt-3 font-display text-xl font-bold text-ink">
+              {cartLoading ? "Syncing cart" : "Your cart is empty"}
+            </p>
+            <p className="mt-1 text-sm text-stone">{cartLoading ? "Syncing cart..." : t.empty}</p>
+            {!cartLoading && (
+              <a
+                href="#catalog"
+                onClick={onClose}
+                className="mt-5 inline-flex rounded-full bg-blossomdeep px-5 py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
+              >
+                Browse flowers
+              </a>
+            )}
+          </div>
+        ) : (
+          <>
+            <ul className="mt-3 flex max-h-72 flex-col gap-3 overflow-y-auto pr-1">
+              {cartLines.map(({ product, qty }) => (
+                <li key={product.id} className="flex items-center gap-3">
+                  <Link
+                    href={`/product/${product.slug ?? product.id}`}
+                    onClick={onClose}
+                    className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-2xl"
+                    style={{ background: product.palette.backdrop }}
+                  >
+                    {product.image ? (
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <BouquetArt palette={product.palette} className="h-12" />
+                    )}
+                  </Link>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{product.name}</p>
+                    <p className="text-sm font-bold text-blossomdeep">
+                      {formatPrice(product.price * qty, currency)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      aria-label={`Decrease ${product.name} quantity`}
+                      onClick={() => setCartQty(product.id, qty - 1)}
+                      className="grid size-7 place-items-center rounded-full bg-blush text-raspberry transition hover:bg-blushdeep active:scale-90"
+                    >
+                      <MinusIcon className="size-3.5" />
+                    </button>
+                    <span className="w-5 text-center text-sm font-bold">{qty}</span>
+                    <button
+                      type="button"
+                      aria-label={`Increase ${product.name} quantity`}
+                      onClick={() => setCartQty(product.id, qty + 1)}
+                      className="grid size-7 place-items-center rounded-full bg-blush text-raspberry transition hover:bg-blushdeep active:scale-90"
+                    >
+                      <PlusIcon className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${product.name} from cart`}
+                      onClick={() => removeFromCart(product.id)}
+                      className="ml-1 grid size-7 place-items-center rounded-full text-stone transition hover:bg-berrysoft hover:text-berry active:scale-90"
+                    >
+                      <TrashIcon className="size-3.5" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
+              <span className="text-sm text-stone">{t.total}</span>
+              <span className="font-display text-lg font-bold">{formatPrice(total, currency)}</span>
+            </div>
+            {(cartError || error) && (
+              <p className="mt-3 rounded-2xl bg-berrysoft px-3 py-2 text-xs font-bold text-berry">
+                {error || cartError}
+              </p>
+            )}
+
+            {!checkoutOpen ? (
+              user ? (
+                <button
+                  type="button"
+                  onClick={openCheckout}
+                  className="mt-3 w-full rounded-full bg-blossomdeep py-3 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry active:scale-95"
+                >
+                  {t.checkout}
+                </button>
+              ) : (
+                <Link
+                  href="/profile?mode=login"
+                  onClick={onClose}
+                  className="mt-3 block w-full rounded-full bg-blossomdeep py-3 text-center text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry"
+                >
+                  Sign in to checkout
+                </Link>
+              )
+            ) : (
+              <form
+                onSubmit={onCheckout}
+                className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,.75fr)]"
+              >
+                <div className="rounded-2xl bg-ink px-4 py-3 text-white lg:col-span-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-white/60">
+                      Secure checkout
+                    </p>
+                    <ol
+                      className="flex items-center gap-2 text-xs font-extrabold"
+                      aria-label="Checkout steps"
+                    >
+                      <li className="rounded-full bg-white px-3 py-1 text-ink">1 · Delivery</li>
+                      <li className="rounded-full border border-white/25 px-3 py-1 text-white/80">
+                        2 · Payment
+                      </li>
+                    </ol>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <span className="text-sm font-bold">
+                      {cartLines.length} item{cartLines.length === 1 ? "" : "s"}
+                    </span>
+                    <span className="font-display text-lg font-extrabold">
+                      {formatPrice(finalTotal, currency)}
                     </span>
                   </div>
-                )}
-                <div className="mt-2 flex items-center justify-between gap-3 border-t border-line pt-2">
-                  <span className="font-extrabold">Total</span>
-                  <span className="font-display text-lg font-bold">
-                    {formatPrice(finalTotal, currency)}
-                  </span>
+                  <p className="mt-1 text-xs font-semibold text-white/70">
+                    {selectedPaymentOption?.provider === "test"
+                      ? "Card test mode — no real money is charged."
+                      : selectedPaymentOption?.provider === "cash"
+                        ? "Pay the courier when your flowers arrive."
+                        : `Secure card payment continues with ${selectedPaymentOption?.provider === "payme" ? "Payme" : "Click"}.`}
+                  </p>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCheckoutOpen(false)}
-                  className="rounded-full border border-line py-2.5 text-sm font-bold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="rounded-full bg-blossomdeep py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry disabled:cursor-wait disabled:opacity-70"
-                >
-                  {submitting ? "..." : "Place order"}
-                </button>
-              </div>
-            </form>
-          )}
-        </>
-      )}
+                <div className="grid content-start gap-3">
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <label className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                        Delivery address
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowMapPicker((open) => !open)}
+                        className="text-xs font-extrabold text-blossomdeep transition hover:text-raspberry"
+                      >
+                        {showMapPicker ? "Use simple address" : "Choose on map"}
+                      </button>
+                    </div>
+                    {showMapPicker ? (
+                      <DeliveryMapPicker value={deliveryLocation} onChange={setDeliveryLocation} />
+                    ) : (
+                      <input
+                        required
+                        value={deliveryLocation.address}
+                        onChange={(event) =>
+                          setDeliveryLocation({
+                            address: event.target.value,
+                            lat: null,
+                            lng: null,
+                          })
+                        }
+                        placeholder="Street, building, apartment"
+                        className="w-full min-w-0 rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
+                      Contact phone
+                    </label>
+                    <input
+                      required
+                      value={phone}
+                      onChange={(event) => setPhone(event.target.value)}
+                      placeholder="+998 90 123 45 67"
+                      className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="mb-1.5 text-xs font-extrabold uppercase tracking-wider text-stone">
+                      Delivery date and time
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
+                          Day
+                        </span>
+                        <select
+                          value={deliveryDayMode}
+                          onChange={(event) =>
+                            setDeliveryDayMode(event.target.value as DeliveryDayMode)
+                          }
+                          className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm font-bold outline-none transition focus:border-blossomdeep"
+                        >
+                          <option value="today">Today</option>
+                          <option value="tomorrow">Tomorrow</option>
+                          <option value="custom">Choose date</option>
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
+                          Zone
+                        </span>
+                        <select
+                          value={selectedDeliveryZoneId}
+                          onChange={(event) =>
+                            setSelectedDeliveryZoneId(Number(event.target.value))
+                          }
+                          className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm font-bold outline-none transition focus:border-blossomdeep"
+                        >
+                          {deliveryZones.map((zone) => (
+                            <option key={zone.id} value={zone.id}>
+                              {zone.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
+                          Time
+                        </span>
+                        <select
+                          value={deliveryTimeSlot}
+                          onChange={(event) =>
+                            setDeliveryTimeSlot(event.target.value as DeliveryTimeSlot)
+                          }
+                          className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm font-bold outline-none transition focus:border-blossomdeep"
+                        >
+                          {deliveryTimeSlots.map((slot) => (
+                            <option key={slot} value={slot}>
+                              {slot}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {selectedDeliveryZone?.requiresManualConfirmation && (
+                        <p className="rounded-2xl bg-[#fff3d8] px-3 py-2 text-xs font-bold text-[#9a6410] sm:col-span-2">
+                          Staff will confirm delivery availability and final fee for this zone.
+                        </p>
+                      )}
+                      {deliveryDayMode === "custom" && (
+                        <input
+                          required
+                          type="date"
+                          min={minDeliveryDate}
+                          value={customDeliveryDate}
+                          onChange={(event) => setCustomDeliveryDate(event.target.value)}
+                          className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition focus:border-blossomdeep sm:col-span-2"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 rounded-2xl bg-paper p-3">
+                    <div>
+                      <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                        Recipient details
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-stone">
+                        Use gift details when the flowers are going to someone else.
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-2 rounded-2xl bg-paper px-3.5 py-2.5 text-sm font-bold text-ink">
+                      <input
+                        type="checkbox"
+                        checked={sendAsGift}
+                        onChange={(event) => setSendAsGift(event.target.checked)}
+                        className="size-4 accent-blossomdeep"
+                      />
+                      Send to someone else
+                    </label>
+
+                    {sendAsGift && (
+                      <div className="grid gap-2">
+                        <input
+                          required={sendAsGift}
+                          value={recipientName}
+                          onChange={(event) => setRecipientName(event.target.value)}
+                          placeholder="Recipient name"
+                          className="w-full rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                        />
+                        <input
+                          required={sendAsGift}
+                          value={recipientPhone}
+                          onChange={(event) => setRecipientPhone(event.target.value)}
+                          placeholder="Recipient phone"
+                          className="w-full rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                        />
+                        <textarea
+                          value={giftNote}
+                          onChange={(event) => setGiftNote(event.target.value)}
+                          rows={2}
+                          placeholder="Gift note"
+                          className="w-full resize-none rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                        />
+                        <label className="flex items-center gap-2 px-1 text-sm font-bold text-ink">
+                          <input
+                            type="checkbox"
+                            checked={callRecipientBeforeDelivery}
+                            onChange={(event) =>
+                              setCallRecipientBeforeDelivery(event.target.checked)
+                            }
+                            className="size-4 accent-blossomdeep"
+                          />
+                          Call recipient before delivery
+                        </label>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setShowExtraDetails((open) => !open)}
+                      className="rounded-2xl border border-line bg-white px-3.5 py-2.5 text-left text-sm font-extrabold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
+                    >
+                      {showExtraDetails ? "Hide courier note" : "Add courier note"}
+                    </button>
+                    {showExtraDetails && (
+                      <textarea
+                        value={notes}
+                        onChange={(event) => setNotes(event.target.value)}
+                        rows={2}
+                        placeholder="Entrance, floor, landmark..."
+                        className="w-full resize-none rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid content-start gap-3 lg:sticky lg:top-0 lg:self-start">
+                  <fieldset className="rounded-2xl bg-paper p-2">
+                    <legend className="px-1 text-xs font-extrabold uppercase tracking-wider text-stone">
+                      Payment method
+                    </legend>
+                    <div className="mt-1 grid gap-2 sm:grid-cols-2">
+                      {paymentOptions.map((method) => {
+                        const active = selectedPaymentOptionId === method.id;
+                        const PaymentIcon = method.provider === "cash" ? CashIcon : CardIcon;
+                        return (
+                          <button
+                            key={method.id}
+                            type="button"
+                            aria-pressed={active}
+                            disabled={!method.enabled}
+                            onClick={() => setSelectedPaymentOptionId(method.id)}
+                            className={`min-h-28 rounded-xl border px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                              active
+                                ? "border-blossomdeep bg-white text-ink shadow-glow"
+                                : "border-line bg-white text-stone hover:border-blossomdeep hover:text-ink"
+                            }`}
+                          >
+                            <span
+                              className={`mb-3 grid size-9 place-items-center rounded-xl ${
+                                active ? "bg-blossomdeep text-white" : "bg-blush text-blossomdeep"
+                              }`}
+                            >
+                              <PaymentIcon className="size-5" />
+                            </span>
+                            <span className="flex items-center justify-between gap-2 text-sm font-extrabold">
+                              {method.label}
+                              <span
+                                aria-hidden="true"
+                                className={`size-4 rounded-full border-2 ${
+                                  active
+                                    ? "border-[5px] border-blossomdeep"
+                                    : "border-line bg-white"
+                                }`}
+                              />
+                            </span>
+                            <span className="mt-1 block text-xs font-bold leading-snug text-stone">
+                              {method.detail}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {paymentMethodsLoading && (
+                      <p className="mt-2 px-1 text-xs font-bold text-stone" role="status">
+                        Checking card availability…
+                      </p>
+                    )}
+                    {paymentMethodsError && (
+                      <p className="mt-2 rounded-xl bg-[#fff3d8] px-3 py-2 text-xs font-bold text-[#825615]">
+                        {paymentMethodsError}
+                      </p>
+                    )}
+                  </fieldset>
+
+                  <div className="flex gap-2 rounded-2xl bg-paper p-2">
+                    <input
+                      value={promoCode}
+                      onChange={(event) => {
+                        setPromoCode(event.target.value);
+                        setPromoDiscount(0);
+                      }}
+                      placeholder="Promo code"
+                      className="min-w-0 flex-1 rounded-xl border border-line bg-white px-3 py-2 text-sm font-bold uppercase outline-none transition placeholder:normal-case placeholder:text-stone focus:border-blossomdeep"
+                    />
+                    <button
+                      type="button"
+                      disabled={promoLoading}
+                      onClick={() => void onApplyPromo()}
+                      className="rounded-xl bg-ink px-4 py-2 text-sm font-extrabold text-white transition hover:bg-raspberry disabled:cursor-wait disabled:opacity-70"
+                    >
+                      {promoLoading ? "..." : "Apply"}
+                    </button>
+                  </div>
+
+                  <div className="rounded-2xl border border-line bg-paper p-3 text-sm">
+                    <p className="mb-2 text-xs font-extrabold uppercase tracking-wider text-stone">
+                      Order summary
+                    </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-stone">Flowers</span>
+                      <span className="font-bold">{formatPrice(total, currency)}</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between gap-3">
+                      <span className="text-stone">Payment</span>
+                      <span className="font-bold">{selectedPaymentOption?.label}</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between gap-3">
+                      <span className="text-stone">
+                        Delivery
+                        {selectedDeliveryZone ? ` (${selectedDeliveryZone.name})` : ""}
+                      </span>
+                      <span className="font-bold">
+                        {deliveryFee === 0 ? "Free" : formatPrice(deliveryFee, currency)}
+                      </span>
+                    </div>
+                    {promoDiscount > 0 && (
+                      <div className="mt-1 flex items-center justify-between gap-3">
+                        <span className="text-stone">Promo</span>
+                        <span className="font-bold text-leaf">
+                          -{formatPrice(promoDiscount, currency)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="mt-2 flex items-center justify-between gap-3 border-t border-line pt-2">
+                      <span className="font-extrabold">Total</span>
+                      <span className="font-display text-lg font-bold">
+                        {formatPrice(finalTotal, currency)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 rounded-2xl border border-[#bfe6cc] bg-mint p-3 text-leaf">
+                    <ShieldIcon className="mt-0.5 size-5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-extrabold">Your payment details stay secure</p>
+                      <p className="mt-0.5 text-xs font-semibold leading-relaxed">
+                        Card details are entered on the payment provider page and never stored here.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCheckoutOpen(false)}
+                      className="rounded-full border border-line py-2.5 text-sm font-bold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={
+                        submitting || paymentMethodsLoading || !selectedPaymentOption?.enabled
+                      }
+                      className="rounded-full bg-blossomdeep py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry disabled:cursor-wait disabled:opacity-70"
+                    >
+                      {submitting
+                        ? "Placing order…"
+                        : selectedPaymentOption?.provider === "cash"
+                          ? "Place cash order"
+                          : "Continue to card payment"}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+          </>
+        )}
       </div>
     </>
   );
@@ -1054,8 +1120,7 @@ export default function Header() {
         const data = await fetchAdminSupportMessages();
         if (!active) return;
         setAdminUnreadCount(
-          data.filter((message) => !message.is_from_admin && !message.is_read)
-            .length,
+          data.filter((message) => !message.is_from_admin && !message.is_read).length,
         );
       } catch {
         if (active) setAdminUnreadCount(0);
@@ -1115,9 +1180,7 @@ export default function Header() {
                 className="flex items-center gap-2 rounded-full bg-blush px-2.5 py-1.5 pr-4 text-blossomdeep transition hover:bg-blushdeep"
               >
                 <span className="grid size-8 place-items-center rounded-full bg-blossomdeep text-sm font-extrabold text-white shadow-glow">
-                  {displayName.trim().charAt(0).toUpperCase() || (
-                    <UserIcon className="size-4" />
-                  )}
+                  {displayName.trim().charAt(0).toUpperCase() || <UserIcon className="size-4" />}
                 </span>
                 <span className="max-w-32 truncate">{displayName}</span>
               </Link>

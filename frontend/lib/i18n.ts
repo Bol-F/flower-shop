@@ -140,7 +140,15 @@ export const copy = {
       columns: {
         catalog: {
           title: "Catalog",
-          links: ["Roses", "Mono bouquets", "Flowers in box", "Baskets", "Plants", "Gifts", "Balloons"],
+          links: [
+            "Roses",
+            "Mono bouquets",
+            "Flowers in box",
+            "Baskets",
+            "Plants",
+            "Gifts",
+            "Balloons",
+          ],
         },
         occasions: {
           title: "Occasions",
@@ -148,7 +156,13 @@ export const copy = {
         },
         clients: {
           title: "Customers",
-          links: ["Delivery & payment", "Freshness guarantee", "Photo before delivery", "Become a partner", "Help"],
+          links: [
+            "Delivery & payment",
+            "Freshness guarantee",
+            "Photo before delivery",
+            "Become a partner",
+            "Help",
+          ],
         },
       },
       copyright: "© 2026 Bloom & Petal. Flowers with a photo before delivery.",
@@ -295,15 +309,36 @@ export const copy = {
       columns: {
         catalog: {
           title: "Каталог",
-          links: ["Розы", "Монобукеты", "Цветы в коробке", "Корзины", "Растения", "Подарки", "Шары"],
+          links: [
+            "Розы",
+            "Монобукеты",
+            "Цветы в коробке",
+            "Корзины",
+            "Растения",
+            "Подарки",
+            "Шары",
+          ],
         },
         occasions: {
           title: "Поводы",
-          links: ["День рождения", "Романтика", "Свадьба", "Годовщина", "Новорожденным", "Просто так"],
+          links: [
+            "День рождения",
+            "Романтика",
+            "Свадьба",
+            "Годовщина",
+            "Новорожденным",
+            "Просто так",
+          ],
         },
         clients: {
           title: "Клиентам",
-          links: ["Доставка и оплата", "Гарантия свежести", "Фото перед доставкой", "Стать партнером", "Помощь"],
+          links: [
+            "Доставка и оплата",
+            "Гарантия свежести",
+            "Фото перед доставкой",
+            "Стать партнером",
+            "Помощь",
+          ],
         },
       },
       copyright: "© 2026 Bloom & Petal. Цветы с фото перед доставкой.",
@@ -450,7 +485,15 @@ export const copy = {
       columns: {
         catalog: {
           title: "Katalog",
-          links: ["Atirgullar", "Mono guldastalar", "Qutidagi gullar", "Savatlar", "O'simliklar", "Sovg'alar", "Sharlar"],
+          links: [
+            "Atirgullar",
+            "Mono guldastalar",
+            "Qutidagi gullar",
+            "Savatlar",
+            "O'simliklar",
+            "Sovg'alar",
+            "Sharlar",
+          ],
         },
         occasions: {
           title: "Tadbirlar",
@@ -458,7 +501,13 @@ export const copy = {
         },
         clients: {
           title: "Mijozlarga",
-          links: ["Yetkazish va to'lov", "Tozalik kafolati", "Yetkazishdan oldin foto", "Hamkor bo'lish", "Yordam"],
+          links: [
+            "Yetkazish va to'lov",
+            "Tozalik kafolati",
+            "Yetkazishdan oldin foto",
+            "Hamkor bo'lish",
+            "Yordam",
+          ],
         },
       },
       copyright: "© 2026 Bloom & Petal. Yetkazishdan oldin fotoli gullar.",

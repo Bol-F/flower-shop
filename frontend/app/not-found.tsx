@@ -5,9 +5,7 @@ export default function NotFound() {
     <main className="mx-auto grid max-w-7xl place-items-center px-4 py-24 text-center">
       <div>
         <p className="text-6xl">🥀</p>
-        <h1 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
-          This page has wilted
-        </h1>
+        <h1 className="mt-4 font-display text-3xl font-bold sm:text-4xl">This page has wilted</h1>
         <p className="mt-2 text-sm text-stone">
           The bouquet you&apos;re looking for doesn&apos;t exist or was sold out.
         </p>

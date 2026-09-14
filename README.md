@@ -273,6 +273,26 @@ are:
 - Notifications: SMTP and Telegram settings; missing optional channels do not
   block checkout.
 
+## Development environment and formatting
+
+Use one backend environment at `backend/.venv`; the repository's
+`.python-version` pins Python 3.12.10 and the VS Code workspace points to the
+same interpreter.
+
+```powershell
+py -3.12 -m venv backend\.venv
+backend\.venv\Scripts\python.exe -m pip install -r backend\requirements-dev.txt
+backend\.venv\Scripts\ruff.exe format --check backend
+
+cd frontend
+npm install
+npm run format:check
+```
+
+Apply formatting with `ruff format backend` from the repository root and
+`npm run format` from `frontend`. Generated environments, caches, build output,
+and dependencies remain ignored by Git.
+
 ## Migrations and tests
 
 ```powershell

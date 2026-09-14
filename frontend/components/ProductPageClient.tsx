@@ -2,10 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  fallbackProduct,
-  loadCatalogProduct,
-} from "@/lib/catalog";
+import { fallbackProduct, loadCatalogProduct } from "@/lib/catalog";
 import type { Product } from "@/lib/types";
 import ProductDetail from "./ProductDetail";
 

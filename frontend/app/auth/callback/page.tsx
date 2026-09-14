@@ -3,7 +3,7 @@ import OAuthCallbackClient from "./OAuthCallbackClient";
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function first(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
 }
 
 export default async function OAuthCallbackPage({ searchParams }: { searchParams: SearchParams }) {

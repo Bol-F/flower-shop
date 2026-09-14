@@ -8,11 +8,7 @@ import {
   type ApiProductDetail,
   type ApiProductListItem,
 } from "./api";
-import {
-  categories as fallbackCategories,
-  palettes,
-  products as fallbackProducts,
-} from "./data";
+import { categories as fallbackCategories, palettes, products as fallbackProducts } from "./data";
 import type { BouquetPalette, Category, Product } from "./types";
 
 const shops = ["Atelier Bloom", "Bahor Flowers", "Chinor Garden", "Lola Market"];
@@ -79,10 +75,7 @@ function compositionFor(product: ApiProductBase, detail?: ApiProductDetail): str
   ].filter(Boolean);
 }
 
-export function apiCategoryToCategory(
-  category: ApiCategory,
-  index = 0,
-): Category {
+export function apiCategoryToCategory(category: ApiCategory, index = 0): Category {
   const fallback = fallbackCategories.find((item) => item.id === category.slug);
   return {
     id: category.slug,
@@ -98,9 +91,7 @@ export function apiProductToProduct(
 ): Product {
   const category =
     detail?.category ??
-    (typeof product.category === "number"
-      ? categoryById.get(product.category)
-      : product.category);
+    (typeof product.category === "number" ? categoryById.get(product.category) : product.category);
   const categorySlug = category?.slug ?? labelToSlug(product.category_name);
   const mock = fallbackProducts.find((item) => item.id === product.slug);
   const price = numberFromPrice(product.price);

@@ -10,16 +10,13 @@ import BouquetArt from "./BouquetArt";
 import { BoltIcon, HeartIcon, PlusIcon, StarIcon } from "./icons";
 
 export default function ProductCard({ product }: { product: Product }) {
-  const { currency, language, favorites, toggleFavorite, addToCart, showToast } =
-    useStore();
+  const { currency, language, favorites, toggleFavorite, addToCart, showToast } = useStore();
   const t = copy[language].product;
   const liked = favorites.includes(product.id);
   const purchasable = product.isAvailable !== false && product.isInStock !== false;
   const lowStock =
     purchasable && typeof product.stock === "number" && product.stock > 0 && product.stock <= 3;
-  const discount = product.oldPrice
-    ? Math.round((1 - product.price / product.oldPrice) * 100)
-    : 0;
+  const discount = product.oldPrice ? Math.round((1 - product.price / product.oldPrice) * 100) : 0;
 
   return (
     <article className="group relative flex flex-col rounded-3xl bg-card p-2 shadow-soft transition duration-300 hover:-translate-y-1 hover:shadow-lift">
@@ -87,9 +84,7 @@ export default function ProductCard({ product }: { product: Product }) {
           onClick={() => {
             addToCart(product);
             showToast(
-              purchasable
-                ? `${product.name} added to cart`
-                : `${product.name} is out of stock`,
+              purchasable ? `${product.name} added to cart` : `${product.name} is out of stock`,
             );
           }}
           className="absolute bottom-2.5 right-2.5 z-20 grid size-10 place-items-center rounded-full bg-card text-blossomdeep shadow-soft transition hover:bg-blossomdeep hover:text-white hover:shadow-lift active:scale-90 disabled:cursor-not-allowed disabled:text-stone disabled:opacity-60"

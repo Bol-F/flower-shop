@@ -20,8 +20,7 @@ const manrope = Manrope({
 
 export const metadata: Metadata = {
   title: "Bloom & Petal — Flower Delivery in Tashkent",
-  description:
-    "Fresh bouquets, gifts and romantic flowers delivered beautifully across Tashkent.",
+  description: "Fresh bouquets, gifts and romantic flowers delivered beautifully across Tashkent.",
 };
 
 export default function RootLayout({
@@ -32,6 +31,7 @@ export default function RootLayout({
   return (
     <html
       lang="ru"
+      data-scroll-behavior="smooth"
       className={`${playfair.variable} ${manrope.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">

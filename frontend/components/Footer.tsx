@@ -25,9 +25,7 @@ export default function Footer() {
               Bloom &amp; Petal
             </span>
           </Link>
-          <p className="mt-3 max-w-xs text-sm leading-relaxed text-stone">
-            {t.tagline}
-          </p>
+          <p className="mt-3 max-w-xs text-sm leading-relaxed text-stone">{t.tagline}</p>
           <p className="mt-4 text-sm font-semibold">
             {t.hours}
             <br />
@@ -39,9 +37,7 @@ export default function Footer() {
 
         {columns.map((col) => (
           <nav key={col.title} aria-label={col.title}>
-            <p className="text-sm font-bold uppercase tracking-wider text-stone">
-              {col.title}
-            </p>
+            <p className="text-sm font-bold uppercase tracking-wider text-stone">{col.title}</p>
             <ul className="mt-3 flex flex-col gap-2">
               {col.links.map((link) => (
                 <li key={link}>

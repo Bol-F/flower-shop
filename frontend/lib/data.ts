@@ -468,7 +468,7 @@ export const products: Product[] = [
     isNew: true,
     popularity: 80,
     description:
-      "Cornflowers, delphinium and dusty miller in cool blue-violet — calm, rare and quietly unforgettable. The \"something blue\" of bouquets.",
+      'Cornflowers, delphinium and dusty miller in cool blue-violet — calm, rare and quietly unforgettable. The "something blue" of bouquets.',
     composition: ["Cornflowers", "Blue delphinium", "Dusty miller", "Linen ribbon"],
     hasSizes: true,
     palette: palettes.bluebell,

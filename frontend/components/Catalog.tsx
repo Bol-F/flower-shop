@@ -32,9 +32,7 @@ export default function Catalog() {
   const { query, setQuery, category, setCategory, language, city } = useStore();
   const t = copy[language].catalog;
   const [allProducts, setAllProducts] = useState<Product[]>(fallbackCatalogProducts);
-  const [allCategories, setAllCategories] = useState<Category[]>(
-    fallbackCatalogCategories,
-  );
+  const [allCategories, setAllCategories] = useState<Category[]>(fallbackCatalogCategories);
   const [loading, setLoading] = useState(true);
   const [usingFallback, setUsingFallback] = useState(false);
   const [catalogError, setCatalogError] = useState("");
@@ -61,9 +59,7 @@ export default function Catalog() {
         setAllProducts(fallbackCatalogProducts);
         setAllCategories(fallbackCatalogCategories);
         setUsingFallback(true);
-        setCatalogError(
-          "Live backend is offline or unreachable. Showing bundled demo flowers.",
-        );
+        setCatalogError("Live backend is offline or unreachable. Showing bundled demo flowers.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -108,9 +104,7 @@ export default function Catalog() {
   const remaining = visible.length - shownProducts.length;
 
   const activeCategory = allCategories.find((c) => c.id === category);
-  const activeCategoryName = activeCategory
-    ? categoryName(language, activeCategory.id)
-    : null;
+  const activeCategoryName = activeCategory ? categoryName(language, activeCategory.id) : null;
 
   return (
     <section id="catalog" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-12">
@@ -122,9 +116,7 @@ export default function Catalog() {
           <p className="mt-1.5 text-sm text-stone">
             {loading ? "..." : visible.length} {t.count}
             {usingFallback && (
-              <span className="ml-2 font-semibold text-raspberry">
-                Demo catalog
-              </span>
+              <span className="ml-2 font-semibold text-raspberry">Demo catalog</span>
             )}
           </p>
         </div>
@@ -148,8 +140,8 @@ export default function Catalog() {
 
       {(usingFallback || catalogError) && (
         <div className="mt-5 rounded-3xl border border-[#f5d79c] bg-[#fff8e7] px-4 py-3 text-sm font-semibold text-[#8a5a0a] shadow-soft">
-          {catalogError || "Showing demo catalog data."} Checkout and account
-          features need the Django API.
+          {catalogError || "Showing demo catalog data."} Checkout and account features need the
+          Django API.
         </div>
       )}
 
@@ -243,12 +235,8 @@ export default function Catalog() {
           <p className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush text-2xl font-extrabold text-blossomdeep">
             0
           </p>
-          <p className="mt-3 font-display text-xl font-semibold">
-            {t.emptyTitle}
-          </p>
-          <p className="mt-1 text-sm text-stone">
-            {t.emptyText}
-          </p>
+          <p className="mt-3 font-display text-xl font-semibold">{t.emptyTitle}</p>
+          <p className="mt-1 text-sm text-stone">{t.emptyText}</p>
           <button
             type="button"
             onClick={() => {

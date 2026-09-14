@@ -30,10 +30,7 @@ function hasDeliveryPoint(value: DeliveryMapValue): value is DeliveryMapValue & 
   return value.lat !== null && value.lng !== null;
 }
 
-export default function DeliveryMapPicker({
-  value,
-  onChange,
-}: DeliveryMapPickerProps) {
+export default function DeliveryMapPicker({ value, onChange }: DeliveryMapPickerProps) {
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markerRef = useRef<LeafletMarker | null>(null);
@@ -79,8 +76,7 @@ export default function DeliveryMapPicker({
 
       const markerIcon = L.divIcon({
         className: "",
-        html:
-          '<span style="display:block;width:22px;height:22px;border-radius:9999px;background:#ec1682;border:4px solid white;box-shadow:0 8px 20px rgba(48,43,45,.32)"></span>',
+        html: '<span style="display:block;width:22px;height:22px;border-radius:9999px;background:#ec1682;border:4px solid white;box-shadow:0 8px 20px rgba(48,43,45,.32)"></span>',
         iconSize: [22, 22],
         iconAnchor: [11, 11],
       });

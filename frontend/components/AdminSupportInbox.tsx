@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type KeyboardEvent,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import {
   ApiError,
   OfflineError,
@@ -59,8 +52,7 @@ function buildConversations(messages: AdminSupportMessage[]): Conversation[] {
   return [...grouped.entries()]
     .map(([key, group]) => {
       const ordered = [...group].sort(
-        (a, b) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
       );
       const lastMessage = ordered[ordered.length - 1];
       return {
@@ -69,15 +61,12 @@ function buildConversations(messages: AdminSupportMessage[]): Conversation[] {
         email: lastMessage.user_email,
         messages: ordered,
         lastMessage,
-        unread: ordered.filter(
-          (message) => !message.is_from_admin && !message.is_read,
-        ).length,
+        unread: ordered.filter((message) => !message.is_from_admin && !message.is_read).length,
       };
     })
     .sort(
       (a, b) =>
-        new Date(b.lastMessage.created_at).getTime() -
-        new Date(a.lastMessage.created_at).getTime(),
+        new Date(b.lastMessage.created_at).getTime() - new Date(a.lastMessage.created_at).getTime(),
     );
 }
 
@@ -109,12 +98,8 @@ function AdminLogin() {
   return (
     <main className="min-h-[calc(100vh-66px)] bg-[#f7f0f4] px-5 py-10">
       <section className="mx-auto max-w-md rounded-[2rem] bg-white p-8 shadow-lift">
-        <p className="text-sm font-extrabold uppercase tracking-[0.18em] text-blossomdeep">
-          Admin
-        </p>
-        <h1 className="mt-2 font-display text-4xl font-extrabold text-ink">
-          Support inbox
-        </h1>
+        <p className="text-sm font-extrabold uppercase tracking-[0.18em] text-blossomdeep">Admin</p>
+        <h1 className="mt-2 font-display text-4xl font-extrabold text-ink">Support inbox</h1>
         <p className="mt-2 text-sm leading-relaxed text-stone">
           Sign in with a staff account to answer customer support chats.
         </p>
@@ -216,14 +201,10 @@ export default function AdminSupportInbox() {
     if (unread.length === 0) return;
     setMessages((current) =>
       current.map((message) =>
-        unread.some((item) => item.id === message.id)
-          ? { ...message, is_read: true }
-          : message,
+        unread.some((item) => item.id === message.id) ? { ...message, is_read: true } : message,
       ),
     );
-    await Promise.allSettled(
-      unread.map((message) => markSupportMessageRead(message.id)),
-    );
+    await Promise.allSettled(unread.map((message) => markSupportMessageRead(message.id)));
   }
 
   async function onReply(event: FormEvent<HTMLFormElement>) {
@@ -268,12 +249,9 @@ export default function AdminSupportInbox() {
           <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush text-2xl font-extrabold text-blossomdeep">
             !
           </div>
-          <h1 className="mt-4 font-display text-3xl font-extrabold text-ink">
-            Staff only
-          </h1>
+          <h1 className="mt-4 font-display text-3xl font-extrabold text-ink">Staff only</h1>
           <p className="mt-2 text-sm leading-relaxed text-stone">
-            Your account is signed in, but it is not allowed to view customer
-            support chats.
+            Your account is signed in, but it is not allowed to view customer support chats.
           </p>
         </section>
       </main>
@@ -290,9 +268,7 @@ export default function AdminSupportInbox() {
                 <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-blossomdeep">
                   Admin
                 </p>
-                <h1 className="font-display text-2xl font-extrabold text-ink">
-                  Support chats
-                </h1>
+                <h1 className="font-display text-2xl font-extrabold text-ink">Support chats</h1>
                 <p className="mt-1 text-xs font-bold text-stone">
                   {conversations.length} chats · {totalMessages} messages
                 </p>
@@ -328,9 +304,7 @@ export default function AdminSupportInbox() {
                 <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-blush text-lg font-extrabold text-blossomdeep">
                   0
                 </div>
-                <p className="mt-3 font-display text-lg font-bold text-ink">
-                  No support messages
-                </p>
+                <p className="mt-3 font-display text-lg font-bold text-ink">No support messages</p>
                 <p className="mt-1 text-sm leading-relaxed text-stone">
                   New customer support requests will appear here.
                 </p>
@@ -425,9 +399,7 @@ export default function AdminSupportInbox() {
                               {message.admin_reply}
                             </p>
                             <p className="mt-2 text-right text-[11px] font-semibold text-white/70">
-                              {message.replied_at
-                                ? formatChatTime(message.replied_at)
-                                : ""}
+                              {message.replied_at ? formatChatTime(message.replied_at) : ""}
                             </p>
                           </div>
                         )}

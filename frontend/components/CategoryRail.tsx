@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  fallbackCatalogCategories,
-  loadCatalogCategories,
-} from "@/lib/catalog";
+import { fallbackCatalogCategories, loadCatalogCategories } from "@/lib/catalog";
 import { categoryName } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import type { Category } from "@/lib/types";
@@ -51,9 +48,7 @@ export default function CategoryRail() {
                 <span className="grid size-16 place-items-center rounded-full transition group-focus-visible:ring-2 group-focus-visible:ring-blossomdeep group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-paper">
                   <span
                     className={`grid size-14 place-items-center rounded-full transition duration-300 group-hover:-translate-y-1 group-hover:shadow-soft group-active:scale-95 ${
-                      active
-                        ? "ring-2 ring-blossomdeep ring-offset-2 ring-offset-paper"
-                        : "ring-0"
+                      active ? "ring-2 ring-blossomdeep ring-offset-2 ring-offset-paper" : "ring-0"
                     }`}
                     style={{ background: cat.tint }}
                   >

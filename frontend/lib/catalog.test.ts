@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  apiCategoryToCategory,
-  apiProductToProduct,
-} from "./catalog";
+import { apiCategoryToCategory, apiProductToProduct } from "./catalog";
 import type { ApiCategory, ApiProductListItem } from "./api";
 
 const roses: ApiCategory = {
@@ -45,10 +42,7 @@ describe("catalog API adapter", () => {
   });
 
   it("normalizes backend products into card-ready products", () => {
-    const product = apiProductToProduct(
-      apiProduct(),
-      new Map([[roses.id, roses]]),
-    );
+    const product = apiProductToProduct(apiProduct(), new Map([[roses.id, roses]]));
 
     expect(product).toMatchObject({
       id: "crimson-velvet-rose",

@@ -24,10 +24,7 @@ import {
   type ApiCart,
   type AuthUser,
 } from "./api";
-import {
-  apiProductToProduct,
-  fallbackCatalogProducts,
-} from "./catalog";
+import { apiProductToProduct, fallbackCatalogProducts } from "./catalog";
 import type { CategoryId, Currency, Language, Product } from "./types";
 
 /**
@@ -294,9 +291,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         setPersisted((prev) => ({
           ...prev,
-          favorites: willRemove
-            ? prev.favorites.filter((f) => f !== id)
-            : [...prev.favorites, id],
+          favorites: willRemove ? prev.favorites.filter((f) => f !== id) : [...prev.favorites, id],
         }));
 
         if (user && product?.backendId) {

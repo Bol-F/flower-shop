@@ -2,14 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type KeyboardEvent,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import {
   ApiError,
   OfflineError,
@@ -102,8 +95,7 @@ export default function SupportChat() {
   const orderedMessages = useMemo(
     () =>
       [...messages].sort(
-        (a, b) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
       ),
     [messages],
   );
@@ -200,9 +192,7 @@ export default function SupportChat() {
                 </span>
                 {t.title}
               </h2>
-              <p className="mt-1 text-sm font-semibold text-white/85">
-                {t.subtitle}
-              </p>
+              <p className="mt-1 text-sm font-semibold text-white/85">{t.subtitle}</p>
             </div>
             <button
               type="button"
@@ -220,9 +210,7 @@ export default function SupportChat() {
                 <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush text-2xl font-extrabold text-blossomdeep">
                   B
                 </div>
-                <p className="mt-6 text-xl leading-relaxed text-ink">
-                  {t.loginText}
-                </p>
+                <p className="mt-6 text-xl leading-relaxed text-ink">{t.loginText}</p>
                 <Link
                   href="/profile?mode=login"
                   onClick={() => setOpen(false)}
@@ -258,13 +246,8 @@ export default function SupportChat() {
             </div>
           ) : (
             <>
-              <div
-                ref={scrollRef}
-                className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
-              >
-                {loading && (
-                  <p className="text-center text-sm font-semibold text-stone">...</p>
-                )}
+              <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+                {loading && <p className="text-center text-sm font-semibold text-stone">...</p>}
                 {!loading && orderedMessages.length === 0 && (
                   <p className="mx-auto mt-12 max-w-64 text-center text-sm leading-relaxed text-stone">
                     {t.empty}

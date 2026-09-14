@@ -171,6 +171,34 @@ export function TrashIcon({ className }: IconProps) {
   );
 }
 
+export function CashIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} {...stroke} aria-hidden="true">
+      <rect x="2.5" y="5" width="15" height="10" rx="2" />
+      <circle cx="10" cy="10" r="2.2" />
+      <path d="M5.5 7.5 H5 M15 12.5 h-.5" />
+    </svg>
+  );
+}
+
+export function CardIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} {...stroke} aria-hidden="true">
+      <rect x="2.5" y="4" width="15" height="12" rx="2.2" />
+      <path d="M2.5 8 H17.5 M5.5 12.5 H9" />
+    </svg>
+  );
+}
+
+export function ShieldIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} {...stroke} aria-hidden="true">
+      <path d="M10 2.5 16 5 v4.3 c0 3.7-2.3 6.4-6 8.2-3.7-1.8-6-4.5-6-8.2V5Z" />
+      <path d="m7.4 10 1.7 1.7 3.6-3.8" />
+    </svg>
+  );
+}
+
 /* ── logo mark ────────────────────────────────────────────────── */
 
 export function LogoMark({ className }: IconProps) {
@@ -199,9 +227,21 @@ export function RoseIcon() {
   return (
     <svg viewBox="0 0 32 32" className="size-8" aria-hidden="true">
       <path d="M16 18 V28" stroke="#4e8a63" strokeWidth="2" strokeLinecap="round" />
-      <path d="M16 24 C13 23 11.5 21.5 11 19" stroke="#4e8a63" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+      <path
+        d="M16 24 C13 23 11.5 21.5 11 19"
+        stroke="#4e8a63"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        fill="none"
+      />
       <circle cx="16" cy="10" r="7" fill="#e0566e" />
-      <path d="M16 5.5 a4.5 4.5 0 0 1 0 9 a3 3 0 0 1 0 -6 a1.6 1.6 0 0 1 0 3.2" stroke="#f8c0cb" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+      <path
+        d="M16 5.5 a4.5 4.5 0 0 1 0 9 a3 3 0 0 1 0 -6 a1.6 1.6 0 0 1 0 3.2"
+        stroke="#f8c0cb"
+        strokeWidth="1.6"
+        fill="none"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -210,8 +250,17 @@ function TulipIcon() {
   return (
     <svg viewBox="0 0 32 32" className="size-8" aria-hidden="true">
       <path d="M16 16 V28" stroke="#4e8a63" strokeWidth="2" strokeLinecap="round" />
-      <path d="M16 23 C12.5 22.5 10.8 20.7 10.5 17.8" stroke="#4e8a63" strokeWidth="1.8" strokeLinecap="round" fill="none" />
-      <path d="M9.5 6 C9.5 12 11.5 16 16 16 C20.5 16 22.5 12 22.5 6 C20 8 18.5 8 16 6 C13.5 8 12 8 9.5 6 Z" fill="#ff9d68" />
+      <path
+        d="M16 23 C12.5 22.5 10.8 20.7 10.5 17.8"
+        stroke="#4e8a63"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M9.5 6 C9.5 12 11.5 16 16 16 C20.5 16 22.5 12 22.5 6 C20 8 18.5 8 16 6 C13.5 8 12 8 9.5 6 Z"
+        fill="#ff9d68"
+      />
       <path d="M16 6 V14" stroke="#df622a" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   );
@@ -232,12 +281,23 @@ function HatboxIcon() {
 function BasketIcon() {
   return (
     <svg viewBox="0 0 32 32" className="size-8" aria-hidden="true">
-      <path d="M9 14 C9 7 23 7 23 14" stroke="#b98a4e" strokeWidth="2" fill="none" strokeLinecap="round" />
+      <path
+        d="M9 14 C9 7 23 7 23 14"
+        stroke="#b98a4e"
+        strokeWidth="2"
+        fill="none"
+        strokeLinecap="round"
+      />
       <circle cx="12" cy="11.5" r="2.6" fill="#e0566e" />
       <circle cx="17.5" cy="10" r="2.3" fill="#f2b748" />
       <circle cx="21.5" cy="12" r="2" fill="#ff9d68" />
       <path d="M6.5 14 h19 l-2 11 a2 2 0 0 1 -2 1.6 H10.5 a2 2 0 0 1 -2 -1.6 Z" fill="#d9a866" />
-      <path d="M9.5 17.5 h13 M10.2 21.5 h11.6" stroke="#b98a4e" strokeWidth="1.4" strokeLinecap="round" />
+      <path
+        d="M9.5 17.5 h13 M10.2 21.5 h11.6"
+        stroke="#b98a4e"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -257,8 +317,14 @@ function CakeIcon() {
 function HeartsIcon() {
   return (
     <svg viewBox="0 0 32 32" className="size-8" aria-hidden="true">
-      <path d="M12 22 C7 18.4 5.5 16 5.5 13.7 C5.5 11.9 6.9 10.5 8.6 10.5 C9.8 10.5 11.1 11.2 12 12.6 C12.9 11.2 14.2 10.5 15.4 10.5 C17.1 10.5 18.5 11.9 18.5 13.7 C18.5 16 17 18.4 12 22 Z" fill="#e0566e" />
-      <path d="M21 17.5 C17.6 15 16.5 13.3 16.5 11.7 C16.5 10.4 17.5 9.5 18.7 9.5 C19.5 9.5 20.4 10 21 11 C21.6 10 22.5 9.5 23.3 9.5 C24.5 9.5 25.5 10.4 25.5 11.7 C25.5 13.3 24.4 15 21 17.5 Z" fill="#ff9d68" />
+      <path
+        d="M12 22 C7 18.4 5.5 16 5.5 13.7 C5.5 11.9 6.9 10.5 8.6 10.5 C9.8 10.5 11.1 11.2 12 12.6 C12.9 11.2 14.2 10.5 15.4 10.5 C17.1 10.5 18.5 11.9 18.5 13.7 C18.5 16 17 18.4 12 22 Z"
+        fill="#e0566e"
+      />
+      <path
+        d="M21 17.5 C17.6 15 16.5 13.3 16.5 11.7 C16.5 10.4 17.5 9.5 18.7 9.5 C19.5 9.5 20.4 10 21 11 C21.6 10 22.5 9.5 23.3 9.5 C24.5 9.5 25.5 10.4 25.5 11.7 C25.5 13.3 24.4 15 21 17.5 Z"
+        fill="#ff9d68"
+      />
     </svg>
   );
 }
@@ -267,7 +333,13 @@ function RingIcon() {
   return (
     <svg viewBox="0 0 32 32" className="size-8" aria-hidden="true">
       <circle cx="16" cy="19" r="7" stroke="#e3b04b" strokeWidth="2.6" fill="none" />
-      <path d="M13 8.5 L16 5 L19 8.5 L16 12 Z" fill="#a9c8e8" stroke="#86aedd" strokeWidth="1" strokeLinejoin="round" />
+      <path
+        d="M13 8.5 L16 5 L19 8.5 L16 12 Z"
+        fill="#a9c8e8"
+        stroke="#86aedd"
+        strokeWidth="1"
+        strokeLinejoin="round"
+      />
       <circle cx="11" cy="13.5" r="1.6" fill="#f6a9b8" />
       <circle cx="21" cy="13.5" r="1.6" fill="#f6a9b8" />
     </svg>
@@ -280,7 +352,10 @@ function PlantIcon() {
       <path d="M16 18 C16 11 13 8 8 7 C8 13 10.5 16.5 16 18 Z" fill="#4e8a63" />
       <path d="M16 18 C16 12.5 18.5 9.5 24 8.5 C23.8 14 21 17 16 18 Z" fill="#7fb88f" />
       <path d="M16 12 V20" stroke="#3f7351" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M10 20 h12 l-1.4 7.2 a1.8 1.8 0 0 1 -1.8 1.4 h-5.6 a1.8 1.8 0 0 1 -1.8 -1.4 Z" fill="#d9794e" />
+      <path
+        d="M10 20 h12 l-1.4 7.2 a1.8 1.8 0 0 1 -1.8 1.4 h-5.6 a1.8 1.8 0 0 1 -1.8 -1.4 Z"
+        fill="#d9794e"
+      />
       <rect x="9.4" y="20" width="13.2" height="2.6" rx="1.3" fill="#c4623a" />
     </svg>
   );
@@ -292,7 +367,10 @@ function GiftIcon() {
       <rect x="6.5" y="13" width="19" height="13" rx="2" fill="#8d77c9" />
       <rect x="6" y="9.5" width="20" height="5" rx="1.8" fill="#a995dd" />
       <rect x="14.4" y="9.5" width="3.2" height="16.5" fill="#ffd9bf" />
-      <path d="M16 9.5 C12 9.5 10.5 7.5 11.5 5.5 C12.5 3.8 15.2 4.6 16 7.8 C16.8 4.6 19.5 3.8 20.5 5.5 C21.5 7.5 20 9.5 16 9.5 Z" fill="#ff9d68" />
+      <path
+        d="M16 9.5 C12 9.5 10.5 7.5 11.5 5.5 C12.5 3.8 15.2 4.6 16 7.8 C16.8 4.6 19.5 3.8 20.5 5.5 C21.5 7.5 20 9.5 16 9.5 Z"
+        fill="#ff9d68"
+      />
     </svg>
   );
 }
@@ -303,7 +381,13 @@ function BalloonsIcon() {
       <ellipse cx="10.5" cy="10" rx="4.4" ry="5.4" fill="#ff9d68" />
       <ellipse cx="21" cy="8.5" rx="4" ry="5" fill="#86aedd" />
       <ellipse cx="16" cy="14.5" rx="3.6" ry="4.4" fill="#f6a9b8" />
-      <path d="M10.5 15.5 C11.5 20 13 23 15 27 M21 13.5 C20 19 18.5 22.5 16.5 27 M16 19 L15.8 27" stroke="#968d80" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+      <path
+        d="M10.5 15.5 C11.5 20 13 23 15 27 M21 13.5 C20 19 18.5 22.5 16.5 27 M16 19 L15.8 27"
+        stroke="#968d80"
+        strokeWidth="1.2"
+        fill="none"
+        strokeLinecap="round"
+      />
       <ellipse cx="9" cy="8" rx="1.2" ry="2" fill="#ffd9bf" transform="rotate(-20 9 8)" />
     </svg>
   );

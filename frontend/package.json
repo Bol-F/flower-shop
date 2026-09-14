@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "format": "prettier --write \"app/**/*.{ts,tsx,css}\" \"components/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"*.{ts,mts,mjs,json}\"",
+    "format:check": "prettier --check \"app/**/*.{ts,tsx,css}\" \"components/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"*.{ts,mts,mjs,json}\"",
     "test": "vitest run"
   },
   "dependencies": {
@@ -26,6 +28,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "jsdom": "^27.0.0",
+    "prettier": "3.9.6",
     "tailwindcss": "^4.3.3",
     "typescript": "^5",
     "vitest": "^4.1.11"

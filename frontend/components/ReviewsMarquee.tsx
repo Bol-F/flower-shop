@@ -40,12 +40,8 @@ export default function ReviewsMarquee() {
   return (
     <section aria-label={t.label} className="overflow-hidden py-10">
       <div className="mx-auto max-w-7xl px-4">
-        <h2 className="font-display text-3xl font-semibold sm:text-4xl">
-          {t.title}
-        </h2>
-        <p className="mt-1.5 text-sm text-stone">
-          {t.subtitle}
-        </p>
+        <h2 className="font-display text-3xl font-semibold sm:text-4xl">{t.title}</h2>
+        <p className="mt-1.5 text-sm text-stone">{t.subtitle}</p>
       </div>
 
       <div className="relative mt-7">

@@ -2,12 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  deleteMyReview,
-  fetchProductSocial,
-  submitReview,
-  type ProductSocial,
-} from "@/lib/api";
+import { deleteMyReview, fetchProductSocial, submitReview, type ProductSocial } from "@/lib/api";
 import { copy } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { StarIcon } from "./icons";
@@ -141,9 +136,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
                 </p>
               </div>
             ) : (
-              <p className="py-2 text-center text-sm text-stone">
-                {loading ? "…" : t.empty}
-              </p>
+              <p className="py-2 text-center text-sm text-stone">{loading ? "…" : t.empty}</p>
             )}
           </div>
 
@@ -228,10 +221,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
           ) : (
             <ul className="space-y-3">
               {reviews.slice(0, shown).map((review) => (
-                <li
-                  key={review.id}
-                  className="rounded-3xl bg-card p-5 shadow-soft"
-                >
+                <li key={review.id} className="rounded-3xl bg-card p-5 shadow-soft">
                   <div className="flex items-center gap-3">
                     <span className="grid size-10 shrink-0 place-items-center rounded-full bg-blush font-display font-bold text-raspberry">
                       {review.author.charAt(0).toUpperCase()}
