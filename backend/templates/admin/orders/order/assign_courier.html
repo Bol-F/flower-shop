@@ -1,0 +1,22 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+  <div id="content-main">
+    <p>{% blocktranslate count count=selected_ids|length %}Assign a courier to {{ count }} selected order.{% plural %}Assign a courier to {{ count }} selected orders.{% endblocktranslate %}</p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <input type="hidden" name="action" value="assign_courier">
+      <input type="hidden" name="select_across" value="0">
+      <input type="hidden" name="apply" value="1">
+      {% for pk in selected_ids %}
+        <input type="hidden" name="{{ action_checkbox_name }}" value="{{ pk }}">
+      {% endfor %}
+      <div class="submit-row">
+        <input type="submit" value="{% translate 'Assign courier' %}" class="default">
+        <a href="../">{% translate 'Cancel' %}</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

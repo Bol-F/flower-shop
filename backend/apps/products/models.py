@@ -1,4 +1,9 @@
+from decimal import Decimal
+from typing import ClassVar
+
+from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models import Q
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
@@ -9,7 +14,12 @@ class Product(models.Model):
     name = models.CharField(_('name'), max_length=200)
     slug = models.SlugField(_('slug'), unique=True, blank=True)
     description = models.TextField(_('description'))
-    price = models.DecimalField(_('price'), max_digits=10, decimal_places=2)
+    price = models.DecimalField(
+        _('price'),
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
     category = models.ForeignKey(
         Category,
         on_delete=models.SET_NULL,
@@ -44,7 +54,10 @@ class Product(models.Model):
     class Meta:
         verbose_name = _('Product')
         verbose_name_plural = _('Products')
-        ordering = ['-created_at']
+        ordering: ClassVar[list] = ['-created_at']
+        constraints: ClassVar[list] = [
+            models.CheckConstraint(check=Q(price__gt=0), name='product_price_positive'),
+        ]
 
     def __str__(self):
         return self.name

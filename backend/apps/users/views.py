@@ -36,6 +36,15 @@ OAUTH_SESSION_KEY = 'oauth_login_attempts'
 MAX_SESSION_ATTEMPTS = 5
 
 
+class OAuthNoStoreMixin:
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        response['Cache-Control'] = 'no-store'
+        response['Pragma'] = 'no-cache'
+        response['Referrer-Policy'] = 'no-referrer'
+        return response
+
+
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
@@ -168,7 +177,7 @@ def _oauth_error_url(exc: OAuthError, attempt=None) -> str:
     return _frontend_callback(**params)
 
 
-class OAuthProvidersView(generics.GenericAPIView):
+class OAuthProvidersView(OAuthNoStoreMixin, generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
@@ -183,7 +192,7 @@ class OAuthProvidersView(generics.GenericAPIView):
         )
 
 
-class OAuthStartView(generics.GenericAPIView):
+class OAuthStartView(OAuthNoStoreMixin, generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_oauth_start'
@@ -200,7 +209,7 @@ class OAuthStartView(generics.GenericAPIView):
         return redirect(authorization_url)
 
 
-class OAuthLinkStartView(generics.GenericAPIView):
+class OAuthLinkStartView(OAuthNoStoreMixin, generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_oauth_start'
@@ -217,7 +226,7 @@ class OAuthLinkStartView(generics.GenericAPIView):
         return Response({'authorization_url': authorization_url})
 
 
-class OAuthCallbackView(generics.GenericAPIView):
+class OAuthCallbackView(OAuthNoStoreMixin, generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_oauth_callback'
@@ -286,7 +295,7 @@ class OAuthCallbackView(generics.GenericAPIView):
             )
 
 
-class OAuthExchangeView(generics.GenericAPIView):
+class OAuthExchangeView(OAuthNoStoreMixin, generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_oauth_exchange'
@@ -328,7 +337,7 @@ class OAuthExchangeView(generics.GenericAPIView):
         )
 
 
-class OAuthLinkExchangeView(generics.GenericAPIView):
+class OAuthLinkExchangeView(OAuthNoStoreMixin, generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_oauth_exchange'

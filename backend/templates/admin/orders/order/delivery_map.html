@@ -55,9 +55,14 @@
     const markers = [];
     orders.forEach((order) => {
       const marker = L.marker([order.lat, order.lng]).addTo(map);
-      marker.bindPopup(
-        `<strong>Order #${order.id}</strong><br>${order.customer}<br>${order.address}<br>${order.status}`,
-      );
+      const popup = document.createElement("div");
+      const label = document.createElement("strong");
+      label.textContent = `Order #${order.id}`;
+      popup.append(label);
+      for (const value of [order.customer, order.address, order.status]) {
+        popup.append(document.createElement("br"), document.createTextNode(value));
+      }
+      marker.bindPopup(popup);
       markers.push(marker);
     });
 

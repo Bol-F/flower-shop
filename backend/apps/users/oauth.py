@@ -76,11 +76,29 @@ def _pkce_challenge(verifier: str) -> str:
 def provider_config(provider: str) -> dict:
     if provider not in PROVIDER_ENDPOINTS:
         raise OAuthError('unsupported_provider', 'Unsupported sign-in provider.')
-    config = settings.OAUTH_PROVIDERS.get(provider, {})
+    config = {
+        key: str(value or '').strip()
+        for key, value in settings.OAUTH_PROVIDERS.get(provider, {}).items()
+    }
     if not config.get('client_id') or not config.get('client_secret'):
         raise OAuthError(
             'provider_unavailable',
             f'{provider.title()} sign-in is not configured.',
+        )
+    redirect_uri = urlparse(config.get('redirect_uri', ''))
+    if (
+        redirect_uri.scheme not in {'http', 'https'}
+        or not redirect_uri.netloc
+        or redirect_uri.username is not None
+        or redirect_uri.password is not None
+        or redirect_uri.path != f'/api/auth/oauth/{provider}/callback/'
+        or redirect_uri.params
+        or redirect_uri.query
+        or redirect_uri.fragment
+    ):
+        raise OAuthError(
+            'provider_configuration',
+            f'{provider.title()} sign-in has an invalid callback configuration.',
         )
     if provider == 'microsoft':
         _microsoft_tenant(config)

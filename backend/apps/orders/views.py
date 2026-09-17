@@ -2,10 +2,9 @@ import json
 from decimal import Decimal
 
 from django.conf import settings
-from django.shortcuts import get_object_or_404
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch, Sum, Value
-from django.db.models.functions import Coalesce
-from django.db.models.functions import TruncDate
+from django.db.models.functions import Coalesce, TruncDate
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser
@@ -17,30 +16,31 @@ from apps.common.permissions import IsOwnerOrAdmin
 from apps.marketplace.models import Courier
 from apps.marketplace.services import award_loyalty_points_if_eligible, repeat_order_to_cart
 from apps.products.models import Product
-from . import services
-from . import notifications
-from .payments import (
-    available_payment_methods,
-    initialize_payment,
-    pay_test_order,
-    update_payment_status,
-)
+
+from . import notifications, services
+from .fulfillment import assign_order_courier, change_order_status
+from .models import DeliveryZone, Order, OrderItem, PaymentAttempt
 from .payment_providers import get_payment_provider
 from .payment_webhooks import (
     click_response,
     payme_authenticated,
     payme_error,
 )
-from .models import DeliveryZone, Order, OrderItem, PaymentAttempt
+from .payments import (
+    available_payment_methods,
+    initialize_payment,
+    pay_test_order,
+    update_payment_status,
+)
 from .serializers import (
-    DeliveryZoneSerializer,
-    OrderSerializer,
+    AssignCourierSerializer,
     CreateOrderSerializer,
+    DeliveryZoneSerializer,
+    InitializePaymentSerializer,
+    OrderSerializer,
+    PaymentAttemptSerializer,
     UpdateOrderStatusSerializer,
     UpdatePaymentStatusSerializer,
-    AssignCourierSerializer,
-    InitializePaymentSerializer,
-    PaymentAttemptSerializer,
 )
 
 
@@ -119,15 +119,9 @@ class UpdateOrderStatusView(generics.UpdateAPIView):
         order = self.get_object()
         serializer = self.get_serializer(order, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        if order.status == Order.Status.COURIER_PICKED_UP and order.courier_picked_up_at is None:
-            order.courier_picked_up_at = timezone.now()
-            order.save(update_fields=['courier_picked_up_at', 'updated_at'])
-        if order.status == Order.Status.DELIVERED and order.delivered_at is None:
-            order.delivered_at = timezone.now()
-            order.save(update_fields=['delivered_at', 'updated_at'])
-        award_loyalty_points_if_eligible(order)
-        notifications.notify_order_status_changed(order)
+        if 'status' not in serializer.validated_data:
+            return Response({'status': 'A status is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        change_order_status(order, serializer.validated_data['status'])
         order = order_queryset().get(pk=order.pk)
         return Response(OrderSerializer(order).data)
 
@@ -273,9 +267,7 @@ class AssignCourierView(APIView):
         courier = None
         if courier_id:
             courier = get_object_or_404(Courier, pk=courier_id, is_active=True)
-        order.assigned_courier = courier
-        order.courier_assigned_at = timezone.now() if courier else None
-        order.save(update_fields=['assigned_courier', 'courier_assigned_at', 'updated_at'])
+        assign_order_courier(order, courier)
         order = order_queryset().get(pk=order.pk)
         return Response(OrderSerializer(order).data)
 

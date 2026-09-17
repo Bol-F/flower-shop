@@ -4,13 +4,14 @@ from django.conf import settings
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
-from apps.cart.services import get_or_create_cart, clear_cart
+from apps.cart.services import clear_cart, get_or_create_cart
 from apps.marketplace.services import (
     mark_promo_used,
     resolve_city,
     validate_promo_code,
 )
 from apps.products.models import Product
+
 from . import notifications
 from .models import Order, OrderItem
 from .payments import (
@@ -56,6 +57,8 @@ def create_order_from_cart(
         product = products.get(item.product_id)
         if not product or not product.is_available:
             raise ValidationError(f'"{item.product.name}" is no longer available.')
+        if product.price <= 0:
+            raise ValidationError(f'"{product.name}" has invalid pricing and cannot be ordered.')
         if item.quantity > product.stock:
             raise ValidationError(f'Only {product.stock} item(s) available for "{product.name}".')
 

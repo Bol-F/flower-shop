@@ -1,9 +1,11 @@
 from typing import ClassVar
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.db.models import F
+from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import ngettext
 
 from .models import Product
 
@@ -45,11 +47,13 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ('name', 'description', 'slug', 'vendor__name')
     search_help_text = _('Find flowers by name, description, slug, or florist.')
     prepopulated_fields: ClassVar[dict] = {'slug': ('name',)}
+    autocomplete_fields = ('category', 'city', 'vendor')
     list_editable = ('price', 'stock', 'is_available')
     list_select_related = ('category', 'city', 'vendor')
     date_hierarchy = 'created_at'
     list_per_page = 25
     readonly_fields = ('preview', 'created_at', 'updated_at')
+    actions = ('publish_selected', 'hide_selected')
 
     fieldsets = (
         (None, {'fields': ('name', 'slug', 'category', 'city', 'vendor', 'description')}),
@@ -105,3 +109,26 @@ class ProductAdmin(admin.ModelAdmin):
                 obj.name,
             )
         return _('Add a flower photo to help your team recognize this product.')
+
+    @admin.action(description=_('Show selected flowers in the shop'), permissions=['change'])
+    def publish_selected(self, request, queryset):
+        updated = queryset.filter(is_available=False).update(
+            is_available=True, updated_at=timezone.now()
+        )
+        self.message_user(
+            request,
+            ngettext('%d flower was made visible.', '%d flowers were made visible.', updated)
+            % updated,
+            level=messages.SUCCESS,
+        )
+
+    @admin.action(description=_('Hide selected flowers from the shop'), permissions=['change'])
+    def hide_selected(self, request, queryset):
+        updated = queryset.filter(is_available=True).update(
+            is_available=False, updated_at=timezone.now()
+        )
+        self.message_user(
+            request,
+            ngettext('%d flower was hidden.', '%d flowers were hidden.', updated) % updated,
+            level=messages.SUCCESS,
+        )

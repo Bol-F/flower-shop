@@ -477,6 +477,8 @@ class TestOAuthFlow:
             reverse('oauth-start', args=['google']),
             {'next': '/orders?status=pending'},
         )
+        assert response['Cache-Control'] == 'no-store'
+        assert response['Referrer-Policy'] == 'no-referrer'
         query = parse_qs(urlparse(response['Location']).query)
         state = query['state'][0]
         attempt = OAuthLoginAttempt.objects.get()
@@ -507,6 +509,16 @@ class TestOAuthFlow:
             assert not any(item['enabled'] for item in disabled.data['providers'])
             start = APIClient().get(reverse('oauth-start', args=['google']))
         assert 'error=provider_unavailable' in start['Location']
+
+    def test_provider_with_invalid_callback_is_not_advertised(self):
+        broken_settings = {provider: values.copy() for provider, values in OAUTH_SETTINGS.items()}
+        broken_settings['google']['redirect_uri'] = 'https://evil.example/callback'
+        with override_settings(OAUTH_PROVIDERS=broken_settings):
+            capabilities = APIClient().get(reverse('oauth-providers'))
+            enabled = {item['id'] for item in capabilities.data['providers'] if item['enabled']}
+            start = APIClient().get(reverse('oauth-start', args=['google']))
+        assert enabled == {'github', 'microsoft'}
+        assert 'error=provider_configuration' in start['Location']
 
     def test_expired_oauth_rows_can_be_purged_without_touching_live_rows(self):
         client = APIClient()

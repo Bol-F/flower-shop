@@ -1,7 +1,11 @@
 from decimal import Decimal
+from typing import ClassVar
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
@@ -27,6 +31,7 @@ class City(models.Model):
         max_digits=10,
         decimal_places=2,
         default=Decimal('2.37'),
+        validators=[MinValueValidator(Decimal('0.00'))],
         help_text=_('Stored in the backend base price unit.'),
     )
     free_delivery_threshold = models.DecimalField(
@@ -34,6 +39,7 @@ class City(models.Model):
         max_digits=10,
         decimal_places=2,
         default=Decimal('39.53'),
+        validators=[MinValueValidator(Decimal('0.00'))],
         help_text=_('Stored in the backend base price unit.'),
     )
     created_at = models.DateTimeField(_('created at'), auto_now_add=True)
@@ -41,7 +47,13 @@ class City(models.Model):
     class Meta:
         verbose_name = _('City')
         verbose_name_plural = _('Cities')
-        ordering = ['name']
+        ordering: ClassVar[list] = ['name']
+        constraints: ClassVar[list] = [
+            models.CheckConstraint(
+                check=Q(default_delivery_fee__gte=0) & Q(free_delivery_threshold__gte=0),
+                name='city_delivery_values_nonnegative',
+            ),
+        ]
 
     def __str__(self):
         return self.name
@@ -71,13 +83,14 @@ class Vendor(models.Model):
         max_digits=5,
         decimal_places=2,
         default=Decimal('10.00'),
+        validators=[MinValueValidator(Decimal('0.00')), MaxValueValidator(Decimal('100.00'))],
     )
     created_at = models.DateTimeField(_('created at'), auto_now_add=True)
 
     class Meta:
         verbose_name = _('Vendor')
         verbose_name_plural = _('Vendors')
-        ordering = ['name']
+        ordering: ClassVar[list] = ['name']
 
     def __str__(self):
         return self.name
@@ -121,7 +134,7 @@ class Courier(models.Model):
     class Meta:
         verbose_name = _('Courier')
         verbose_name_plural = _('Couriers')
-        ordering = ['user__email']
+        ordering: ClassVar[list] = ['user__email']
 
     def __str__(self):
         return f'{self.user.email} ({self.get_current_status_display()})'
@@ -138,12 +151,18 @@ class PromoCode(models.Model):
         max_length=20,
         choices=DiscountType.choices,
     )
-    discount_value = models.DecimalField(_('discount value'), max_digits=10, decimal_places=2)
+    discount_value = models.DecimalField(
+        _('discount value'),
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
     min_order_amount = models.DecimalField(
         _('minimum order amount'),
         max_digits=10,
         decimal_places=2,
         default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
     )
     max_discount_amount = models.DecimalField(
         _('maximum discount amount'),
@@ -151,6 +170,7 @@ class PromoCode(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
+        validators=[MinValueValidator(Decimal('0.00'))],
     )
     is_active = models.BooleanField(_('is active'), default=True)
     valid_from = models.DateTimeField(_('valid from'), default=timezone.now)
@@ -162,10 +182,35 @@ class PromoCode(models.Model):
     class Meta:
         verbose_name = _('Promo code')
         verbose_name_plural = _('Promo codes')
-        ordering = ['code']
+        ordering: ClassVar[list] = ['code']
+        constraints: ClassVar[list] = [
+            models.CheckConstraint(
+                check=Q(discount_value__gt=0)
+                & (Q(discount_type='fixed_amount') | Q(discount_value__lte=100)),
+                name='promo_discount_valid',
+            ),
+            models.CheckConstraint(
+                check=Q(min_order_amount__gte=0)
+                & (Q(max_discount_amount__isnull=True) | Q(max_discount_amount__gte=0)),
+                name='promo_amounts_nonnegative',
+            ),
+        ]
 
     def __str__(self):
         return self.code
+
+    def clean(self):
+        super().clean()
+        if (
+            self.discount_type == self.DiscountType.PERCENT
+            and self.discount_value is not None
+            and self.discount_value > Decimal('100.00')
+        ):
+            raise ValidationError(
+                {'discount_value': _('A percentage discount cannot exceed 100%.')}
+            )
+        if self.valid_until and self.valid_from and self.valid_until <= self.valid_from:
+            raise ValidationError({'valid_until': _('End date must be after start date.')})
 
     def save(self, *args, **kwargs):
         self.code = self.code.strip().upper()
@@ -191,7 +236,7 @@ class WishlistItem(models.Model):
         verbose_name = _('Wishlist item')
         verbose_name_plural = _('Wishlist items')
         unique_together = ('user', 'product')
-        ordering = ['-created_at']
+        ordering: ClassVar[list] = ['-created_at']
 
     def __str__(self):
         return f'{self.user.email} -> {self.product.name}'

@@ -1,9 +1,11 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from apps.products.models import Product
 from apps.products.serializers import ProductListSerializer
 
-from .models import City, Courier, PromoCode, Vendor, WishlistItem
+from .models import City, Courier, Vendor, WishlistItem
 from .services import validate_promo_code
 
 
@@ -62,7 +64,7 @@ class CourierSerializer(serializers.ModelSerializer):
 
 class PromoValidationSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=40)
-    subtotal = serializers.DecimalField(max_digits=10, decimal_places=2)
+    subtotal = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
 
     def validate(self, attrs):
         promo, discount = validate_promo_code(attrs['code'], attrs['subtotal'])

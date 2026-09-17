@@ -1,13 +1,12 @@
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from apps.cart.services import add_item_to_cart
 from apps.cart.serializers import CartSerializer
-from apps.cart.services import get_cart_for_response
+from apps.cart.services import add_item_to_cart, get_cart_for_response
 from apps.orders.models import Order
 
 from .models import City, PromoCode
@@ -39,7 +38,7 @@ def calculate_promo_discount(promo: PromoCode, subtotal: Decimal) -> Decimal:
     if promo.discount_type == PromoCode.DiscountType.FIXED_AMOUNT:
         discount = promo.discount_value
     else:
-        discount = subtotal * promo.discount_value / Decimal('100')
+        discount = subtotal * promo.discount_value / Decimal(100)
 
     if promo.max_discount_amount is not None:
         discount = min(discount, promo.max_discount_amount)
@@ -59,6 +58,20 @@ def validate_promo_code(code: str | None, subtotal: Decimal) -> tuple[PromoCode 
         raise ValidationError({'promo_code': 'Promo code was not found.'})
 
     now = timezone.now()
+    # Legacy rows or direct ORM writes may predate model/admin validation.
+    # Never let malformed configuration increase a total or grant >100% off.
+    if (
+        promo.discount_type not in PromoCode.DiscountType.values
+        or promo.discount_value <= 0
+        or (
+            promo.discount_type == PromoCode.DiscountType.PERCENT
+            and promo.discount_value > Decimal(100)
+        )
+        or promo.min_order_amount < 0
+        or (promo.max_discount_amount is not None and promo.max_discount_amount < 0)
+        or (promo.valid_until and promo.valid_until <= promo.valid_from)
+    ):
+        raise ValidationError({'promo_code': 'Promo code configuration is invalid.'})
     if not promo.is_active:
         raise ValidationError({'promo_code': 'Promo code is not active.'})
     if promo.valid_from and promo.valid_from > now:

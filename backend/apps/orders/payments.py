@@ -373,6 +373,7 @@ def update_payment_status(
     actor=None,
     reason: str = '',
 ) -> Order:
+    order = Order.objects.select_for_update().get(pk=order.pk)
     if order.payment_method != Order.PaymentMethod.CASH:
         raise ValidationError(
             {'payment_status': 'Provider-backed payments can only change via verified callbacks.'}
@@ -387,6 +388,35 @@ def update_payment_status(
     }
     if next_status not in status_map:
         raise ValidationError({'payment_status': 'Unsupported manual payment status.'})
+    allowed_transitions = {
+        Order.PaymentStatus.UNPAID: {
+            Order.PaymentStatus.PENDING,
+            Order.PaymentStatus.PAID,
+            Order.PaymentStatus.FAILED,
+        },
+        Order.PaymentStatus.PENDING: {
+            Order.PaymentStatus.PAID,
+            Order.PaymentStatus.FAILED,
+        },
+        Order.PaymentStatus.FAILED: {Order.PaymentStatus.PENDING},
+        Order.PaymentStatus.PAID: {Order.PaymentStatus.REFUNDED},
+        Order.PaymentStatus.REFUNDED: set(),
+    }
+    if next_status not in allowed_transitions.get(order.payment_status, set()):
+        raise ValidationError(
+            {
+                'payment_status': (
+                    f'Cannot change cash payment from {order.payment_status} to {next_status}.'
+                )
+            }
+        )
+    if (order.status == Order.Status.CANCELLED or order.inventory_released_at is not None) and (
+        next_status != Order.PaymentStatus.REFUNDED
+        or order.payment_status != Order.PaymentStatus.PAID
+    ):
+        raise ValidationError(
+            {'payment_status': 'Cancelled orders cannot receive a new cash payment.'}
+        )
     payment, _ = PaymentAttempt.objects.get_or_create(
         order=order,
         provider=CASH_PAYMENT_PROVIDER,

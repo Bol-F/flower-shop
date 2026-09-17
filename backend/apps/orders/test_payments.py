@@ -9,6 +9,7 @@ from django.contrib.admin.sites import AdminSite
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.test import override_settings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
 
@@ -18,7 +19,12 @@ from apps.users.models import User
 from .admin import OrderAdmin
 from .models import Order, OrderItem, PaymentAttempt, PaymentEvent
 from .payment_webhooks import payme_authenticated
-from .payments import available_payment_methods, initialize_payment, transition_payment
+from .payments import (
+    available_payment_methods,
+    initialize_payment,
+    transition_payment,
+    update_payment_status,
+)
 
 PAYME_SETTINGS = {
     'PAYMENT_PROVIDER': 'payme',
@@ -433,3 +439,73 @@ def test_illegal_payment_transition_is_rejected(online_order):
             source=PaymentEvent.Source.SYSTEM,
             event_type='invalid',
         )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('released_inventory', (False, True))
+def test_cancelled_cash_order_cannot_be_marked_paid(payment_user, released_inventory):
+    order = Order.objects.create(
+        user=payment_user,
+        total_price='25.00',
+        shipping_address='Tashkent',
+        phone='+998901234567',
+        payment_method=Order.PaymentMethod.CASH,
+        status=Order.Status.CANCELLED,
+        inventory_released_at=timezone.now() if released_inventory else None,
+    )
+
+    with pytest.raises(ValidationError):
+        update_payment_status(order, Order.PaymentStatus.PAID, reason='Courier collected cash.')
+
+    order.refresh_from_db()
+    assert order.payment_status == Order.PaymentStatus.UNPAID
+    assert order.paid_at is None
+    assert not PaymentAttempt.objects.filter(order=order).exists()
+
+
+@pytest.mark.django_db
+def test_paid_cancelled_cash_order_can_be_refunded_but_not_paid_again(payment_user):
+    order = Order.objects.create(
+        user=payment_user,
+        total_price='25.00',
+        shipping_address='Tashkent',
+        phone='+998901234567',
+        payment_method=Order.PaymentMethod.CASH,
+    )
+    update_payment_status(order, Order.PaymentStatus.PAID, reason='Courier collected cash.')
+    order.status = Order.Status.CANCELLED
+    order.save(update_fields=('status', 'updated_at'))
+
+    refunded = update_payment_status(
+        order,
+        Order.PaymentStatus.REFUNDED,
+        reason='Cash returned to the customer.',
+    )
+    assert refunded.payment_status == Order.PaymentStatus.REFUNDED
+    assert PaymentEvent.objects.filter(payment__order=order).count() == 2
+
+    with pytest.raises(ValidationError):
+        update_payment_status(order, Order.PaymentStatus.PAID, reason='Repeated collection.')
+
+    order.refresh_from_db()
+    assert order.payment_status == Order.PaymentStatus.REFUNDED
+    assert PaymentEvent.objects.filter(payment__order=order).count() == 2
+
+
+@pytest.mark.django_db
+def test_delivered_cash_order_can_be_marked_paid_once(payment_user):
+    order = Order.objects.create(
+        user=payment_user,
+        total_price='25.00',
+        shipping_address='Tashkent',
+        phone='+998901234567',
+        payment_method=Order.PaymentMethod.CASH,
+        status=Order.Status.DELIVERED,
+    )
+
+    paid = update_payment_status(order, Order.PaymentStatus.PAID, reason='Courier collected cash.')
+    assert paid.payment_status == Order.PaymentStatus.PAID
+
+    with pytest.raises(ValidationError):
+        update_payment_status(order, Order.PaymentStatus.PAID, reason='Duplicate entry.')
+    assert PaymentEvent.objects.filter(payment__order=order).count() == 1

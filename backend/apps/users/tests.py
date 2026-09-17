@@ -51,6 +51,14 @@ class TestRegistration:
         response = api_client.post(url, user_data, format='json')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_register_rejects_case_variant_duplicate_email(
+        self, api_client, user_data, created_user
+    ):
+        user_data['email'] = created_user.email.upper()
+        response = api_client.post(reverse('register'), user_data, format='json')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert User.objects.filter(email__iexact=created_user.email).count() == 1
+
 
 @pytest.mark.django_db
 class TestLogin:

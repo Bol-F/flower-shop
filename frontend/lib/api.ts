@@ -419,7 +419,11 @@ async function request<T>(
   if (res.status === 401 && stored?.refresh) {
     const refreshRes = await doFetch_refresh(stored.refresh);
     if (refreshRes) {
-      stored = { ...stored, access: refreshRes };
+      stored = {
+        ...stored,
+        access: refreshRes.access,
+        refresh: refreshRes.refresh || stored.refresh,
+      };
       saveAuth(stored);
       res = await doFetch(stored.access);
     } else {
@@ -440,7 +444,9 @@ async function request<T>(
   return (await res.json()) as T;
 }
 
-async function doFetch_refresh(refresh: string): Promise<string | null> {
+async function doFetch_refresh(
+  refresh: string,
+): Promise<{ access: string; refresh?: string } | null> {
   try {
     const res = await fetch(`${API_BASE}/api/auth/token/refresh/`, {
       method: "POST",
@@ -448,8 +454,7 @@ async function doFetch_refresh(refresh: string): Promise<string | null> {
       body: JSON.stringify({ refresh }),
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { access: string };
-    return data.access;
+    return (await res.json()) as { access: string; refresh?: string };
   } catch {
     return null;
   }
