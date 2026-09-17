@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { OfflineError } from "@/lib/api";
 import OAuthCallbackClient from "./OAuthCallbackClient";
 
 const mocks = vi.hoisted(() => ({
@@ -23,7 +24,8 @@ vi.mock("@/lib/store", () => ({
     showToast: mocks.showToast,
   }),
 }));
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
   completeOAuth: mocks.completeOAuth,
   completeOAuthLink: mocks.completeOAuthLink,
 }));
@@ -35,13 +37,9 @@ const user = {
 };
 
 const defaultProps: ComponentProps<typeof OAuthCallbackClient> = {
-  code: "",
-  linkCode: "",
   error: "",
   flow: "",
   message: "",
-  next: "/profile",
-  provider: "",
 };
 
 function renderCallback(overrides: Partial<ComponentProps<typeof OAuthCallbackClient>> = {}) {
@@ -91,11 +89,12 @@ describe("OAuthCallbackClient", () => {
     expect(mocks.replace).toHaveBeenCalledWith("/orders?view=current");
   });
 
-  it("keeps compatibility with a one-time code passed in the query", async () => {
-    renderCallback({ code: "legacy-one-time-code", next: "/profile#favorites" });
+  it("never accepts a one-time exchange code from the query string", async () => {
+    window.history.replaceState(null, "", "/auth/callback?code=leaked-query-code");
+    renderCallback();
 
-    await waitFor(() => expect(mocks.completeOAuth).toHaveBeenCalledWith("legacy-one-time-code"));
-    expect(mocks.replace).toHaveBeenCalledWith("/profile#favorites");
+    expect(await screen.findByRole("alert")).toHaveTextContent("did not include one usable code");
+    expect(mocks.completeOAuth).not.toHaveBeenCalled();
   });
 
   it("exchanges an account-link fragment without replacing existing login tokens", async () => {
@@ -122,6 +121,37 @@ describe("OAuthCallbackClient", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("This sign-in link has expired.");
     expect(screen.getByRole("link", { name: /return to sign in/i })).toBeVisible();
+  });
+
+  it("retries a transient exchange from in-memory credentials only", async () => {
+    mocks.completeOAuth.mockRejectedValueOnce(new OfflineError()).mockResolvedValueOnce(user);
+    window.history.replaceState(
+      null,
+      "",
+      "/auth/callback#code=retry-code&next=%2Fprofile%3Ftab%3Dsecurity",
+    );
+
+    renderCallback();
+
+    const retry = await screen.findByRole("button", { name: /try exchange again/i });
+    expect(window.location.hash).toBe("");
+    fireEvent.click(retry);
+    await waitFor(() => expect(mocks.completeOAuth).toHaveBeenCalledTimes(2));
+    expect(mocks.completeOAuth).toHaveBeenLastCalledWith("retry-code");
+    expect(mocks.replace).toHaveBeenCalledWith("/profile?tab=security");
+  });
+
+  it("keeps encoded slashes inside same-origin query values", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/auth/callback#code=safe-code&next=%2Fsearch%3Fq%3Da%252Fb",
+    );
+
+    renderCallback();
+
+    await waitFor(() => expect(mocks.completeOAuth).toHaveBeenCalledWith("safe-code"));
+    expect(mocks.replace).toHaveBeenCalledWith("/search?q=a%2Fb");
   });
 
   it("shows a recoverable error when the callback has no code", async () => {

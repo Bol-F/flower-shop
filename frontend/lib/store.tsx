@@ -20,6 +20,7 @@ import {
   logout as apiLogout,
   removeCartItem,
   removeWishlistItem,
+  subscribeAuth,
   updateCartItem,
   type ApiCart,
   type AuthUser,
@@ -149,9 +150,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } catch {
       /* corrupted storage — fall back to defaults */
     }
-    const auth = loadAuth();
-    if (auth?.user) {
-      setUserState(auth.user);
+    const applyAuth = (auth: ReturnType<typeof loadAuth>) => {
+      setUserState(auth?.user ?? null);
+      if (!auth?.user) return;
       setPersisted((prev) => ({
         ...prev,
         name: auth.user.username || prev.name,
@@ -159,8 +160,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         currency: auth.user.currency || prev.currency,
         language: auth.user.language || prev.language,
       }));
-    }
+    };
+    applyAuth(loadAuth());
     setHydrated(true);
+    return subscribeAuth(applyAuth);
   }, []);
 
   const applyRemoteCart = useCallback((cart: ApiCart) => {

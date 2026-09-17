@@ -17,6 +17,12 @@ from joserfc.jwk import KeySet
 from joserfc.jwt import JWTClaimsRegistry
 
 from .models import OAuthLoginAttempt, SocialIdentity, User
+from .oauth_config import (
+    MICROSOFT_TENANT_ALIASES,
+    MICROSOFT_TENANT_ID_RE,
+    normalize_microsoft_tenant,
+    valid_microsoft_tenant,
+)
 
 
 class OAuthError(Exception):
@@ -57,13 +63,6 @@ PROVIDER_ENDPOINTS = {
 GOOGLE_ISSUER = 'https://accounts.google.com'
 GITHUB_ISSUER = 'https://github.com'
 MICROSOFT_CONSUMER_TENANT_ID = '9188040d-6c67-4c5b-b112-36a304b66dad'
-MICROSOFT_TENANT_ALIASES = {'common', 'organizations', 'consumers'}
-MICROSOFT_TENANT_ID_RE = re.compile(
-    r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
-    re.IGNORECASE,
-)
-
-
 def _sha256(value: str) -> str:
     return hashlib.sha256(value.encode('utf-8')).hexdigest()
 
@@ -85,17 +84,22 @@ def provider_config(provider: str) -> dict:
             'provider_unavailable',
             f'{provider.title()} sign-in is not configured.',
         )
-    redirect_uri = urlparse(config.get('redirect_uri', ''))
-    if (
-        redirect_uri.scheme not in {'http', 'https'}
-        or not redirect_uri.netloc
-        or redirect_uri.username is not None
-        or redirect_uri.password is not None
-        or redirect_uri.path != f'/api/auth/oauth/{provider}/callback/'
-        or redirect_uri.params
-        or redirect_uri.query
-        or redirect_uri.fragment
-    ):
+    try:
+        redirect_uri = urlparse(config.get('redirect_uri', ''))
+        _ = redirect_uri.port
+        invalid_redirect = (
+            redirect_uri.scheme not in {'http', 'https'}
+            or not redirect_uri.hostname
+            or redirect_uri.username is not None
+            or redirect_uri.password is not None
+            or redirect_uri.path != f'/api/auth/oauth/{provider}/callback/'
+            or redirect_uri.params
+            or redirect_uri.query
+            or redirect_uri.fragment
+        )
+    except (TypeError, ValueError):
+        invalid_redirect = True
+    if invalid_redirect:
         raise OAuthError(
             'provider_configuration',
             f'{provider.title()} sign-in has an invalid callback configuration.',
@@ -106,8 +110,8 @@ def provider_config(provider: str) -> dict:
 
 
 def _microsoft_tenant(config: dict) -> str:
-    tenant = str(config.get('tenant') or 'common').strip().lower()
-    if tenant not in MICROSOFT_TENANT_ALIASES and not MICROSOFT_TENANT_ID_RE.fullmatch(tenant):
+    tenant = normalize_microsoft_tenant(config.get('tenant'))
+    if not valid_microsoft_tenant(tenant):
         raise OAuthError(
             'provider_configuration',
             'Microsoft sign-in has an invalid tenant configuration.',
@@ -221,7 +225,7 @@ def exchange_provider_code(
     if provider == 'github':
         return _github_identity(token)
     id_token = token.get('id_token')
-    if not id_token:
+    if not isinstance(id_token, str) or not id_token:
         raise OAuthError('invalid_token', 'The identity provider did not return an ID token.')
     claims = _verified_oidc_claims(provider, config, id_token, attempt.nonce)
     if provider == 'google':
@@ -275,7 +279,17 @@ def _token_exchange(provider: str, config: dict, code: str, verifier: str) -> di
         data = response.json()
     except (requests.RequestException, ValueError) as exc:
         raise OAuthError('provider_error', 'The identity provider could not be reached.') from exc
-    if not response.ok or data.get('error') or not data.get('access_token'):
+    if not isinstance(data, dict):
+        raise OAuthError('provider_rejected', 'The identity provider returned an invalid response.')
+    access_token = data.get('access_token')
+    token_type = data.get('token_type')
+    if (
+        not response.ok
+        or data.get('error')
+        or not isinstance(access_token, str)
+        or not access_token
+        or (token_type is not None and str(token_type).lower() != 'bearer')
+    ):
         raise OAuthError('provider_rejected', 'The identity provider rejected the sign-in request.')
     return data
 
@@ -341,11 +355,10 @@ def _verified_oidc_claims(provider: str, config: dict, id_token: str, nonce: str
             'invalid_token', 'The identity token claims could not be verified.'
         ) from exc
     audience = claims.get('aud')
-    if (
-        isinstance(audience, (list, tuple))
-        and len(audience) > 1
-        and claims.get('azp') != config['client_id']
-    ):
+    authorized_party = claims.get('azp')
+    if authorized_party is not None and authorized_party != config['client_id']:
+        raise OAuthError('invalid_token', 'The identity token claims could not be verified.')
+    if isinstance(audience, (list, tuple)) and len(audience) > 1 and not authorized_party:
         raise OAuthError('invalid_token', 'The identity token claims could not be verified.')
     return claims
 
@@ -356,7 +369,11 @@ def _github_identity(token: dict) -> ProviderIdentity:
     emails = _fetch_json('https://api.github.com/user/emails', token=access_token)
     if not isinstance(profile, dict) or not isinstance(emails, list):
         raise OAuthError('invalid_profile', 'GitHub returned an invalid profile.')
-    verified = [item for item in emails if item.get('verified') and item.get('email')]
+    verified = [
+        item
+        for item in emails
+        if isinstance(item, dict) and item.get('verified') and item.get('email')
+    ]
     primary = next((item for item in verified if item.get('primary')), None)
     selected = primary or (verified[0] if verified else None)
     email = str(selected.get('email')).strip().lower() if selected else ''
@@ -388,6 +405,8 @@ def _unique_username(identity: ProviderIdentity) -> str:
 def resolve_social_user(provider: str, identity: ProviderIdentity, *, linking_user=None) -> User:
     if not identity.subject:
         raise OAuthError('invalid_profile', 'The provider profile has no stable identifier.')
+    if len(identity.subject) > 255 or len(identity.issuer) > 255 or len(identity.email) > 254:
+        raise OAuthError('invalid_profile', 'The provider profile contains invalid identity data.')
     identities = (
         SocialIdentity.objects.select_for_update()
         .select_related('user')
@@ -395,8 +414,17 @@ def resolve_social_user(provider: str, identity: ProviderIdentity, *, linking_us
     )
     existing_identity = identities.filter(issuer=identity.issuer).first()
     if existing_identity is None and identity.issuer:
-        # Preserve identities created before issuer-aware OAuth was introduced.
-        existing_identity = identities.filter(issuer='').first()
+        # A blank legacy issuer is ambiguous. It may only be upgraded while
+        # that exact local user is already authenticated.
+        legacy_identity = identities.filter(issuer='').first()
+        if legacy_identity:
+            if linking_user and legacy_identity.user_id == linking_user.id:
+                existing_identity = legacy_identity
+            else:
+                raise OAuthError(
+                    'legacy_identity_requires_link',
+                    'Sign in with your existing account, then reconnect this provider in Profile.',
+                )
     if existing_identity:
         if linking_user and existing_identity.user_id != linking_user.id:
             raise OAuthError('identity_in_use', 'This provider account is linked elsewhere.')
@@ -420,22 +448,24 @@ def resolve_social_user(provider: str, identity: ProviderIdentity, *, linking_us
                 'A usable email address is required to create an account.',
             )
         user = User.objects.filter(email__iexact=identity.email).first()
-        if user and not user.is_active:
-            raise OAuthError('account_inactive', 'This account is not available.')
-        if user and not identity.email_verified:
+        if user:
             raise OAuthError(
                 'account_exists',
                 'Sign in with your existing account, then connect this provider in Profile.',
             )
-        if user is None:
-            user = User(
-                email=identity.email,
-                username=_unique_username(identity),
-                first_name=identity.first_name[:150],
-                last_name=identity.last_name[:150],
+        if not identity.email_verified:
+            raise OAuthError(
+                'verified_email_required',
+                'Sign in with email first, then connect this provider in Profile.',
             )
-            user.set_unusable_password()
-            user.save()
+        user = User(
+            email=identity.email,
+            username=_unique_username(identity),
+            first_name=identity.first_name[:150],
+            last_name=identity.last_name[:150],
+        )
+        user.set_unusable_password()
+        user.save()
 
     # Serialize links for this local account and keep the UI/model contract to
     # one identity per provider. Existing matching identities returned above.

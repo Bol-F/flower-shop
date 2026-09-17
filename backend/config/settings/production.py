@@ -1,8 +1,9 @@
 from ipaddress import ip_address
 from urllib.parse import SplitResult, urlsplit
-from uuid import UUID
 
-from django.core.exceptions import ImproperlyConfigured
+from apps.users.oauth_config import valid_microsoft_tenant
+from django.core.exceptions import ImproperlyConfigured, ValidationError
+from django.core.validators import URLValidator
 
 from .base import *
 
@@ -25,10 +26,11 @@ def _production_url(
     origin_only: bool = False,
 ) -> SplitResult:
     try:
+        URLValidator(schemes=['https'])(value)
         parsed = urlsplit(value)
         # Accessing ``port`` also validates malformed values such as ``:abc``.
         _ = parsed.port
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, ValidationError) as exc:
         raise ImproperlyConfigured(f'{setting_name} must be a valid HTTPS URL.') from exc
 
     if parsed.scheme.lower() != 'https' or not parsed.hostname:
@@ -48,6 +50,16 @@ def _production_url(
     return parsed
 
 
+def _production_origin(value: str, setting_name: str) -> SplitResult:
+    parsed = _production_url(value, setting_name)
+    serialized_origin = f'{parsed.scheme}://{parsed.netloc}'
+    if value != serialized_origin:
+        raise ImproperlyConfigured(
+            f'{setting_name} must contain only an HTTPS origin without a trailing slash.'
+        )
+    return parsed
+
+
 def _origin(parsed: SplitResult) -> tuple[str, str, int]:
     default_port = 443 if parsed.scheme.lower() == 'https' else 80
     return parsed.scheme.lower(), parsed.hostname.lower().rstrip('.'), parsed.port or default_port
@@ -63,16 +75,6 @@ def _hostname_is_allowed(hostname: str, allowed_hosts: list[str]) -> bool:
         elif normalized == candidate:
             return True
     return False
-
-
-def _valid_microsoft_tenant(tenant: str) -> bool:
-    normalized = tenant.strip().lower()
-    if normalized in {'common', 'organizations', 'consumers'}:
-        return True
-    try:
-        return str(UUID(normalized)) == normalized
-    except (ValueError, AttributeError):
-        return False
 
 
 DEBUG = False
@@ -96,13 +98,10 @@ if RENDER_EXTERNAL_HOSTNAME:
 if not ALLOWED_HOSTS or '*' in ALLOWED_HOSTS:
     raise ImproperlyConfigured('Production ALLOWED_HOSTS must be explicit.')
 
-insecure_cors_origins = [
-    origin
-    for origin in CORS_ALLOWED_ORIGINS
-    if origin.startswith('http://') and 'localhost' not in origin and '127.0.0.1' not in origin
-]
-if insecure_cors_origins:
-    raise ImproperlyConfigured('Production CORS_ALLOWED_ORIGINS must use HTTPS.')
+for configured_origin in CORS_ALLOWED_ORIGINS:
+    _production_origin(configured_origin, 'CORS_ALLOWED_ORIGINS entry')
+for configured_origin in CSRF_TRUSTED_ORIGINS:
+    _production_origin(configured_origin, 'CSRF_TRUSTED_ORIGINS entry')
 
 if PAYMENT_PROVIDER not in {'payme', 'click'}:
     raise ImproperlyConfigured(
@@ -134,6 +133,8 @@ if not PAYMENT_FRONTEND_RETURN_URL.startswith('https://'):
     raise ImproperlyConfigured('PAYMENT_FRONTEND_RETURN_URL must use HTTPS in production.')
 
 frontend_url = _production_url(FRONTEND_URL, 'FRONTEND_URL', origin_only=True)
+if FRONTEND_URL not in CORS_ALLOWED_ORIGINS:
+    raise ImproperlyConfigured('CORS_ALLOWED_ORIGINS must include the exact FRONTEND_URL origin.')
 oauth_frontend_callback = _production_url(
     OAUTH_FRONTEND_CALLBACK_URL,
     'OAUTH_FRONTEND_CALLBACK_URL',
@@ -163,7 +164,7 @@ for provider_name, provider in OAUTH_PROVIDERS.items():
         raise ImproperlyConfigured(f'{setting_name} hostname must be present in ALLOWED_HOSTS.')
 
 microsoft_tenant = str(OAUTH_PROVIDERS['microsoft'].get('tenant', '')).strip()
-if not _valid_microsoft_tenant(microsoft_tenant):
+if not valid_microsoft_tenant(microsoft_tenant):
     raise ImproperlyConfigured(
         'MICROSOFT_OAUTH_TENANT must be common, organizations, consumers, or a UUID.'
     )

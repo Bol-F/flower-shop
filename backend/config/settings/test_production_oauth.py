@@ -60,7 +60,7 @@ def test_valid_production_oauth_configuration_imports():
     assert result.returncode == 0, result.stderr
 
 
-def test_valid_uuid_microsoft_tenant_imports():
+def test_valid_canonical_guid_microsoft_tenant_imports():
     result = _import_production_settings(
         MICROSOFT_OAUTH_TENANT='11111111-2222-3333-4444-555555555555'
     )
@@ -69,6 +69,14 @@ def test_valid_uuid_microsoft_tenant_imports():
 
 def test_subdomain_callback_matches_dot_prefixed_allowed_host():
     result = _import_production_settings(ALLOWED_HOSTS='.example.com')
+    assert result.returncode == 0, result.stderr
+
+
+def test_valid_multiple_production_origins_import():
+    result = _import_production_settings(
+        CORS_ALLOWED_ORIGINS='https://shop.example.com,https://assets.example.com',
+        CSRF_TRUSTED_ORIGINS='https://api.example.com,https://admin.example.com',
+    )
     assert result.returncode == 0, result.stderr
 
 
@@ -94,6 +102,46 @@ def test_unconfigured_providers_do_not_require_production_redirects():
         (
             {'FRONTEND_URL': 'https://shop.example.com/store'},
             'must contain only the frontend origin',
+        ),
+        (
+            {'CORS_ALLOWED_ORIGINS': 'https://other.example.com'},
+            'must include the exact FRONTEND_URL origin',
+        ),
+        (
+            {'CORS_ALLOWED_ORIGINS': 'https://shop.example.com:443'},
+            'must include the exact FRONTEND_URL origin',
+        ),
+        (
+            {'CORS_ALLOWED_ORIGINS': 'https://shop.example.com/'},
+            'must contain only an HTTPS origin without a trailing slash',
+        ),
+        (
+            {'CORS_ALLOWED_ORIGINS': ('https://shop.example.com,https://assets.example.com?')},
+            'must contain only an HTTPS origin without a trailing slash',
+        ),
+        (
+            {'CORS_ALLOWED_ORIGINS': ('https://shop.example.com,ftp://assets.example.com')},
+            'CORS_ALLOWED_ORIGINS entry must be a valid HTTPS URL',
+        ),
+        (
+            {'CORS_ALLOWED_ORIGINS': ('https://shop.example.com,https://localhost:3000')},
+            'CORS_ALLOWED_ORIGINS entry must not use a localhost address',
+        ),
+        (
+            {'CSRF_TRUSTED_ORIGINS': 'http://api.example.com'},
+            'CSRF_TRUSTED_ORIGINS entry must be a valid HTTPS URL',
+        ),
+        (
+            {'CSRF_TRUSTED_ORIGINS': 'https://api.example.com/admin'},
+            'must contain only an HTTPS origin without a trailing slash',
+        ),
+        (
+            {'CSRF_TRUSTED_ORIGINS': 'https://api.example.com#'},
+            'must contain only an HTTPS origin without a trailing slash',
+        ),
+        (
+            {'CSRF_TRUSTED_ORIGINS': 'https://127.0.0.1'},
+            'CSRF_TRUSTED_ORIGINS entry must not use a localhost address',
         ),
         (
             {'OAUTH_FRONTEND_CALLBACK_URL': 'http://shop.example.com/auth/callback'},

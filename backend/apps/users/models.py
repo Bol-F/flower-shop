@@ -79,6 +79,10 @@ class SocialIdentity(models.Model):
                 fields=('provider', 'issuer', 'subject'),
                 name='unique_social_provider_issuer_subject',
             ),
+            models.UniqueConstraint(
+                fields=('user', 'provider'),
+                name='unique_social_user_provider',
+            ),
         ]
         ordering = ('provider',)
 

@@ -102,3 +102,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         data['user'] = UserProfileSerializer(self.user).data
         return data
+
+
+class OAuthExchangeSerializer(serializers.Serializer):
+    code = serializers.CharField(
+        max_length=128,
+        allow_blank=False,
+        trim_whitespace=False,
+    )

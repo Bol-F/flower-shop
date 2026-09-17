@@ -27,6 +27,7 @@ from .oauth import (
 from .serializers import (
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
+    OAuthExchangeSerializer,
     RegisterSerializer,
     UserProfileSerializer,
 )
@@ -61,13 +62,13 @@ class RegisterView(generics.CreateAPIView):
         )
 
 
-class CustomTokenObtainPairView(TokenObtainPairView):
+class CustomTokenObtainPairView(OAuthNoStoreMixin, TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_login'
 
 
-class CustomTokenRefreshView(TokenRefreshView):
+class CustomTokenRefreshView(OAuthNoStoreMixin, TokenRefreshView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_refresh'
 
@@ -302,7 +303,9 @@ class OAuthExchangeView(OAuthNoStoreMixin, generics.GenericAPIView):
 
     @transaction.atomic
     def post(self, request):
-        raw_code = str(request.data.get('code') or '')
+        serializer = OAuthExchangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        raw_code = serializer.validated_data['code']
         digest = _state_digest(raw_code)
         exchange = (
             OAuthExchangeCode.objects.select_for_update()
@@ -344,7 +347,9 @@ class OAuthLinkExchangeView(OAuthNoStoreMixin, generics.GenericAPIView):
 
     @transaction.atomic
     def post(self, request):
-        raw_code = str(request.data.get('code') or '')
+        serializer = OAuthExchangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        raw_code = serializer.validated_data['code']
         exchange = (
             OAuthLinkExchangeCode.objects.select_for_update()
             .select_related('linking_user')

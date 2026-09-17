@@ -28,6 +28,7 @@ function resolveApiBase() {
 export const API_BASE = resolveApiBase();
 
 const AUTH_KEY = "bloompetal:auth";
+const AUTH_CHANGED_EVENT = "bloompetal:auth-changed";
 
 export interface AuthUser {
   id: number;
@@ -358,6 +359,15 @@ interface StoredAuth {
   user: AuthUser;
 }
 
+type RefreshResult =
+  | { status: "ok"; access: string; refresh?: string }
+  | { status: "invalid" }
+  | { status: "retryable"; error: ApiError | OfflineError };
+
+let volatileAuth: StoredAuth | null = null;
+let useVolatileAuth = false;
+let refreshFlight: { token: string; promise: Promise<StoredAuth | null> } | null = null;
+
 export class ApiError extends Error {
   /** DRF error payload, e.g. {email: ["..."], password: ["..."]} */
   details: Record<string, unknown>;
@@ -378,17 +388,46 @@ export class OfflineError extends Error {
 }
 
 export function loadAuth(): StoredAuth | null {
+  if (useVolatileAuth) return volatileAuth;
   try {
     const raw = localStorage.getItem(AUTH_KEY);
-    return raw ? (JSON.parse(raw) as StoredAuth) : null;
+    const auth = raw ? (JSON.parse(raw) as StoredAuth) : null;
+    volatileAuth = auth;
+    return auth;
   } catch {
-    return null;
+    useVolatileAuth = true;
+    return volatileAuth;
   }
 }
 
 function saveAuth(auth: StoredAuth | null) {
-  if (auth) localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
-  else localStorage.removeItem(AUTH_KEY);
+  volatileAuth = auth;
+  if (!useVolatileAuth) {
+    try {
+      if (auth) localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
+      else localStorage.removeItem(AUTH_KEY);
+    } catch {
+      // Keep the current tab usable when storage is blocked or full.
+      useVolatileAuth = true;
+    }
+  }
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+}
+
+export function subscribeAuth(listener: (auth: StoredAuth | null) => void) {
+  const notify = () => listener(loadAuth());
+  const syncFromStorage = (event: StorageEvent) => {
+    if (event.key !== AUTH_KEY && event.key !== null) return;
+    useVolatileAuth = false;
+    volatileAuth = null;
+    notify();
+  };
+  window.addEventListener(AUTH_CHANGED_EVENT, notify);
+  window.addEventListener("storage", syncFromStorage);
+  return () => {
+    window.removeEventListener(AUTH_CHANGED_EVENT, notify);
+    window.removeEventListener("storage", syncFromStorage);
+  };
 }
 
 async function request<T>(
@@ -417,17 +456,10 @@ async function request<T>(
 
   // expired access token → refresh once and retry
   if (res.status === 401 && stored?.refresh) {
-    const refreshRes = await doFetch_refresh(stored.refresh);
-    if (refreshRes) {
-      stored = {
-        ...stored,
-        access: refreshRes.access,
-        refresh: refreshRes.refresh || stored.refresh,
-      };
-      saveAuth(stored);
+    const refreshed = await refreshAuth(stored);
+    if (refreshed) {
+      stored = refreshed;
       res = await doFetch(stored.access);
-    } else {
-      saveAuth(null);
     }
   }
 
@@ -444,20 +476,80 @@ async function request<T>(
   return (await res.json()) as T;
 }
 
-async function doFetch_refresh(
-  refresh: string,
-): Promise<{ access: string; refresh?: string } | null> {
+async function refreshAuth(stored: StoredAuth): Promise<StoredAuth | null> {
+  const latest = loadAuth();
+  if (latest && latest.user.id === stored.user.id && latest.refresh !== stored.refresh) {
+    return latest;
+  }
+  if (refreshFlight?.token === stored.refresh) return refreshFlight.promise;
+
+  const token = stored.refresh;
+  const promise = (async () => {
+    const result = await doFetchRefresh(token);
+    const current = loadAuth();
+
+    // Another request or browser tab may already have rotated this token.
+    if (current && current.user.id === stored.user.id && current.refresh !== token) {
+      return current;
+    }
+    // Never overwrite or clear a different account that signed in meanwhile.
+    if (!current || current.user.id !== stored.user.id || current.refresh !== token) {
+      return null;
+    }
+    if (result.status === "retryable") throw result.error;
+    if (result.status === "invalid") {
+      saveAuth(null);
+      return null;
+    }
+    const updated = {
+      ...current,
+      access: result.access,
+      refresh: result.refresh || current.refresh,
+    };
+    saveAuth(updated);
+    return updated;
+  })();
+  refreshFlight = { token, promise };
   try {
-    const res = await fetch(`${API_BASE}/api/auth/token/refresh/`, {
+    return await promise;
+  } finally {
+    if (refreshFlight?.promise === promise) refreshFlight = null;
+  }
+}
+
+async function doFetchRefresh(refresh: string): Promise<RefreshResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/auth/token/refresh/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh }),
     });
-    if (!res.ok) return null;
-    return (await res.json()) as { access: string; refresh?: string };
   } catch {
-    return null;
+    return { status: "retryable", error: new OfflineError() };
   }
+
+  let details: Record<string, unknown> = {};
+  try {
+    details = (await res.json()) as Record<string, unknown>;
+  } catch {
+    // Handled below as a malformed success or an ordinary error response.
+  }
+  if (!res.ok) {
+    if (res.status === 400 || res.status === 401) return { status: "invalid" };
+    return { status: "retryable", error: new ApiError(res.status, details) };
+  }
+  if (typeof details.access !== "string" || !details.access.trim()) {
+    return {
+      status: "retryable",
+      error: new ApiError(502, { detail: "The token refresh response was invalid." }),
+    };
+  }
+  return {
+    status: "ok",
+    access: details.access,
+    refresh: typeof details.refresh === "string" ? details.refresh : undefined,
+  };
 }
 
 /* ── auth ─────────────────────────────────────────────────────── */

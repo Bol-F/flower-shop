@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { completeOAuth, completeOAuthLink, type OAuthProvider } from "@/lib/api";
+import {
+  ApiError,
+  OfflineError,
+  completeOAuth,
+  completeOAuthLink,
+  type OAuthProvider,
+} from "@/lib/api";
 import { useStore } from "@/lib/store";
 
 const fallbackNextPath = "/profile";
@@ -20,11 +26,12 @@ function isOAuthProvider(value: string): value is OAuthProvider {
 }
 
 function safeNextPath(value: string) {
+  const encodedPath = value.split(/[?#]/u, 1)[0];
   if (
     !value.startsWith("/") ||
     value.startsWith("//") ||
     unsafePathCharacters.test(value) ||
-    unsafeEncodedPathCharacters.test(value)
+    unsafeEncodedPathCharacters.test(encodedPath)
   ) {
     return fallbackNextPath;
   }
@@ -48,106 +55,128 @@ function safeNextPath(value: string) {
 interface CallbackFailure {
   message: string;
   isLink: boolean;
+  canRetry: boolean;
+}
+
+interface CallbackCredential {
+  code: string;
+  isLink: boolean;
+  next: string;
+  provider: string;
+}
+
+function retryableFailure(reason: unknown) {
+  return (
+    reason instanceof OfflineError ||
+    (reason instanceof ApiError && (reason.status === 429 || reason.status >= 500))
+  );
 }
 
 export default function OAuthCallbackClient({
-  code,
-  linkCode,
   error,
   flow,
   message,
-  next,
-  provider,
 }: {
-  code: string;
-  linkCode: string;
   error: string;
   flow: string;
   message: string;
-  next: string;
-  provider: string;
 }) {
   const router = useRouter();
   const { setUser, setName, showToast } = useStore();
-  const started = useRef(false);
+  const initialized = useRef(false);
+  const credential = useRef<CallbackCredential | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const [failure, setFailure] = useState<CallbackFailure | null>(
     error
       ? {
           message: message || "The connection was not completed.",
           isLink: flow === "link",
+          canRetry: false,
         }
       : null,
   );
 
   useEffect(() => {
-    if (started.current) return;
+    let failureTimer: number | undefined;
+    if (!initialized.current) {
+      initialized.current = true;
+      const fragment = new URLSearchParams(window.location.hash.slice(1));
+      const loginCode = (fragment.get("code") || "").trim();
+      const accountLinkCode = (fragment.get("link_code") || "").trim();
 
-    const fragment = new URLSearchParams(window.location.hash.slice(1));
-    const hasFragmentCredential = fragment.has("code") || fragment.has("link_code");
-    const loginCode = (fragment.get("code") || (hasFragmentCredential ? "" : code)).trim();
-    const accountLinkCode = (
-      fragment.get("link_code") || (hasFragmentCredential ? "" : linkCode)
-    ).trim();
-    const requestedNext = fragment.get("next") || next;
-    const callbackProvider = fragment.get("provider") || provider;
+      // Remove one-time credentials before any network request, navigation, or error rendering.
+      window.history.replaceState(null, "", window.location.pathname);
 
-    // Remove one-time credentials before any network request, navigation, or error rendering.
-    window.history.replaceState(null, "", window.location.pathname);
-
-    if (error) {
-      started.current = true;
-      return;
+      if (error) return;
+      if ((!loginCode && !accountLinkCode) || (loginCode && accountLinkCode)) {
+        failureTimer = window.setTimeout(() => {
+          setFailure({
+            message: "The connection response did not include one usable code.",
+            isLink: Boolean(accountLinkCode) || flow === "link",
+            canRetry: false,
+          });
+        }, 0);
+        return () => window.clearTimeout(failureTimer);
+      }
+      credential.current = {
+        code: accountLinkCode || loginCode,
+        isLink: Boolean(accountLinkCode),
+        next: fragment.get("next") || fallbackNextPath,
+        provider: fragment.get("provider") || "",
+      };
     }
-    if ((!loginCode && !accountLinkCode) || (loginCode && accountLinkCode)) {
-      const failureTimer = window.setTimeout(() => {
-        setFailure({
-          message: "The connection response did not include one usable code.",
-          isLink: Boolean(accountLinkCode) || flow === "link",
-        });
-      }, 0);
-      return () => window.clearTimeout(failureTimer);
-    }
 
-    started.current = true;
-    const destination = safeNextPath(requestedNext);
-    if (accountLinkCode) {
-      void completeOAuthLink(accountLinkCode)
+    const pending = credential.current;
+    if (!pending || error) return;
+    let active = true;
+    const destination = safeNextPath(pending.next);
+    if (pending.isLink) {
+      void completeOAuthLink(pending.code)
         .then((user) => {
+          if (!active) return;
           setUser(user);
           setName(user.username);
-          const label = isOAuthProvider(callbackProvider)
-            ? providerLabels[callbackProvider]
+          const label = isOAuthProvider(pending.provider)
+            ? providerLabels[pending.provider]
             : "Account";
           showToast(`${label} is now connected.`);
           router.replace(destination);
         })
         .catch((reason: unknown) => {
+          if (!active) return;
           setFailure({
             message:
               reason instanceof Error
                 ? reason.message
                 : "This account connection is invalid or expired.",
             isLink: true,
+            canRetry: retryableFailure(reason),
           });
         });
-      return;
-    }
-
-    void completeOAuth(loginCode)
-      .then((user) => {
-        setUser(user);
-        setName(user.username);
-        showToast(`Welcome, ${user.username}`);
-        router.replace(destination);
-      })
-      .catch((reason: unknown) => {
-        setFailure({
-          message:
-            reason instanceof Error ? reason.message : "This sign-in link is invalid or expired.",
-          isLink: false,
+    } else {
+      void completeOAuth(pending.code)
+        .then((user) => {
+          if (!active) return;
+          setUser(user);
+          setName(user.username);
+          showToast(`Welcome, ${user.username}`);
+          router.replace(destination);
+        })
+        .catch((reason: unknown) => {
+          if (!active) return;
+          setFailure({
+            message:
+              reason instanceof Error ? reason.message : "This sign-in link is invalid or expired.",
+            isLink: false,
+            canRetry: retryableFailure(reason),
+          });
         });
-      });
-  }, [code, error, flow, linkCode, next, provider, router, setName, setUser, showToast]);
+    }
+    return () => {
+      active = false;
+      if (failureTimer !== undefined) window.clearTimeout(failureTimer);
+    };
+  }, [error, flow, retryAttempt, router, setName, setUser, showToast]);
 
   if (failure) {
     return (
@@ -161,9 +190,21 @@ export default function OAuthCallbackClient({
         <p role="alert" className="mt-3 text-sm font-semibold leading-6 text-stone">
           {failure.message}
         </p>
+        {failure.canRetry && (
+          <button
+            type="button"
+            onClick={() => {
+              setFailure(null);
+              setRetryAttempt((attempt) => attempt + 1);
+            }}
+            className="mt-6 inline-flex rounded-full bg-blossomdeep px-6 py-3 text-sm font-extrabold text-white shadow-glow"
+          >
+            Try exchange again
+          </button>
+        )}
         <Link
           href={failure.isLink ? "/profile" : "/profile?mode=login"}
-          className="mt-6 inline-flex rounded-full bg-blossomdeep px-6 py-3 text-sm font-extrabold text-white shadow-glow"
+          className="mt-6 inline-flex rounded-full border border-line bg-white px-6 py-3 text-sm font-extrabold text-ink"
         >
           {failure.isLink ? "Return to profile" : "Return to sign in"}
         </Link>

@@ -219,6 +219,14 @@ After saving credentials, redeploy the backend and confirm
 `GET /api/auth/oauth/providers/` reports only the intended providers as
 configured before testing each consent flow.
 
+When upgrading an installation that already has Microsoft social accounts,
+set `MICROSOFT_OAUTH_TENANT` to the exact tenant UUID before running migrations
+whenever those accounts came from one tenant. Migration `0009` can then attach
+the canonical issuer to legacy identities. Legacy identities created through
+`common` or `organizations` are intentionally not guessed: those users must
+sign in through an existing local method and reconnect Microsoft from Profile,
+or an operator must verify the tenant and update the issuer before deployment.
+
 Media/storage placeholders:
 
 ```env

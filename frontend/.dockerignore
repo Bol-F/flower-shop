@@ -1,0 +1,44 @@
+# Environment files and private key material must never enter an image context.
+.env*
+**/.env*
+*.pem
+**/*.pem
+*.key
+**/*.key
+*.p12
+**/*.p12
+
+# Dependencies, framework output, and test/tool caches.
+node_modules/
+**/node_modules/
+.next/
+out/
+build/
+dist/
+.turbo/
+coverage/
+.mobile-audit/
+.vercel/
+*.tsbuildinfo
+*.log
+
+# Python environments/caches occasionally created by local tooling.
+.venv/
+venv/
+env/
+**/.venv/
+**/venv/
+**/env/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+
+# Local data and operating-system/editor metadata.
+*.sqlite3
+*.sqlite3-*
+.git/
+.github/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
