@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: flower-shop-api-demo
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    rootDir: backend
+    autoDeployTrigger: "off"
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: python manage.py migrate --noinput && python manage.py seed_demo && daphne -b 0.0.0.0 -p $PORT config.asgi:application
+    healthCheckPath: /api/products/
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.demo
+      - key: FLOWER_DEMO_MODE
+        value: acknowledged-test-payments
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: ALLOWED_HOSTS
+        value: flower-shop-api-demo.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://flower-shop-demo.vercel.app
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://flower-shop-api-demo.onrender.com
+      - key: FRONTEND_URL
+        value: https://flower-shop-demo.vercel.app
+      - key: OAUTH_FRONTEND_CALLBACK_URL
+        value: https://flower-shop-demo.vercel.app/auth/callback
+      - key: PAYMENT_PROVIDER
+        value: test
+      - key: PAYMENT_TEST_MODE_ENABLED
+        value: "true"
+      - key: PAYMENT_FRONTEND_RETURN_URL
+        value: https://flower-shop-demo.vercel.app/payment/return
+      - key: NOTIFICATIONS_ENABLED
+        value: "false"
+      - key: EMAIL_NOTIFICATIONS_ENABLED
+        value: "false"
+      - key: TELEGRAM_NOTIFICATIONS_ENABLED
+        value: "false"
+

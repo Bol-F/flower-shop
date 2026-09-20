@@ -7,16 +7,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OfflineError } from "@/lib/api";
 import OAuthCallbackClient from "./OAuthCallbackClient";
 
-const mocks = vi.hoisted(() => ({
-  completeOAuth: vi.fn(),
-  completeOAuthLink: vi.fn(),
-  replace: vi.fn(),
-  setName: vi.fn(),
-  setUser: vi.fn(),
-  showToast: vi.fn(),
-}));
+const mocks = vi.hoisted(() => {
+  const replace = vi.fn();
+  return {
+    completeOAuth: vi.fn(),
+    completeOAuthLink: vi.fn(),
+    replace,
+    router: { replace },
+    setName: vi.fn(),
+    setUser: vi.fn(),
+    showToast: vi.fn(),
+  };
+});
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: mocks.replace }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => mocks.router }));
 vi.mock("@/lib/store", () => ({
   useStore: () => ({
     setUser: mocks.setUser,

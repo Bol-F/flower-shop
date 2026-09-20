@@ -51,7 +51,7 @@ class TestOAuthFlow:
         with override_settings(OAUTH_PROVIDERS=OAUTH_SETTINGS):
             yield
 
-    @pytest.mark.parametrize('provider', ('google', 'github', 'microsoft'))
+    @pytest.mark.parametrize('provider', ('google', 'github'))
     def test_new_user_login_issues_simplejwt(self, provider):
         client = APIClient()
         state = _start(client, provider)
@@ -79,8 +79,25 @@ class TestOAuthFlow:
         assert SocialIdentity.objects.filter(provider=provider, subject=identity.subject).exists()
         assert not User.objects.get(email=identity.email).has_usable_password()
 
-    def test_verified_email_collision_links_existing_user(self):
-        existing = User.objects.create_user(
+    def test_microsoft_login_requires_an_existing_account(self):
+        client = APIClient()
+        state = _start(client, 'microsoft')
+        identity = ProviderIdentity(
+            subject='microsoft-new-user',
+            email='microsoft@example.com',
+            email_verified=False,
+        )
+        with patch('apps.users.views.exchange_provider_code', return_value=identity):
+            response = client.get(
+                reverse('oauth-callback', args=['microsoft']),
+                {'state': state, 'code': 'valid-code'},
+            )
+        assert 'error=verified_email_required' in response['Location']
+        assert not User.objects.exists()
+        assert not SocialIdentity.objects.exists()
+
+    def test_verified_email_collision_requires_authenticated_linking(self):
+        User.objects.create_user(
             username='john', email='john@example.com', password='safe-password'
         )
         client = APIClient()
@@ -95,9 +112,9 @@ class TestOAuthFlow:
                 reverse('oauth-callback', args=['google']),
                 {'state': state, 'code': 'valid-code'},
             )
-        assert 'code=' in response['Location']
+        assert 'error=account_exists' in response['Location']
         assert User.objects.filter(email='john@example.com').count() == 1
-        assert SocialIdentity.objects.get(subject='google-john').user == existing
+        assert not SocialIdentity.objects.filter(subject='google-john').exists()
 
     def test_unverified_collision_requires_authenticated_linking(self):
         User.objects.create_user(
@@ -556,6 +573,12 @@ class TestOAuthFlow:
         assert not OAuthLinkExchangeCode.objects.exists()
 
     def test_same_subject_from_different_oidc_issuers_is_not_conflated(self):
+        first_user = User.objects.create_user(
+            username='first-tenant', email='first-tenant@example.com', password='safe-password'
+        )
+        second_user = User.objects.create_user(
+            username='second-tenant', email='second-tenant@example.com', password='safe-password'
+        )
         first = resolve_social_user(
             'microsoft',
             ProviderIdentity(
@@ -564,6 +587,7 @@ class TestOAuthFlow:
                 email='first-tenant@example.com',
                 email_verified=False,
             ),
+            linking_user=first_user,
         )
         second = resolve_social_user(
             'microsoft',
@@ -573,6 +597,7 @@ class TestOAuthFlow:
                 email='second-tenant@example.com',
                 email_verified=False,
             ),
+            linking_user=second_user,
         )
         assert first != second
         assert (

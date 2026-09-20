@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://flower-shop-api-demo.onrender.com",
+    "NEXT_PUBLIC_SITE_URL": "https://flower-shop-demo.vercel.app"
+  }
+}
