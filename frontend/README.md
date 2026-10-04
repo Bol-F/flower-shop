@@ -1,30 +1,43 @@
-# Bloom & Petal Frontend
+# Bloom & Petal storefront
 
-Next.js 16 storefront for the flower marketplace.
+Next.js 16 and React 19 storefront for the [Bloom & Petal marketplace](../README.md).
+The Django API owns product prices, stock, checkout totals, orders, and payment
+status. This app never receives merchant secrets.
 
-## Development
+## Start locally
 
-```bash
-npm install
+From `frontend/`:
+
+```powershell
+npm ci
+Copy-Item .env.example .env.local
 npm run dev
 ```
 
-The app reads `NEXT_PUBLIC_API_URL` and defaults to `http://localhost:8000`.
-When the backend is unavailable, the catalog falls back to bundled demo
-products so the UI remains usable.
+Use `NEXT_PUBLIC_API_URL=http://localhost:8000` for local Django. For a
+separate production API, set the variable to its HTTPS origin. Without an
+explicit production value, the client uses its own origin; it does not guess an
+unencrypted port-8000 API. Every `NEXT_PUBLIC_*` value is visible to browsers,
+so never place a secret in one.
 
-## Checks
+When Django is unavailable, the catalog shows bundled **demo** products with
+an offline warning. Account, cart sync, checkout, and real payment flows still
+require the API.
 
-```bash
+## Quality checks
+
+```powershell
 npm run lint
-npm run test
+npm test
+npm run format:check
 npm run build
 ```
 
-## Main Files
+The main integration points are `lib/api.ts` (HTTP/auth client), `lib/catalog.ts`
+(API-to-UI product mapping), `lib/store.tsx` (preferences and cart), and
+`components/Header.tsx` (checkout). Payment options and the UZS conversion
+rate come from `/api/orders/payment-methods/`; the payment attempt returned by
+Django supplies the authoritative charge amount.
 
-- `lib/api.ts` - Django API client, auth refresh, cart, checkout, orders.
-- `lib/catalog.ts` - maps backend products/categories into storefront UI data.
-- `lib/store.tsx` - shared client state, preferences, favorites, cart sync.
-- `components/Catalog.tsx` - API-backed catalog with fallback products.
-- `components/Header.tsx` - cart dropdown and checkout form.
+See the [API reference](../docs/API.md), [deployment guide](../docs/DEPLOYMENT.md),
+and [screenshot gallery](../docs/SCREENSHOTS.md) for the full flow.

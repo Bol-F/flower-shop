@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { fallbackCatalogProducts } from "@/lib/catalog";
-import { formatPrice, toUzs } from "@/lib/currency";
+import { toUzs } from "@/lib/currency";
 import { copy, languages } from "@/lib/i18n";
 import {
   API_BASE,
@@ -37,7 +37,7 @@ import {
   updateOrderStatus,
   updateProfile,
 } from "@/lib/api";
-import { useStore } from "@/lib/store";
+import { usePriceFormatter, useStore } from "@/lib/store";
 import SocialLoginButtons from "./SocialLoginButtons";
 import type { Currency, Language } from "@/lib/types";
 import ProductCard from "./ProductCard";
@@ -233,6 +233,7 @@ function buildAdminConversations(messages: AdminSupportMessage[]) {
 }
 
 function AdminWorkspace() {
+  const formatPrice = usePriceFormatter();
   const { user, name, setUser, setName, signOut, language, setLanguage, showToast } = useStore();
   const [messages, setMessages] = useState<AdminSupportMessage[]>([]);
   const [supportLoading, setSupportLoading] = useState(true);
@@ -1593,6 +1594,7 @@ function ConnectedAccounts({
 }
 
 function CustomerOrderHistory({ currency }: { currency: Currency }) {
+  const formatPrice = usePriceFormatter();
   const { showToast, reloadCart } = useStore();
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1951,6 +1953,7 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
 }
 
 export default function ProfileSettings({ initialMode = "register" }: { initialMode?: AuthMode }) {
+  const formatPrice = usePriceFormatter();
   const {
     user,
     setUser,
@@ -1960,6 +1963,7 @@ export default function ProfileSettings({ initialMode = "register" }: { initialM
     city,
     setCity,
     currency,
+    paymentRate,
     setCurrency,
     language,
     setLanguage,
@@ -2260,7 +2264,7 @@ export default function ProfileSettings({ initialMode = "register" }: { initialM
             <span className="font-bold text-ink">{formatPrice(49, currency)}</span> with your
             current currency. Local UZS estimate:{" "}
             <span className="font-bold text-ink">
-              {toUzs(samplePrice).toLocaleString("en-US").replace(/,/g, " ")} so&apos;m
+              {toUzs(samplePrice, paymentRate).toLocaleString("en-US").replace(/,/g, " ")} so&apos;m
             </span>
             .
           </p>

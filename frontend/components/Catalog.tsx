@@ -50,8 +50,10 @@ export default function Catalog() {
           loadCatalogCategories(),
         ]);
         if (cancelled) return;
-        setAllProducts(products.length > 0 ? products : fallbackCatalogProducts);
-        setAllCategories(categories.length > 0 ? categories : fallbackCatalogCategories);
+        // A successful empty API response is an empty shop, not permission to
+        // present demo inventory as purchasable live products.
+        setAllProducts(products);
+        setAllCategories(categories);
         setUsingFallback(false);
         setCatalogError("");
       } catch {
@@ -147,31 +149,35 @@ export default function Catalog() {
 
       {/* filter chips */}
       <div className="mt-5 flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
-        <button
-          type="button"
-          onClick={() => setTodayOnly(!todayOnly)}
-          aria-pressed={todayOnly}
-          className={`flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition active:scale-95 ${
-            todayOnly
-              ? "border-leaf bg-leaf text-white"
-              : "border-line bg-card hover:border-leaf hover:text-leaf"
-          }`}
-        >
-          <BoltIcon className="size-3.5" />
-          {t.today}
-        </button>
-        <button
-          type="button"
-          onClick={() => setSaleOnly(!saleOnly)}
-          aria-pressed={saleOnly}
-          className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition active:scale-95 ${
-            saleOnly
-              ? "border-berry bg-berry text-white"
-              : "border-line bg-card hover:border-berry hover:text-berry"
-          }`}
-        >
-          {t.sale}
-        </button>
+        {(usingFallback || allProducts.some((product) => product.deliveryToday === true)) && (
+          <button
+            type="button"
+            onClick={() => setTodayOnly(!todayOnly)}
+            aria-pressed={todayOnly}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition active:scale-95 ${
+              todayOnly
+                ? "border-leaf bg-leaf text-white"
+                : "border-line bg-card hover:border-leaf hover:text-leaf"
+            }`}
+          >
+            <BoltIcon className="size-3.5" />
+            {t.today}
+          </button>
+        )}
+        {(usingFallback || allProducts.some((product) => product.oldPrice !== undefined)) && (
+          <button
+            type="button"
+            onClick={() => setSaleOnly(!saleOnly)}
+            aria-pressed={saleOnly}
+            className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition active:scale-95 ${
+              saleOnly
+                ? "border-berry bg-berry text-white"
+                : "border-line bg-card hover:border-berry hover:text-berry"
+            }`}
+          >
+            {t.sale}
+          </button>
+        )}
 
         {/* active filters echoed as removable chips */}
         {activeCategory && (

@@ -91,7 +91,8 @@ export function apiProductToProduct(
   const mock = fallbackProducts.find((item) => item.id === product.slug);
   const price = numberFromPrice(product.price);
   const stock = detail?.stock ?? product.stock_quantity;
-  const hasSizes = !/(plant|pot|potted|dome|preserved|orchid)/i.test(product.name);
+  // The API has one price and stock count per product, not purchasable size variants.
+  const hasSizes = false;
   const createdAt = Date.parse(product.created_at);
   const isNew = Number.isFinite(createdAt) && Date.now() - createdAt < 30 * 24 * 60 * 60 * 1000;
 

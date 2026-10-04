@@ -3,13 +3,13 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import type { Product } from "@/lib/types";
-import { formatPrice } from "@/lib/currency";
 import { copy } from "@/lib/i18n";
-import { useStore } from "@/lib/store";
+import { usePriceFormatter, useStore } from "@/lib/store";
 import BouquetArt from "./BouquetArt";
 import { BoltIcon, HeartIcon, PlusIcon, StarIcon } from "./icons";
 
 export default function ProductCard({ product }: { product: Product }) {
+  const formatPrice = usePriceFormatter();
   const { currency, language, favorites, toggleFavorite, addToCart, showToast } = useStore();
   const t = copy[language].product;
   const liked = favorites.includes(product.id);

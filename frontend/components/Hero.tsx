@@ -7,9 +7,9 @@ export default function Hero() {
   const { language } = useStore();
   const t = copy[language].hero;
   const proofPoints = [
-    ["60-180 min", "city delivery windows"],
-    ["Test payments", "safe demo checkout"],
-    ["Staff tools", "orders, stock, support"],
+    ["Fresh flowers", "browse local bouquets"],
+    ["Delivery choices", "see options at checkout"],
+    ["Payment choices", "see available methods"],
   ];
 
   return (

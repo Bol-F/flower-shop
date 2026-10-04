@@ -5,15 +5,15 @@ import Link from "next/link";
 import { useState } from "react";
 import type { Product } from "@/lib/types";
 import { bouquetSizes, categories, products } from "@/lib/data";
-import { formatPrice } from "@/lib/currency";
 import { categoryName, copy } from "@/lib/i18n";
-import { useStore } from "@/lib/store";
+import { usePriceFormatter, useStore } from "@/lib/store";
 import BouquetArt from "./BouquetArt";
 import ProductCard from "./ProductCard";
 import ProductReviews from "./ProductReviews";
 import { BoltIcon, CameraIcon, HeartIcon, LeafIcon, MinusIcon, PlusIcon, StarIcon } from "./icons";
 
 export default function ProductDetail({ product }: { product: Product }) {
+  const formatPrice = usePriceFormatter();
   const { currency, language, favorites, toggleFavorite, addToCart, showToast } = useStore();
   const t = copy[language].detail;
   const [sizeId, setSizeId] = useState<"S" | "M" | "L">("M");
@@ -118,29 +118,31 @@ export default function ProductDetail({ product }: { product: Product }) {
           </div>
 
           {/* thumbnails — different shots of the bouquet */}
-          <div className="mt-3 flex gap-3">
-            {[0, 1, 2].map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-label={
-                  product.hasSizes
-                    ? `${t.size} ${bouquetSizes[v].id} / ${t.sizes[bouquetSizes[v].id]}`
-                    : `${t.angle} ${v + 1}`
-                }
-                aria-pressed={variant === v}
-                onClick={() => chooseVariant(v)}
-                className={`grid h-20 w-20 place-items-center overflow-hidden rounded-2xl transition hover:-translate-y-0.5 ${
-                  variant === v
-                    ? "ring-2 ring-blossomdeep ring-offset-2 ring-offset-paper"
-                    : "opacity-70 hover:opacity-100"
-                }`}
-                style={{ background: product.palette.backdrop }}
-              >
-                <BouquetArt palette={product.palette} variant={v} className="h-16" />
-              </button>
-            ))}
-          </div>
+          {!product.image && (
+            <div className="mt-3 flex gap-3">
+              {[0, 1, 2].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-label={
+                    product.hasSizes
+                      ? `${t.size} ${bouquetSizes[v].id} / ${t.sizes[bouquetSizes[v].id]}`
+                      : `${t.angle} ${v + 1}`
+                  }
+                  aria-pressed={variant === v}
+                  onClick={() => chooseVariant(v)}
+                  className={`grid h-20 w-20 place-items-center overflow-hidden rounded-2xl transition hover:-translate-y-0.5 ${
+                    variant === v
+                      ? "ring-2 ring-blossomdeep ring-offset-2 ring-offset-paper"
+                      : "opacity-70 hover:opacity-100"
+                  }`}
+                  style={{ background: product.palette.backdrop }}
+                >
+                  <BouquetArt palette={product.palette} variant={v} className="h-16" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* info column */}
@@ -292,7 +294,7 @@ export default function ProductDetail({ product }: { product: Product }) {
             </div>
             <div>
               <p className="text-xs font-extrabold uppercase tracking-wider text-stone">Checkout</p>
-              <p className="mt-1 font-bold text-ink">Cash, card, or online test payment</p>
+              <p className="mt-1 font-bold text-ink">Available methods shown at checkout</p>
             </div>
           </div>
 

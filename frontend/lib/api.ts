@@ -18,7 +18,9 @@ function resolveApiBase() {
   if (typeof window !== "undefined") {
     const { hostname, protocol } = window.location;
     if (hostname !== "localhost" && hostname !== "127.0.0.1") {
-      return `${protocol}//${hostname}:8000`;
+      // Never guess an insecure production API origin. Same-origin deployments
+      // work without configuration; split deployments must set NEXT_PUBLIC_API_URL.
+      return `${protocol}//${window.location.host}`;
     }
   }
 
@@ -840,9 +842,11 @@ export async function createOrder(payload: {
   });
 }
 
-export async function fetchPaymentMethods(): Promise<ApiPaymentOption[]> {
-  const data = await request<{ methods: ApiPaymentOption[] }>("/api/orders/payment-methods/");
-  return data.methods.filter((method) => method.enabled);
+export async function fetchPaymentConfiguration(): Promise<{
+  methods: ApiPaymentOption[];
+  uzs_per_price_unit: string;
+}> {
+  return request("/api/orders/payment-methods/");
 }
 
 export async function initializePayment(

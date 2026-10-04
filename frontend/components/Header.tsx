@@ -3,7 +3,6 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { formatPrice } from "@/lib/currency";
 import {
   calculateDeliveryFee,
   deliveryTimeSlots,
@@ -19,7 +18,7 @@ import {
   fetchAdminSupportMessages,
   fetchCities,
   fetchDeliveryZones,
-  fetchPaymentMethods,
+  fetchPaymentConfiguration,
   initializePayment,
   payTestOrder,
   validatePromoCode,
@@ -29,7 +28,7 @@ import {
   type ApiPaymentAttempt,
   type ApiPaymentOption,
 } from "@/lib/api";
-import { useStore } from "@/lib/store";
+import { usePriceFormatter, useStore } from "@/lib/store";
 import BouquetArt from "./BouquetArt";
 import DeliveryMapPicker, { type DeliveryMapValue } from "./DeliveryMapPicker";
 import {
@@ -96,9 +95,11 @@ function firstApiMessage(error: unknown, fallback: string) {
 }
 
 function CartDropdown({ onClose }: { onClose: () => void }) {
+  const formatPrice = usePriceFormatter();
   const {
     cartLines,
     currency,
+    syncPaymentRate,
     language,
     setCartQty,
     removeFromCart,
@@ -203,8 +204,10 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (!checkoutOpen) return;
     let active = true;
-    void fetchPaymentMethods()
-      .then((methods) => {
+    void fetchPaymentConfiguration()
+      .then((configuration) => {
+        syncPaymentRate(configuration.uzs_per_price_unit);
+        const methods = configuration.methods.filter((method) => method.enabled);
         if (!active || methods.length === 0) return;
         setPaymentOptions(methods);
         setSelectedPaymentOptionId((current) =>
@@ -226,7 +229,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
     return () => {
       active = false;
     };
-  }, [checkoutOpen]);
+  }, [checkoutOpen, syncPaymentRate]);
 
   function openCheckout() {
     setPaymentMethodsLoading(true);

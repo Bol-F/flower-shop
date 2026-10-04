@@ -14,8 +14,16 @@ const localDevOrigins = Object.values(os.networkInterfaces()).flatMap((addresses
 
 const apiOrigin = (() => {
   try {
-    return new URL(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").origin;
+    const url = new URL(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000");
+    const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+    if (process.env.NODE_ENV === "production" && url.protocol !== "https:" && !local) {
+      throw new Error("Production NEXT_PUBLIC_API_URL must use HTTPS.");
+    }
+    return url.origin;
   } catch {
+    if (process.env.NEXT_PUBLIC_API_URL) {
+      throw new Error("NEXT_PUBLIC_API_URL must be an HTTPS origin in production.");
+    }
     return "http://localhost:8000";
   }
 })();
@@ -31,7 +39,7 @@ const contentSecurityPolicy = [
   }`,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
-  "img-src 'self' data: blob: https:",
+  `img-src 'self' data: blob: https: ${apiOrigin}`,
   `connect-src 'self' ${apiOrigin} https: ws: wss:`,
   ...(process.env.NODE_ENV === "production" ? ["upgrade-insecure-requests"] : []),
 ].join("; ");

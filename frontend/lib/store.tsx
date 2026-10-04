@@ -15,6 +15,7 @@ import {
   addWishlistItem,
   clearRemoteCart,
   fetchCart,
+  fetchPaymentConfiguration,
   fetchWishlist,
   loadAuth,
   logout as apiLogout,
@@ -26,6 +27,7 @@ import {
   type AuthUser,
 } from "./api";
 import { apiProductToProduct, fallbackCatalogProducts } from "./catalog";
+import { formatPrice as formatCurrencyPrice, UZS_PER_USD } from "./currency";
 import type { CategoryId, Currency, Language, Product } from "./types";
 
 /**
@@ -64,6 +66,8 @@ const STORAGE_KEY = "bloompetal:v1";
 
 interface StoreValue extends PersistedState {
   hydrated: boolean;
+  paymentRate: number;
+  syncPaymentRate: (rate: string) => void;
   /* backend account (null when browsing as guest) */
   user: AuthUser | null;
   setUser: (u: AuthUser | null) => void;
@@ -133,12 +137,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [persisted, setPersisted] = useState<PersistedState>(DEFAULTS);
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [paymentRate, setPaymentRate] = useState(UZS_PER_USD);
+  const syncPaymentRate = useCallback((value: string) => {
+    const rate = Number(value);
+    if (Number.isFinite(rate) && rate > 0) setPaymentRate(rate);
+  }, []);
   const [cartLoading, setCartLoading] = useState(false);
   const [cartError, setCartError] = useState("");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void fetchPaymentConfiguration()
+      .then((config) => {
+        if (active) syncPaymentRate(config.uzs_per_price_unit);
+      })
+      .catch(() => {
+        // Demo/offline catalog retains the documented default rate.
+      });
+    return () => {
+      active = false;
+    };
+  }, [syncPaymentRate]);
 
   useEffect(() => {
     // one-time hydration from localStorage: the server render must use
@@ -279,6 +302,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     return {
       ...persisted,
+      paymentRate,
+      syncPaymentRate,
       hydrated,
       user,
       setUser,
@@ -364,6 +389,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }, [
     persisted,
+    paymentRate,
+    syncPaymentRate,
     hydrated,
     user,
     setUser,
@@ -403,4 +430,12 @@ export function useStore(): StoreValue {
   const ctx = useContext(StoreContext);
   if (!ctx) throw new Error("useStore must be used inside <StoreProvider>");
   return ctx;
+}
+
+export function usePriceFormatter(): (amount: number, currency: Currency) => string {
+  const { paymentRate } = useStore();
+  return useCallback(
+    (amount: number, currency: Currency) => formatCurrencyPrice(amount, currency, paymentRate),
+    [paymentRate],
+  );
 }
