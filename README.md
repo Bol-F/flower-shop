@@ -11,7 +11,7 @@ adjustments.
 | Area | Technology |
 | --- | --- |
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS, Leaflet |
-| Backend | Python 3.12, Django 4.2, Django REST Framework |
+| Backend | Python 3.12, Django 5.2 LTS, Django REST Framework |
 | Authentication | SimpleJWT plus Google, GitHub, and Microsoft OAuth/OIDC |
 | Database | PostgreSQL in development/production; SQLite in isolated tests |
 | Payments | Payme hosted checkout + Merchant API, Click hosted checkout + Shop API, development-only test provider, cash |
@@ -88,7 +88,7 @@ Backend, from the repository root:
 ```powershell
 cd backend
 python -m venv .venv
-venv\Scripts\Activate.ps1
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
 python manage.py migrate
@@ -115,6 +115,10 @@ The storefront runs at `http://localhost:3000`. For local development:
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
+
+For a split production deployment, set `NEXT_PUBLIC_API_URL` to the backend's
+**HTTPS** origin. Without it, non-local browsers use their own origin; the app
+will not guess an insecure `:8000` endpoint.
 
 Only the backend receives OAuth client secrets, payment secrets, SMTP
 credentials, or Django secrets. Every `NEXT_PUBLIC_*` value is public.
@@ -192,7 +196,10 @@ PAYMENT_UZS_PER_PRICE_UNIT=12650
 
 `PAYMENT_UZS_PER_PRICE_UNIT` converts this repository's existing price unit to
 UZS at payment initialization. The resulting amount is snapshotted on the
-payment and must match every callback exactly.
+payment and must match every callback exactly. The public payment-capabilities
+endpoint also exposes this rate so UZS catalog prices use the same conversion;
+amounts are not rounded to thousands. The checkout total returned by Django
+is authoritative.
 
 ### Payme
 
@@ -308,7 +315,7 @@ python -m pytest -q
 
 cd ..\frontend
 npm run lint
-npm test -- --run
+npm test
 npm run build
 ```
 
@@ -335,12 +342,16 @@ screens require credentials supplied by the project owner.
   make reasoned, audited adjustments only for cash orders.
 - The browser return URL is informational. Query parameters are not proof of
   payment.
+- Production images are allowed only from the configured API origin (or HTTPS),
+  not an arbitrary HTTP endpoint. Production Django uses explicit hosts and
+  origins, HTTPS redirects, secure cookies, and HSTS.
 
 ## Deployment and API reference
 
 - [API reference](docs/API.md)
 - [Deployment guide](docs/DEPLOYMENT.md)
-- [Screenshot checklist](docs/SCREENSHOTS.md)
+- [Screenshot gallery](docs/SCREENSHOTS.md)
+- [Free demo deployment](docs/DEMO_DEPLOYMENT.md)
 
 Recommended production topology remains Vercel for the frontend, Render for
 the Django service, and PostgreSQL/Supabase for the database. Run migrations
@@ -352,6 +363,13 @@ payment, frontend, and API URL.
 - Real provider credentials were not included in the repository, so live OAuth
   consent and Payme/Click sandbox transactions cannot be verified by automated
   tests here.
+- The provider status methods currently read local payment records; they do
+  not perform an independent remote settlement lookup. A missing callback
+  therefore requires reconciliation in the provider dashboard before staff
+  take action. Do not treat browser redirects as settlement proof.
+- The frontend still stores JWTs in `localStorage`. This is susceptible to
+  token theft if an XSS flaw reaches the origin. Migrating to a same-origin,
+  HttpOnly-cookie session/BFF is recommended before handling real customers.
 - One payment provider is enabled per backend deployment.
 - Programmatic provider refunds are not initiated by this app; Payme reversal
   callbacks are recorded, while Click refunds remain an operational provider
