@@ -1,56 +1,51 @@
-# Screenshot Checklist
+# Product screenshots
 
-Use this checklist when preparing portfolio screenshots for Bloom & Petal.
+These are actual browser captures of the seeded local demo, not mockups. The
+catalog uses demo products and the paid order uses the **test** provider; no
+real card or customer data appears in these images. Captures were taken at
+1440 × 900 (desktop) and 390 × 844 (mobile).
 
-Recommended setup:
+![Bloom & Petal storefront](screenshots/homepage.png)
 
-1. Run the backend and frontend locally.
-2. Run `python manage.py seed_demo`.
-3. Log in as `customer@example.com` / `demo12345` for customer screens.
-4. Log in as `staff@example.com` / `demo12345` for staff screens.
-5. Capture desktop at 1440px wide and mobile at 390px wide.
+## Customer journey
 
-Save final screenshots in:
+| Screen | What it shows |
+| --- | --- |
+| [Catalog](screenshots/catalog.png) | API-backed products, stock badges, and demo photos |
+| [Product detail](screenshots/product-detail.png) | Price, stock, delivery note, and description |
+| [Reviews](screenshots/reviews.png) | Product-specific review section |
+| [Cart](screenshots/cart.png) | Authenticated cart and total |
+| [Checkout](screenshots/checkout.png) | Delivery form and payment choices |
+| [Paid test order](screenshots/order-success.png) | Test-only payment confirmation; no money charged |
+| [Order history](screenshots/order-history.png) | Payment state and fulfillment timeline |
+| [Support chat](screenshots/support-chat.png) | Customer support widget |
+| [Sign-in](screenshots/auth.png) | Email login and optional OAuth availability |
 
-```text
-docs/screenshots/
-```
+## Staff
 
-## Customer Screens
+| Screen | What it shows |
+| --- | --- |
+| [Workspace](screenshots/staff-dashboard.png) | Order metrics and delivery queue |
+| [Support inbox](screenshots/support-inbox.png) | Staff conversation queue |
 
-- [ ] Homepage hero: `docs/screenshots/homepage.png`
-- [ ] Product catalog with filters: `docs/screenshots/catalog.png`
-- [ ] Empty product search state: `docs/screenshots/empty-search.png`
-- [ ] Product detail page: `docs/screenshots/product-detail.png`
-- [ ] Product reviews section: `docs/screenshots/reviews.png`
-- [ ] Cart with items: `docs/screenshots/cart.png`
-- [ ] Checkout form: `docs/screenshots/checkout.png`
-- [ ] Order success with test payment: `docs/screenshots/order-success.png`
-- [ ] Order history: `docs/screenshots/order-history.png`
-- [ ] Order status timeline: `docs/screenshots/order-timeline.png`
-- [ ] Customer support chat: `docs/screenshots/support-chat.png`
-- [ ] Login/register screen: `docs/screenshots/auth.png`
+## Mobile
 
-## Staff Screens
+| Screen | What it shows |
+| --- | --- |
+| [Homepage](screenshots/mobile-homepage.png) | Responsive landing page |
+| [Catalog](screenshots/mobile-catalog.png) | Single-column product browsing |
+| [Checkout](screenshots/mobile-checkout.png) | Narrow-screen delivery form |
+| [Profile](screenshots/mobile-profile.png) | Customer account settings |
 
-- [ ] Staff dashboard: `docs/screenshots/staff-dashboard.png`
-- [ ] Delivery queue: `docs/screenshots/delivery-queue.png`
-- [ ] Staff order management: `docs/screenshots/staff-orders.png`
-- [ ] Low-stock warnings: `docs/screenshots/stock-alerts.png`
-- [ ] Support inbox: `docs/screenshots/support-inbox.png`
-- [ ] Django admin order view: `docs/screenshots/django-admin-orders.png`
+## Reproducing the captures
 
-## Mobile Screens
+Start Django and Next.js using the [local setup](../README.md#local-setup),
+run `python manage.py seed_demo` **only against a development database**, and
+use the demo customer or staff account printed by that command. Enable the
+development test provider for the paid-order screen. Do not capture or commit
+real customer information, access tokens, or provider credentials.
 
-- [ ] Mobile homepage: `docs/screenshots/mobile-homepage.png`
-- [ ] Mobile product card grid: `docs/screenshots/mobile-catalog.png`
-- [ ] Mobile cart and checkout: `docs/screenshots/mobile-checkout.png`
-- [ ] Mobile profile/order history: `docs/screenshots/mobile-profile.png`
-
-## Notes
-
-- Do not commit screenshots with real customer data.
-- Keep demo credentials out of screenshots unless the screenshot is specifically
-  documenting local setup.
-- Prefer seeded demo orders and products so screenshots are repeatable.
-- If the backend is intentionally offline, capture the catalog fallback warning.
+The former checklist also named empty search, a dedicated timeline, individual
+staff order/stock pages, and Django admin screenshots. Those files were never
+created, so they are not linked here. The order-history and workspace captures
+already show the timeline, delivery queue, and staff overview.

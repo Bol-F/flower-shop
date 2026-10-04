@@ -1,6 +1,7 @@
 # Bloom & Petal API Reference
 
-Example base URL: `https://api.example.com`
+Example base URL: `https://api.example.com`. Replace it with your own backend
+origin; the examples are illustrative, not live credentials or transactions.
 
 JSON endpoints use `Content-Type: application/json`. Authenticated endpoints
 expect `Authorization: Bearer <access-token>`. Password and OAuth login both
@@ -165,7 +166,7 @@ provider cannot initialize checkout, none of them are committed.
 
 | Method | Endpoint | Auth | Purpose |
 | --- | --- | --- | --- |
-| `GET` | `/api/orders/payment-methods/` | No | Runtime capabilities and labels |
+| `GET` | `/api/orders/payment-methods/` | No | Runtime methods and the UZS conversion rate |
 | `POST` | `/api/orders/{order_id}/payments/` | Owner JWT | Idempotently initialize hosted checkout |
 | `GET` | `/api/orders/{order_id}/payments/{payment_uuid}/` | Owner/staff JWT | Read authoritative payment state |
 | `POST` | `/api/orders/{order_id}/pay-test/` | Owner JWT | Development-only mock completion |
@@ -179,26 +180,30 @@ provider cannot initialize checkout, none of them are committed.
       "id": "cash",
       "payment_method": "cash",
       "provider": "cash",
-      "label": "Cash",
-      "detail": "Pay when your flowers arrive",
+      "label": "Cash on delivery",
+      "detail": "Pay the courier when your flowers arrive",
       "enabled": true,
       "test_mode": false
     },
     {
       "id": "payme",
-      "payment_method": "online",
+      "payment_method": "card",
       "provider": "payme",
-      "label": "Payme",
-      "detail": "Secure payment on the provider checkout page",
+      "label": "Pay by card",
+      "detail": "Secure checkout with Payme",
       "enabled": true,
       "test_mode": false
     }
-  ]
+  ],
+  "uzs_per_price_unit": "12650"
 }
 ```
 
 An incompletely configured provider is returned with `enabled: false`. Test
-mode appears only when the explicit local setting is enabled.
+mode appears only when the explicit local setting is enabled. The rate is a
+decimal string from the same backend setting used when the payment amount is
+snapshotted. Catalog UZS estimates should use it without rounding to the
+nearest thousand; the order/payment response remains the final charge amount.
 
 ### Initialize payment
 
@@ -336,5 +341,8 @@ and cannot be deleted there.
   timeout. Do not create a new order merely because checkout navigation failed.
 - Provider callbacks are the authority. A pending return page should continue
   polling or tell the customer to check order history.
+- The payment GET endpoint reads the application's payment state; it does not
+  query the provider's settlement API. If a callback is missing or delayed,
+  reconcile the attempt in the provider dashboard before any manual action.
 - Webhook audit metadata excludes raw credentials, authorization headers, and
   full untrusted payloads.

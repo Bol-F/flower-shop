@@ -10,11 +10,18 @@ This guide describes the recommended production setup for Bloom & Petal:
 Do not commit real secrets. Set production values in Render, Vercel, Supabase,
 or GitHub repository settings.
 
+This is an integration guide, not a claim that Payme or Click has been verified
+with your merchant account. Complete provider sandbox acceptance and a real
+refund/reconciliation runbook before taking live payments.
+
 ## 1. Production Checklist
 
 Before the first production deploy:
 
 - Confirm `main` passes GitHub Actions.
+- Install the pinned dependencies and run backend tests, frontend lint/tests,
+  a production build, and `python manage.py check --deploy` against production
+  settings in a secure staging environment.
 - Create a Supabase PostgreSQL database.
 - Create a Render web service for `backend/`.
 - Create a Vercel project for `frontend/`.
@@ -26,6 +33,8 @@ Before the first production deploy:
 - Configure exactly one real provider (`payme` or `click`) and verify its test
   credentials/callbacks before accepting production traffic. Production
   settings reject the development test provider.
+- Set an operator procedure for payments left pending when callbacks fail;
+  the app does not independently query provider settlement status.
 - Keep email and Telegram disabled until credentials are available.
 
 ## 2. Supabase PostgreSQL
@@ -41,8 +50,19 @@ Example shape:
 DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/postgres?sslmode=require
 ```
 
-Use the pooled or direct connection recommended by Supabase for your deployment
-plan. If Supabase requires SSL, keep `sslmode=require` in the URL.
+Use the connection mode recommended by the [Supabase connection guide](https://supabase.com/docs/guides/database/connecting-to-postgres):
+direct for a persistent IPv6-capable backend, or the session pooler for an
+IPv4-only host. Copy the **actual** host, username, and port from your
+project's Connect dialog. Avoid transaction pooling for this Django service
+unless you have tested its session and migration behavior. If SSL is required,
+keep `sslmode=require` in the URL.
+
+This app uses Supabase as a private PostgreSQL host, not as a browser Data API.
+Review the project's Data API exposed schemas and table grants before launch:
+keep Django application tables in a non-exposed schema or revoke public API
+access; if tables must be exposed, enable RLS and narrowly scoped policies.
+Never put a database password or Supabase secret/service-role key in
+`NEXT_PUBLIC_*` variables.
 
 ## 3. Render Backend
 
@@ -120,6 +140,11 @@ PAYME_LOGIN=Paycom
 PAYME_SECRET_KEY=<merchant-api-password>
 PAYME_CHECKOUT_URL=https://checkout.paycom.uz
 ```
+
+`PAYMENT_UZS_PER_PRICE_UNIT` is published by the public capabilities endpoint
+for consistent customer UZS estimates. Changing it affects *new* attempts;
+existing attempts retain their snapshotted amount. Confirm the rate and
+currency with your merchant account before enabling live checkout.
 
 For Click instead, set `PAYMENT_PROVIDER=click` plus `CLICK_SERVICE_ID`,
 `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY`, and
