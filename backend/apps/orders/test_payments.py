@@ -238,6 +238,24 @@ class TestPaymePayments:
         )
         assert response.data['error']['code'] == -31050
 
+    def test_failed_attempt_cannot_be_recreated_by_a_delayed_payme_callback(self, online_order):
+        payment, _ = initialize_payment(online_order, provider_name='payme', idempotency_key='old')
+        payment.status = PaymentAttempt.Status.FAILED
+        payment.save(update_fields=('status',))
+        params = {
+            'id': 'f' * 24,
+            'time': int(time.time() * 1000),
+            'amount': int(payment.amount * 100),
+            'account': {'payment_id': str(payment.public_id)},
+        }
+        client = APIClient()
+        check = _payme_post(client, 'CheckPerformTransaction', params)
+        create = _payme_post(client, 'CreateTransaction', params)
+        assert check.data['error']['code'] == -31008
+        assert create.data['error']['code'] == -31008
+        payment.refresh_from_db()
+        assert payment.external_payment_id == ''
+
     def test_provider_cancellation_keeps_reservation_and_allows_retry(self, online_order):
         product = Product.objects.create(
             name='Reserved roses', description='Roses', price='5.00', stock=8
@@ -394,6 +412,14 @@ def test_real_provider_status_cannot_be_manually_overridden(payment_user, online
 @override_settings(PAYMENT_PROVIDER='test', PAYMENT_TEST_MODE_ENABLED=False)
 def test_test_provider_never_appears_as_production_capability():
     assert [method['id'] for method in available_payment_methods()] == ['cash']
+
+
+@pytest.mark.django_db
+@override_settings(PAYMENT_UZS_PER_PRICE_UNIT='12750.5')
+def test_payment_capabilities_publish_the_checkout_conversion_rate():
+    response = APIClient().get(reverse('payment-methods'))
+    assert response.status_code == 200
+    assert response.data['uzs_per_price_unit'] == '12750.5'
 
 
 @pytest.mark.django_db

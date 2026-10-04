@@ -1,3 +1,4 @@
+from decimal import Decimal, InvalidOperation
 from ipaddress import ip_address
 from urllib.parse import SplitResult, urlsplit
 
@@ -177,6 +178,13 @@ for setting_name, value in (
 ):
     if value <= 0:
         raise ImproperlyConfigured(f'{setting_name} must be greater than zero.')
+
+try:
+    payment_rate = Decimal(str(PAYMENT_UZS_PER_PRICE_UNIT))
+except InvalidOperation as exc:
+    raise ImproperlyConfigured('PAYMENT_UZS_PER_PRICE_UNIT must be a positive number.') from exc
+if not payment_rate.is_finite() or payment_rate <= 0:
+    raise ImproperlyConfigured('PAYMENT_UZS_PER_PRICE_UNIT must be a positive number.')
 
 # Static files served by WhiteNoise (hashed filenames + gzip/brotli)
 STORAGES = {

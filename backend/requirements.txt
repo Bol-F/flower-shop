@@ -1,6 +1,6 @@
 # setuptools <81 still ships pkg_resources (removed in newer releases)
 setuptools>=69,<81
-Django==4.2.30
+Django==5.2.17
 whitenoise==6.6.0
 djangorestframework==3.15.2
 djangorestframework-simplejwt==5.5.1
@@ -22,7 +22,7 @@ joserfc==1.7.5
 # Task queue
 celery==5.3.6
 redis==5.0.1
-django-celery-beat==2.5.0
+django-celery-beat==2.9.0
 django-celery-results==2.5.1
 
 gunicorn==26.0.0

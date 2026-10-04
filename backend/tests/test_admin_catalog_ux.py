@@ -47,7 +47,7 @@ def test_stock_filter_uses_each_products_threshold(rf, stock_level, expected_nam
 
     request = rf.get('/admin/products/product/', {'stock_level': stock_level})
     product_admin = ProductAdmin(Product, AdminSite())
-    stock_filter = StockLevelFilter(request, {'stock_level': stock_level}, Product, product_admin)
+    stock_filter = StockLevelFilter(request, {'stock_level': [stock_level]}, Product, product_admin)
     filtered = stock_filter.queryset(request, Product.objects.all())
 
     assert set(filtered.values_list('name', flat=True)) == expected_names
@@ -250,7 +250,7 @@ def test_promo_filter_distinguishes_usable_and_expired(rf):
     ):
         request = rf.get('/admin/marketplace/promocode/', {'availability': availability})
         filter_instance = PromoAvailabilityFilter(
-            request, {'availability': availability}, PromoCode, model_admin
+            request, {'availability': [availability]}, PromoCode, model_admin
         )
         filtered = filter_instance.queryset(request, PromoCode.objects.all())
         assert list(filtered.values_list('code', flat=True)) == [expected]

@@ -207,6 +207,14 @@ def test_unconfigured_providers_do_not_require_production_redirects():
             {'OAUTH_EXCHANGE_TTL_SECONDS': '0'},
             'OAUTH_EXCHANGE_TTL_SECONDS must be greater than zero',
         ),
+        (
+            {'PAYMENT_UZS_PER_PRICE_UNIT': '0'},
+            'PAYMENT_UZS_PER_PRICE_UNIT must be a positive number',
+        ),
+        (
+            {'PAYMENT_UZS_PER_PRICE_UNIT': 'NaN'},
+            'PAYMENT_UZS_PER_PRICE_UNIT must be a positive number',
+        ),
     ),
 )
 def test_invalid_production_oauth_configuration_fails(overrides, expected_error):

@@ -183,7 +183,12 @@ class PaymentMethodsView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        return Response({'methods': available_payment_methods()})
+        return Response(
+            {
+                'methods': available_payment_methods(),
+                'uzs_per_price_unit': str(settings.PAYMENT_UZS_PER_PRICE_UNIT),
+            }
+        )
 
 
 class InitializePaymentView(APIView):

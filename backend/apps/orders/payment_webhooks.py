@@ -149,6 +149,7 @@ def _payme_check_perform(params: dict) -> dict:
         or payment.order.payment_status == Order.PaymentStatus.PAID
         or payment.status
         in {
+            PaymentAttempt.Status.FAILED,
             PaymentAttempt.Status.CANCELLED,
             PaymentAttempt.Status.REFUNDED,
         }
@@ -190,6 +191,7 @@ def _payme_create(params: dict) -> dict:
         raise PaymeProtocolError(-31008, 'Another transaction is already attached.', 'id')
     if payment.status in {
         PaymentAttempt.Status.PAID,
+        PaymentAttempt.Status.FAILED,
         PaymentAttempt.Status.CANCELLED,
         PaymentAttempt.Status.REFUNDED,
     }:
