@@ -3,6 +3,7 @@ target-version = "py312"
 line-length = 100
 extend-exclude = [
     "backend/.venv",
+    "backend/.uv-cache",
     "backend/**/migrations",
 ]
 

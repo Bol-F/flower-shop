@@ -20,6 +20,7 @@ env/
 .pytest_cache/
 **/.pytest_cache/
 .ruff_cache/
+.uv-cache/
 **/.ruff_cache/
 .mypy_cache/
 **/.mypy_cache/

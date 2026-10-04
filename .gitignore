@@ -52,6 +52,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .ruff_cache/
+.uv-cache/
 
 # =============================================================
 # Node / React
