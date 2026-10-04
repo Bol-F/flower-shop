@@ -30,6 +30,7 @@ env = environ.Env(
     TELEGRAM_ADMIN_CHAT_ID=(str, ''),
     PAYMENT_PROVIDER=(str, 'test'),
     PAYMENT_TEST_MODE_ENABLED=(bool, False),
+    PAYMENT_RESERVATION_TTL_MINUTES=(int, 720),
     FRONTEND_URL=(str, 'http://localhost:3000'),
     OAUTH_FRONTEND_CALLBACK_URL=(str, 'http://localhost:3000/auth/callback'),
     OAUTH_ATTEMPT_TTL_SECONDS=(int, 600),
@@ -174,6 +175,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.contact.tasks.unread_messages_daily_summary',
         'schedule': 86400,  # every 24 hours
     },
+    'expire-abandoned-payment-reservations': {
+        'task': 'apps.orders.tasks.expire_unpaid_orders',
+        'schedule': 900,
+    },
 }
 
 # Either a single DATABASE_URL (postgres://user:pass@host:port/name)
@@ -285,6 +290,7 @@ TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN')
 TELEGRAM_ADMIN_CHAT_ID = env('TELEGRAM_ADMIN_CHAT_ID')
 PAYMENT_PROVIDER = env('PAYMENT_PROVIDER').strip().lower()
 PAYMENT_TEST_MODE_ENABLED = env('PAYMENT_TEST_MODE_ENABLED')
+PAYMENT_RESERVATION_TTL_MINUTES = env('PAYMENT_RESERVATION_TTL_MINUTES')
 FRONTEND_URL = env('FRONTEND_URL').rstrip('/')
 OAUTH_FRONTEND_CALLBACK_URL = env('OAUTH_FRONTEND_CALLBACK_URL')
 OAUTH_ATTEMPT_TTL_SECONDS = env('OAUTH_ATTEMPT_TTL_SECONDS')

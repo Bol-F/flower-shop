@@ -29,6 +29,9 @@ function apiProduct(overrides: Partial<ApiProductListItem> = {}): ApiProductList
     is_in_stock: true,
     is_low_stock: false,
     stock_status: "in_stock",
+    rating_average: 4.75,
+    rating_count: 8,
+    created_at: "2026-09-20T12:00:00Z",
     ...overrides,
   };
 }
@@ -54,6 +57,9 @@ describe("catalog API adapter", () => {
       source: "api",
     });
     expect(product.price).toBe(24.99);
+    expect(product.rating).toBe(4.75);
+    expect(product.reviews).toBe(8);
+    expect(product.oldPrice).toBeUndefined();
     expect(product.palette.petals.length).toBeGreaterThan(0);
   });
 

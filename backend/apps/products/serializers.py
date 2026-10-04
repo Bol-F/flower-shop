@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from apps.categories.models import Category
 from apps.categories.serializers import CategorySerializer
+
 from .models import Product
 
 
@@ -12,6 +13,8 @@ class ProductListSerializer(serializers.ModelSerializer):
     vendor_name = serializers.CharField(source='vendor.name', read_only=True)
     vendor_slug = serializers.CharField(source='vendor.slug', read_only=True)
     stock_quantity = serializers.IntegerField(source='stock', read_only=True)
+    rating_average = serializers.FloatField(read_only=True, allow_null=True)
+    rating_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Product
@@ -32,6 +35,9 @@ class ProductListSerializer(serializers.ModelSerializer):
             'is_in_stock',
             'is_low_stock',
             'stock_status',
+            'rating_average',
+            'rating_count',
+            'created_at',
         )
 
 
@@ -49,6 +55,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    rating_average = serializers.FloatField(read_only=True, allow_null=True)
+    rating_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Product
@@ -68,6 +76,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'is_in_stock',
             'is_low_stock',
             'stock_status',
+            'rating_average',
+            'rating_count',
             'city_name',
             'city_slug',
             'vendor_name',

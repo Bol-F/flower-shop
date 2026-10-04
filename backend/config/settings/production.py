@@ -173,6 +173,7 @@ for setting_name, value in (
     ('OAUTH_ATTEMPT_TTL_SECONDS', OAUTH_ATTEMPT_TTL_SECONDS),
     ('OAUTH_EXCHANGE_TTL_SECONDS', OAUTH_EXCHANGE_TTL_SECONDS),
     ('OAUTH_HTTP_TIMEOUT_SECONDS', OAUTH_HTTP_TIMEOUT_SECONDS),
+    ('PAYMENT_RESERVATION_TTL_MINUTES', PAYMENT_RESERVATION_TTL_MINUTES),
 ):
     if value <= 0:
         raise ImproperlyConfigured(f'{setting_name} must be greater than zero.')

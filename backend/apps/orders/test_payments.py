@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import time
+from datetime import timedelta
 from decimal import Decimal
 from urllib.parse import urlencode
 
@@ -21,10 +22,12 @@ from .models import Order, OrderItem, PaymentAttempt, PaymentEvent
 from .payment_webhooks import payme_authenticated
 from .payments import (
     available_payment_methods,
+    cancel_unpaid_order,
     initialize_payment,
     transition_payment,
     update_payment_status,
 )
+from .tasks import expire_unpaid_orders
 
 PAYME_SETTINGS = {
     'PAYMENT_PROVIDER': 'payme',
@@ -128,6 +131,23 @@ class TestPaymePayments:
         assert first.data['checkout_url'].startswith('https://checkout.paycom.uz/')
         assert PaymentAttempt.objects.count() == 1
 
+    def test_different_retry_key_reuses_the_active_attempt(self, online_order):
+        first, created = initialize_payment(
+            online_order,
+            provider_name='payme',
+            idempotency_key='first-tab',
+        )
+        second, second_created = initialize_payment(
+            online_order,
+            provider_name='payme',
+            idempotency_key='second-tab',
+        )
+
+        assert created is True
+        assert second_created is False
+        assert second.pk == first.pk
+        assert PaymentAttempt.objects.filter(order=online_order).count() == 1
+
     def test_invalid_and_unauthorized_orders(self, payment_user, online_order):
         stranger = User.objects.create_user(
             username='stranger', email='stranger@example.com', password='safe-password'
@@ -218,7 +238,7 @@ class TestPaymePayments:
         )
         assert response.data['error']['code'] == -31050
 
-    def test_cancellation_restores_reserved_inventory_once(self, online_order):
+    def test_provider_cancellation_keeps_reservation_and_allows_retry(self, online_order):
         product = Product.objects.create(
             name='Reserved roses', description='Roses', price='5.00', stock=8
         )
@@ -247,8 +267,17 @@ class TestPaymePayments:
         online_order.refresh_from_db()
         assert first.data['result']['state'] == -1
         assert second.data['result']['state'] == -1
-        assert product.stock == 10
-        assert online_order.status == Order.Status.CANCELLED
+        assert product.stock == 8
+        assert online_order.status == Order.Status.PENDING
+        assert online_order.payment_status == Order.PaymentStatus.FAILED
+
+        retry, created = initialize_payment(
+            online_order,
+            provider_name='payme',
+            idempotency_key='retry-after-cancel',
+        )
+        assert created is True
+        assert retry.pk != payment.pk
 
 
 @pytest.mark.django_db
@@ -439,6 +468,94 @@ def test_illegal_payment_transition_is_rejected(online_order):
             source=PaymentEvent.Source.SYSTEM,
             event_type='invalid',
         )
+
+
+@pytest.mark.django_db
+def test_second_payment_attempt_cannot_mark_an_already_paid_order_paid(online_order):
+    first = PaymentAttempt.objects.create(
+        order=online_order,
+        provider='payme',
+        amount='1000.00',
+        status=PaymentAttempt.Status.PENDING,
+        idempotency_key='first-payment',
+    )
+    second = PaymentAttempt.objects.create(
+        order=online_order,
+        provider='payme',
+        amount='1000.00',
+        status=PaymentAttempt.Status.PENDING,
+        idempotency_key='legacy-second-payment',
+    )
+    transition_payment(
+        first,
+        PaymentAttempt.Status.PAID,
+        source=PaymentEvent.Source.PROVIDER,
+        event_type='first-paid',
+    )
+
+    with pytest.raises(ValidationError, match='already has a paid payment'):
+        transition_payment(
+            second,
+            PaymentAttempt.Status.PAID,
+            source=PaymentEvent.Source.PROVIDER,
+            event_type='second-paid',
+        )
+
+
+@pytest.mark.django_db
+def test_order_cannot_be_cancelled_while_provider_confirmation_is_in_progress(online_order):
+    PaymentAttempt.objects.create(
+        order=online_order,
+        provider='payme',
+        amount='1000.00',
+        status=PaymentAttempt.Status.PROCESSING,
+        external_payment_id='provider-transaction-1',
+        idempotency_key='processing-payment',
+    )
+
+    with pytest.raises(ValidationError, match='confirmation is in progress'):
+        cancel_unpaid_order(online_order)
+
+    online_order.refresh_from_db()
+    assert online_order.status == Order.Status.PENDING
+    assert online_order.inventory_released_at is None
+
+
+@pytest.mark.django_db
+@override_settings(PAYMENT_RESERVATION_TTL_MINUTES=60)
+def test_expired_payment_reservation_releases_stock_once(online_order):
+    product = Product.objects.create(
+        name='Reserved bouquet',
+        description='Reserved inventory',
+        price='10.00',
+        stock=2,
+    )
+    OrderItem.objects.create(
+        order=online_order,
+        product=product,
+        product_name=product.name,
+        product_price=product.price,
+        quantity=3,
+    )
+    payment = PaymentAttempt.objects.create(
+        order=online_order,
+        provider='payme',
+        amount='1000.00',
+        status=PaymentAttempt.Status.PENDING,
+        idempotency_key='abandoned-payment',
+    )
+    Order.objects.filter(pk=online_order.pk).update(updated_at=timezone.now() - timedelta(hours=2))
+
+    assert expire_unpaid_orders() == 1
+    assert expire_unpaid_orders() == 0
+
+    online_order.refresh_from_db()
+    product.refresh_from_db()
+    payment.refresh_from_db()
+    assert online_order.status == Order.Status.CANCELLED
+    assert online_order.inventory_released_at is not None
+    assert product.stock == 5
+    assert payment.status == PaymentAttempt.Status.CANCELLED
 
 
 @pytest.mark.django_db

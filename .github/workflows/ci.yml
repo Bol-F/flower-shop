@@ -56,10 +56,17 @@ jobs:
           # same pin Render uses for the production deploy
           python-version-file: .python-version
           cache: pip
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint and format check
+        run: |
+          ruff check .
+          ruff format --check .
 
       - name: Check for missing migrations
         run: python manage.py makemigrations --check --dry-run
@@ -87,6 +94,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
 
       - name: Run tests
         run: npm run test

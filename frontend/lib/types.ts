@@ -19,14 +19,14 @@ export interface Product {
   /** base price in USD — converted to UZS client-side */
   price: number;
   oldPrice?: number;
-  rating: number;
+  rating: number | null;
   reviews: number;
   category: CategoryId;
   city?: string | null;
   vendor?: string | null;
   /** courier estimate when ordering now */
-  deliveryMins: number;
-  deliveryToday: boolean;
+  deliveryMins: number | null;
+  deliveryToday: boolean | null;
   isNew: boolean;
   popularity: number;
   description: string;

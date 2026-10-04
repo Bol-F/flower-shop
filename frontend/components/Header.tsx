@@ -334,7 +334,10 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
         call_recipient_before_delivery: sendAsGift && callRecipientBeforeDelivery,
         notes: notes.trim(),
       });
-      clearCart();
+      // Order creation already clears the server cart atomically.  Only clear
+      // the local snapshot here so a delayed DELETE cannot erase newer items
+      // added from another tab.
+      clearCart({ remote: false });
       setCreatedOrder(order);
       setCreatedPayment(null);
       setTestPayError("");

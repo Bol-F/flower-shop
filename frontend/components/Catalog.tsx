@@ -88,7 +88,7 @@ export default function Catalog() {
       case "new":
         return list.sort((a, b) => Number(b.isNew) - Number(a.isNew));
       case "rated":
-        return list.sort((a, b) => b.rating - a.rating);
+        return list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
       default:
         return list.sort((a, b) => b.popularity - a.popularity);
     }

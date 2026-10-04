@@ -5,6 +5,7 @@ from .views import (
     DeliveryZoneListView,
     OrderListView,
     AssignCourierView,
+    CancelOrderView,
     CreateOrderView,
     OrderDetailView,
     PayTestOrderView,
@@ -29,6 +30,7 @@ urlpatterns = [
     path('', OrderListView.as_view(), name='order-list'),
     path('create/', CreateOrderView.as_view(), name='order-create'),
     path('<int:pk>/', OrderDetailView.as_view(), name='order-detail'),
+    path('<int:pk>/cancel/', CancelOrderView.as_view(), name='order-cancel'),
     path('<int:pk>/pay-test/', PayTestOrderView.as_view(), name='order-pay-test'),
     path('<int:pk>/payments/', InitializePaymentView.as_view(), name='payment-initialize'),
     path(

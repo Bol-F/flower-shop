@@ -11,8 +11,6 @@ import {
 import { categories as fallbackCategories, palettes, products as fallbackProducts } from "./data";
 import type { BouquetPalette, Category, Product } from "./types";
 
-const shops = ["Atelier Bloom", "Bahor Flowers", "Chinor Garden", "Lola Market"];
-
 const categoryTints = [
   "#fde7ec",
   "#fff0db",
@@ -67,12 +65,9 @@ function paletteFor(product: ApiProductBase): BouquetPalette {
 function compositionFor(product: ApiProductBase, detail?: ApiProductDetail): string[] {
   const category = detail?.category?.name ?? product.category_name ?? "Fresh flowers";
   const firstSentence = detail?.description?.split(/[.!?]/).find(Boolean)?.trim();
-  return [
-    category,
-    "Fresh stems",
-    firstSentence && firstSentence.length < 36 ? firstSentence : "Gift wrap",
-    "Care instructions",
-  ].filter(Boolean);
+  return [category, firstSentence && firstSentence.length < 60 ? firstSentence : null].filter(
+    (item): item is string => Boolean(item),
+  );
 }
 
 export function apiCategoryToCategory(category: ApiCategory, index = 0): Category {
@@ -96,51 +91,32 @@ export function apiProductToProduct(
   const mock = fallbackProducts.find((item) => item.id === product.slug);
   const price = numberFromPrice(product.price);
   const stock = detail?.stock ?? product.stock_quantity;
-
-  if (mock) {
-    return {
-      ...mock,
-      backendId: product.id,
-      id: product.slug,
-      slug: product.slug,
-      description: detail?.description || mock.description,
-      price,
-      category: categorySlug,
-      city: product.city_slug,
-      vendor: product.vendor_slug,
-      image: resolveApiMediaUrl(product.image),
-      stock,
-      isAvailable: product.is_available,
-      isInStock: product.is_in_stock,
-      source: "api",
-    };
-  }
-
   const hasSizes = !/(plant|pot|potted|dome|preserved|orchid)/i.test(product.name);
+  const createdAt = Date.parse(product.created_at);
+  const isNew = Number.isFinite(createdAt) && Date.now() - createdAt < 30 * 24 * 60 * 60 * 1000;
 
   return {
     id: product.slug,
     backendId: product.id,
     slug: product.slug,
     name: product.name,
-    shop: shops[product.id % shops.length],
+    shop: product.vendor_name || "Bloom & Petal",
     price,
-    oldPrice: product.id % 4 === 0 ? Math.round(price * 1.15) : undefined,
-    rating: Math.min(5, 4.5 + (product.id % 6) / 10),
-    reviews: 24 + ((product.id * 17) % 220),
+    oldPrice: undefined,
+    rating: product.rating_average,
+    reviews: product.rating_count,
     category: categorySlug,
     city: product.city_slug,
     vendor: product.vendor_slug,
-    deliveryMins: 60 + (product.id % 5) * 15,
-    deliveryToday: product.is_in_stock && product.id % 3 !== 0,
-    isNew: product.id % 4 === 0,
-    popularity: 60 + ((product.id * 11) % 40),
+    deliveryMins: null,
+    deliveryToday: null,
+    isNew,
+    popularity: product.rating_count,
     description:
-      detail?.description ||
-      `${product.name} is prepared by a local Bloom & Petal florist and delivered fresh in Tashkent.`,
+      detail?.description || `${product.name} from ${product.vendor_name || "Bloom & Petal"}.`,
     composition: compositionFor(product, detail),
     hasSizes,
-    palette: paletteFor(product),
+    palette: mock?.palette ?? paletteFor(product),
     image: resolveApiMediaUrl(product.image),
     stock,
     isAvailable: product.is_available,

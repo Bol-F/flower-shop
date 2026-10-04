@@ -14,6 +14,11 @@ from .payment_providers.test_provider import TestPaymentProvider
 CASH_PAYMENT_PROVIDER = 'cash'
 TEST_PAYMENT_PROVIDER = TestPaymentProvider.provider_name
 SUPPORTED_REAL_PROVIDERS = {'payme', 'click'}
+ACTIVE_PAYMENT_STATUSES = {
+    PaymentAttempt.Status.CREATED,
+    PaymentAttempt.Status.PENDING,
+    PaymentAttempt.Status.PROCESSING,
+}
 
 PAYMENT_METHOD_DEFAULTS = {
     Order.PaymentMethod.CASH: {
@@ -91,7 +96,12 @@ def is_test_payment_method(payment_method: str) -> bool:
 
 def calculate_payment_amount(order: Order) -> Decimal:
     rate = Decimal(str(settings.PAYMENT_UZS_PER_PRICE_UNIT))
-    return (order.total_price * rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    if rate <= 0:
+        raise ValidationError({'payment_amount': 'Payment conversion rate must be positive.'})
+    amount = (order.total_price * rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    if amount <= 0:
+        raise ValidationError({'payment_amount': 'Payment amount must be positive.'})
+    return amount
 
 
 def available_payment_methods() -> list[dict]:
@@ -147,6 +157,8 @@ def initialize_payment(
         raise ValidationError({'payment_method': 'Cash orders do not use online checkout.'})
     if order.status == Order.Status.CANCELLED:
         raise ValidationError({'order': 'Cancelled orders cannot be paid.'})
+    if order.inventory_released_at is not None:
+        raise ValidationError({'order': 'This order reservation has expired.'})
     if order.payment_status == Order.PaymentStatus.PAID:
         raise ValidationError({'payment_status': 'This order is already paid.'})
 
@@ -168,6 +180,18 @@ def initialize_payment(
     ).first()
     if existing:
         return existing, False
+
+    # A different browser tab or retry key must not create a second payable
+    # hosted-checkout URL for the same order.  The order row lock serializes
+    # this check across concurrent requests.
+    active = PaymentAttempt.objects.filter(
+        order=order,
+        status__in=ACTIVE_PAYMENT_STATUSES,
+    ).first()
+    if active:
+        if active.provider != provider_name:
+            raise ValidationError({'provider': 'Another payment provider is already active.'})
+        return active, False
 
     payment = PaymentAttempt.objects.create(
         order=order,
@@ -273,6 +297,20 @@ def transition_payment(
     ):
         return payment
 
+    order = Order.objects.select_for_update().get(pk=payment.order_id)
+    if next_status == PaymentAttempt.Status.PAID:
+        if order.status == Order.Status.CANCELLED or order.inventory_released_at is not None:
+            raise ValidationError({'order': 'A cancelled or expired order cannot be paid.'})
+        if (
+            PaymentAttempt.objects.filter(
+                order=order,
+                status=PaymentAttempt.Status.PAID,
+            )
+            .exclude(pk=payment.pk)
+            .exists()
+        ):
+            raise ValidationError({'payment_status': 'This order already has a paid payment.'})
+
     payment.status = next_status
     payment.failure_code = failure_code[:80]
     payment.failure_message = failure_message[:500]
@@ -288,7 +326,6 @@ def transition_payment(
         fields.extend(('provider_cancel_time', 'cancellation_reason'))
     payment.save(update_fields=fields)
 
-    order = Order.objects.select_for_update().get(pk=payment.order_id)
     order.payment_provider = payment.provider
     order.payment_reference = (
         payment.external_payment_id or payment.provider_reference or str(payment.public_id)
@@ -339,6 +376,52 @@ def release_inventory_for_cancelled_order(order: Order) -> None:
     order.status = Order.Status.CANCELLED
     order.inventory_released_at = timezone.now()
     order.save(update_fields=('status', 'inventory_released_at', 'updated_at'))
+
+
+@transaction.atomic
+def cancel_unpaid_order(
+    order: Order,
+    *,
+    source: str = PaymentEvent.Source.CUSTOMER,
+    event_type: str = 'order_cancelled',
+    actor=None,
+    message: str = '',
+) -> Order:
+    """Cancel an unfulfilled order and release its reservation exactly once."""
+    order = Order.objects.select_for_update().get(pk=order.pk)
+    if order.payment_status == Order.PaymentStatus.PAID:
+        raise ValidationError({'order': 'Paid orders require a refund before cancellation.'})
+    if order.status not in {Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.CANCELLED}:
+        raise ValidationError({'order': 'This order is already being fulfilled.'})
+    if order.inventory_released_at is not None:
+        return order
+
+    active_payment = (
+        PaymentAttempt.objects.select_for_update()
+        .filter(order=order, status__in=ACTIVE_PAYMENT_STATUSES)
+        .first()
+    )
+    if active_payment:
+        if (
+            active_payment.status == PaymentAttempt.Status.PROCESSING
+            or active_payment.external_payment_id
+        ):
+            raise ValidationError(
+                {
+                    'order': 'Payment confirmation is in progress. Check its status before cancelling.'
+                }
+            )
+        transition_payment(
+            active_payment,
+            PaymentAttempt.Status.CANCELLED,
+            source=source,
+            event_type=event_type,
+            external_event_id=f'{event_type}:{order.id}:{active_payment.public_id}',
+            message=message or 'Order cancelled before payment completed.',
+            actor=actor,
+        )
+    release_inventory_for_cancelled_order(order)
+    return Order.objects.get(pk=order.pk)
 
 
 @transaction.atomic

@@ -28,6 +28,7 @@ from .payment_webhooks import (
 )
 from .payments import (
     available_payment_methods,
+    cancel_unpaid_order,
     initialize_payment,
     pay_test_order,
     update_payment_status,
@@ -107,6 +108,24 @@ class OrderDetailView(generics.RetrieveAPIView):
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
     queryset = order_queryset()
+
+
+class CancelOrderView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'order_create'
+
+    def post(self, request, pk):
+        order = get_object_or_404(order_queryset(), pk=pk)
+        self.check_object_permissions(request, order)
+        order = cancel_unpaid_order(
+            order,
+            actor=request.user,
+            message='Cancelled by the customer.'
+            if not request.user.is_staff
+            else 'Cancelled by staff.',
+        )
+        return Response(OrderSerializer(order_queryset().get(pk=order.pk)).data)
 
 
 class UpdateOrderStatusView(generics.UpdateAPIView):
@@ -288,8 +307,10 @@ class AdminDashboardView(APIView):
         today = timezone.localdate()
         month_start = today.replace(day=1)
         active_orders = Order.objects.exclude(status=Order.Status.CANCELLED)
+        paid_orders = active_orders.filter(payment_status=Order.PaymentStatus.PAID)
         today_orders = active_orders.filter(created_at__date=today)
-        month_orders = active_orders.filter(created_at__date__gte=month_start)
+        paid_today_orders = paid_orders.filter(paid_at__date=today)
+        paid_month_orders = paid_orders.filter(paid_at__date__gte=month_start)
         delivery_queue = order_queryset().filter(
             status__in=[
                 Order.Status.PENDING,
@@ -324,7 +345,7 @@ class AdminDashboardView(APIView):
             .order_by('-quantity_sold')[:10]
         )
         revenue_by_day = (
-            active_orders.annotate(day=TruncDate('created_at'))
+            paid_orders.annotate(day=TruncDate('paid_at'))
             .values('day')
             .annotate(
                 revenue=Coalesce(
@@ -358,16 +379,16 @@ class AdminDashboardView(APIView):
             'confirmed_orders': active_orders.filter(status=Order.Status.CONFIRMED).count(),
             'preparing_orders': active_orders.filter(status=Order.Status.PREPARING).count(),
             'delivered_orders': active_orders.filter(status=Order.Status.DELIVERED).count(),
-            'total_revenue_today': str(
-                today_orders.aggregate(
+            'total_revenue_today': _money(
+                paid_today_orders.aggregate(
                     total=Coalesce(
                         Sum('total_price'),
                         Value(Decimal('0.00'), output_field=DecimalField()),
                     )
                 )['total']
             ),
-            'total_revenue_month': str(
-                month_orders.aggregate(
+            'total_revenue_month': _money(
+                paid_month_orders.aggregate(
                     total=Coalesce(
                         Sum('total_price'),
                         Value(Decimal('0.00'), output_field=DecimalField()),
@@ -383,14 +404,14 @@ class AdminDashboardView(APIView):
                 {
                     'product_name': item['product_name'],
                     'quantity_sold': item['quantity_sold'] or 0,
-                    'revenue': str(item['revenue'] or 0),
+                    'revenue': _money(item['revenue']),
                 }
                 for item in best_selling
             ],
             'revenue_by_day': [
                 {
                     'date': item['day'].isoformat() if item['day'] else None,
-                    'revenue': str(item['revenue'] or 0),
+                    'revenue': _money(item['revenue']),
                     'orders': item['orders'],
                 }
                 for item in revenue_by_day
@@ -411,7 +432,7 @@ class AdminDashboardView(APIView):
                     'email': item['user__email'],
                     'username': item['user__username'],
                     'orders': item['orders'],
-                    'revenue': str(item['revenue'] or 0),
+                    'revenue': _money(item['revenue']),
                 }
                 for item in top_customers
             ],
@@ -430,3 +451,7 @@ def _product_summary(product):
         'is_available': product.is_available,
         'stock_status': product.stock_status,
     }
+
+
+def _money(value):
+    return f'{Decimal(value or 0):.2f}'

@@ -6,7 +6,6 @@ from rest_framework.test import APIClient
 from apps.users.models import User
 from apps.categories.models import Category
 from apps.products.models import Product
-from apps.cart.models import Cart
 
 
 @pytest.fixture

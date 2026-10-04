@@ -11,6 +11,7 @@ import {
   ApiError,
   OfflineError,
   assignCourier,
+  cancelOrder,
   changePassword,
   fetchAdminDashboard,
   fetchCouriers,
@@ -19,6 +20,7 @@ import {
   fetchOrders,
   fetchProfile,
   login as apiLogin,
+  initializePayment,
   payTestOrder,
   repeatOrder,
   register as apiRegister,
@@ -1597,6 +1599,7 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
   const [error, setError] = useState("");
   const [repeatingId, setRepeatingId] = useState<number | null>(null);
   const [testPayingId, setTestPayingId] = useState<number | null>(null);
+  const [paymentActionId, setPaymentActionId] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -1647,6 +1650,47 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
       setError(firstApiMessage(err, "Could not complete this test payment. Please try again."));
     } finally {
       setTestPayingId(null);
+    }
+  }
+
+  async function onContinuePayment(order: ApiOrder) {
+    const current = order.latest_payment;
+    if (!current || current.provider === "cash" || current.provider === "test") return;
+    setError("");
+    try {
+      setPaymentActionId(order.id);
+      const payment =
+        current.checkout_url && ["created", "pending", "processing"].includes(current.status)
+          ? current
+          : await initializePayment(
+              order.id,
+              current.provider,
+              `retry-${order.id}-${crypto.randomUUID()}`,
+            );
+      setOrders((items) =>
+        items.map((item) => (item.id === order.id ? { ...item, latest_payment: payment } : item)),
+      );
+      if (!payment.checkout_url)
+        throw new Error("The payment provider did not return a checkout URL.");
+      window.location.assign(payment.checkout_url);
+    } catch (err) {
+      setError(firstApiMessage(err, "Could not open secure checkout. Please try again."));
+    } finally {
+      setPaymentActionId(null);
+    }
+  }
+
+  async function onCancelOrder(orderId: number) {
+    setError("");
+    try {
+      setPaymentActionId(orderId);
+      const updated = await cancelOrder(orderId);
+      setOrders((items) => items.map((item) => (item.id === updated.id ? updated : item)));
+      showToast(`Order #${updated.id} cancelled`);
+    } catch (err) {
+      setError(firstApiMessage(err, "Could not cancel this order."));
+    } finally {
+      setPaymentActionId(null);
     }
   }
 
@@ -1863,14 +1907,40 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                   {order.shipping_address} / {order.phone}
                 </p>
                 {order.notes && <p className="mt-1 text-sm text-stone">{order.notes}</p>}
-                <button
-                  type="button"
-                  disabled={repeatingId === order.id}
-                  onClick={() => void onRepeatOrder(order.id)}
-                  className="mt-4 rounded-full border border-line px-5 py-2.5 text-sm font-extrabold text-stone transition hover:border-blossomdeep hover:text-blossomdeep disabled:cursor-wait disabled:opacity-60"
-                >
-                  {repeatingId === order.id ? "Adding..." : "Repeat order"}
-                </button>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {order.latest_payment &&
+                    ["payme", "click"].includes(order.latest_payment.provider) &&
+                    order.payment_status !== "paid" &&
+                    order.status !== "cancelled" && (
+                      <button
+                        type="button"
+                        disabled={paymentActionId === order.id}
+                        onClick={() => void onContinuePayment(order)}
+                        className="rounded-full bg-blossomdeep px-5 py-2.5 text-sm font-extrabold text-white shadow-glow disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {paymentActionId === order.id ? "Opening..." : "Continue payment"}
+                      </button>
+                    )}
+                  {["pending", "confirmed"].includes(order.status) &&
+                    order.payment_status !== "paid" && (
+                      <button
+                        type="button"
+                        disabled={paymentActionId === order.id}
+                        onClick={() => void onCancelOrder(order.id)}
+                        className="rounded-full border border-berry px-5 py-2.5 text-sm font-extrabold text-berry disabled:cursor-wait disabled:opacity-60"
+                      >
+                        Cancel order
+                      </button>
+                    )}
+                  <button
+                    type="button"
+                    disabled={repeatingId === order.id}
+                    onClick={() => void onRepeatOrder(order.id)}
+                    className="rounded-full border border-line px-5 py-2.5 text-sm font-extrabold text-stone transition hover:border-blossomdeep hover:text-blossomdeep disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {repeatingId === order.id ? "Adding..." : "Repeat order"}
+                  </button>
+                </div>
               </article>
             );
           })}

@@ -105,6 +105,9 @@ export interface ApiProductBase {
   is_in_stock: boolean;
   is_low_stock: boolean;
   stock_status: "in_stock" | "low_stock" | "out_of_stock" | "unavailable";
+  rating_average: number | null;
+  rating_count: number;
+  created_at: string;
 }
 
 export interface ApiProductListItem extends ApiProductBase {
@@ -875,6 +878,14 @@ export async function repeatOrder(id: number): Promise<{
   skipped: string[];
 }> {
   return request(`/api/orders/${id}/repeat/`, {
+    method: "POST",
+    body: {},
+    auth: true,
+  });
+}
+
+export async function cancelOrder(id: number): Promise<ApiOrder> {
+  return request<ApiOrder>(`/api/orders/${id}/cancel/`, {
     method: "POST",
     body: {},
     auth: true,

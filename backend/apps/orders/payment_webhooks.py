@@ -7,7 +7,6 @@ from decimal import Decimal, InvalidOperation
 from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
-from django.utils import timezone
 
 from .models import Order, PaymentAttempt, PaymentEvent
 from .payments import release_inventory_for_cancelled_order, transition_payment
@@ -144,10 +143,16 @@ def handle_payme_request(payload: dict) -> dict:
 def _payme_check_perform(params: dict) -> dict:
     payment = _payment_from_account(params)
     _validate_payme_amount(payment, params.get('amount'))
-    if payment.order.status == Order.Status.CANCELLED or payment.status in {
-        PaymentAttempt.Status.CANCELLED,
-        PaymentAttempt.Status.REFUNDED,
-    }:
+    if (
+        payment.order.status == Order.Status.CANCELLED
+        or payment.order.inventory_released_at is not None
+        or payment.order.payment_status == Order.PaymentStatus.PAID
+        or payment.status
+        in {
+            PaymentAttempt.Status.CANCELLED,
+            PaymentAttempt.Status.REFUNDED,
+        }
+    ):
         raise PaymeProtocolError(-31008, 'Payment cannot be performed.', 'payment_id')
     return {'allow': True}
 
@@ -175,6 +180,12 @@ def _payme_create(params: dict) -> dict:
 
     payment = _payment_from_account(params, lock=True)
     _validate_payme_amount(payment, params.get('amount'))
+    if (
+        payment.order.status == Order.Status.CANCELLED
+        or payment.order.inventory_released_at is not None
+        or payment.order.payment_status == Order.PaymentStatus.PAID
+    ):
+        raise PaymeProtocolError(-31008, 'Payment cannot be created for this order.', 'id')
     if payment.external_payment_id and payment.external_payment_id != transaction_id:
         raise PaymeProtocolError(-31008, 'Another transaction is already attached.', 'id')
     if payment.status in {
@@ -215,8 +226,14 @@ def _payme_perform(params: dict) -> dict:
             'perform_time': payment.provider_perform_time or 0,
             'state': 2,
         }
-    if payment.status in {PaymentAttempt.Status.CANCELLED, PaymentAttempt.Status.REFUNDED}:
+    if payment.status in {
+        PaymentAttempt.Status.FAILED,
+        PaymentAttempt.Status.CANCELLED,
+        PaymentAttempt.Status.REFUNDED,
+    }:
         raise PaymeProtocolError(-31008, 'Transaction cannot be performed.', 'id')
+    if payment.order.status == Order.Status.CANCELLED or payment.order.inventory_released_at:
+        raise PaymeProtocolError(-31008, 'Order reservation has expired.', 'id')
     now_ms = int(time.time() * 1000)
     if payment.provider_create_time and now_ms - payment.provider_create_time >= PAYME_TIMEOUT_MS:
         transition_payment(
@@ -246,7 +263,11 @@ def _payme_cancel(params: dict) -> dict:
     payment = _payment_from_transaction(transaction_id, lock=True)
     if payment.order.status == Order.Status.DELIVERED:
         raise PaymeProtocolError(-31007, 'A delivered order cannot be cancelled.', 'id')
-    if payment.status in {PaymentAttempt.Status.CANCELLED, PaymentAttempt.Status.REFUNDED}:
+    if payment.status in {
+        PaymentAttempt.Status.FAILED,
+        PaymentAttempt.Status.CANCELLED,
+        PaymentAttempt.Status.REFUNDED,
+    }:
         return {
             'transaction': str(payment.public_id),
             'cancel_time': payment.provider_cancel_time or 0,
@@ -271,8 +292,9 @@ def _payme_cancel(params: dict) -> dict:
         cancellation_reason=reason,
         provider_time=now_ms,
     )
-    if next_status == PaymentAttempt.Status.CANCELLED:
-        release_inventory_for_cancelled_order(payment.order)
+    # A provider-side cancellation ends this attempt, not the order.  The
+    # customer may start a fresh attempt; stock is released only by the Payme
+    # timeout or by explicit order-expiry/cancellation handling.
     return {
         'transaction': str(payment.public_id),
         'cancel_time': now_ms,
@@ -384,7 +406,17 @@ def handle_click_prepare(data: dict) -> dict:
     }
     if payment.status == PaymentAttempt.Status.PAID:
         return click_response(-4, **base)
-    if payment.status in {PaymentAttempt.Status.CANCELLED, PaymentAttempt.Status.REFUNDED}:
+    if payment.status in {
+        PaymentAttempt.Status.FAILED,
+        PaymentAttempt.Status.CANCELLED,
+        PaymentAttempt.Status.REFUNDED,
+    }:
+        return click_response(-9, **base)
+    if (
+        payment.order.status == Order.Status.CANCELLED
+        or payment.order.inventory_released_at is not None
+        or payment.order.payment_status == Order.PaymentStatus.PAID
+    ):
         return click_response(-9, **base)
     try:
         provider_error = int(data.get('error') or 0)
@@ -393,14 +425,13 @@ def handle_click_prepare(data: dict) -> dict:
     if provider_error < 0:
         transition_payment(
             payment,
-            PaymentAttempt.Status.CANCELLED,
+            PaymentAttempt.Status.FAILED,
             source=PaymentEvent.Source.PROVIDER,
             event_type='click_prepare_cancelled',
             external_event_id=f'click:prepare-error:{data.get("click_trans_id")}',
             failure_code=str(provider_error),
             failure_message=str(data.get('error_note') or ''),
         )
-        release_inventory_for_cancelled_order(payment.order)
         return click_response(-9, **base)
     click_id = str(data.get('click_trans_id') or '')
     if payment.external_payment_id and payment.external_payment_id != click_id:
@@ -453,18 +484,23 @@ def handle_click_complete(data: dict) -> dict:
         if payment.status not in {PaymentAttempt.Status.CANCELLED, PaymentAttempt.Status.REFUNDED}:
             transition_payment(
                 payment,
-                PaymentAttempt.Status.CANCELLED,
+                PaymentAttempt.Status.FAILED,
                 source=PaymentEvent.Source.PROVIDER,
                 event_type='click_complete_cancelled',
                 external_event_id=f'click:complete-error:{payment.external_payment_id}',
                 failure_code=str(provider_error),
                 failure_message=str(data.get('error_note') or ''),
             )
-            release_inventory_for_cancelled_order(payment.order)
         return click_response(-9, **base)
     if payment.status == PaymentAttempt.Status.PAID:
         return click_response(-4, **base)
-    if payment.status in {PaymentAttempt.Status.CANCELLED, PaymentAttempt.Status.REFUNDED}:
+    if payment.status in {
+        PaymentAttempt.Status.FAILED,
+        PaymentAttempt.Status.CANCELLED,
+        PaymentAttempt.Status.REFUNDED,
+    }:
+        return click_response(-9, **base)
+    if payment.order.status == Order.Status.CANCELLED or payment.order.inventory_released_at:
         return click_response(-9, **base)
     transition_payment(
         payment,

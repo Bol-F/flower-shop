@@ -40,7 +40,7 @@ export default function ProductDetail({ product }: { product: Product }) {
   const unitPrice = product.hasSizes ? Math.round(product.price * size.multiplier) : product.price;
   const discount = product.oldPrice ? Math.round((1 - product.price / product.oldPrice) * 100) : 0;
 
-  const similar = products
+  const similar = (product.source === "api" ? [] : products)
     .filter((p) => p.id !== product.id)
     .sort(
       (a, b) =>
@@ -147,7 +147,9 @@ export default function ProductDetail({ product }: { product: Product }) {
         <div>
           <div className="flex items-center gap-2 text-sm">
             <StarIcon className="size-4 text-blossom" />
-            <span className="font-bold">{product.rating.toFixed(1)}</span>
+            <span className="font-bold">
+              {product.rating === null ? "No rating" : product.rating.toFixed(1)}
+            </span>
             <span className="text-stone">
               ({product.reviews} {t.reviews})
             </span>
@@ -187,9 +189,11 @@ export default function ProductDetail({ product }: { product: Product }) {
           <div className="mt-4 flex flex-wrap gap-2">
             <span className="flex items-center gap-1.5 rounded-full bg-mint px-3.5 py-2 text-sm font-semibold text-leaf">
               <BoltIcon className="size-4" />
-              {product.deliveryToday
+              {product.deliveryToday && product.deliveryMins !== null
                 ? t.deliveryToday.replace("{min}", String(product.deliveryMins))
-                : t.deliveryTomorrow}
+                : product.deliveryToday === false
+                  ? t.deliveryTomorrow
+                  : "Delivery estimate at checkout"}
             </span>
             <span className="flex items-center gap-1.5 rounded-full bg-blush px-3.5 py-2 text-sm font-semibold text-raspberry">
               <CameraIcon className="size-4" />
@@ -322,7 +326,7 @@ export default function ProductDetail({ product }: { product: Product }) {
             </div>
             <span className="ml-auto flex shrink-0 items-center gap-1 text-sm font-bold">
               <StarIcon className="size-4 text-blossom" />
-              {product.rating.toFixed(1)}
+              {product.rating === null ? "New" : product.rating.toFixed(1)}
             </span>
           </div>
         </div>
@@ -332,14 +336,16 @@ export default function ProductDetail({ product }: { product: Product }) {
       <ProductReviews productId={product.id} />
 
       {/* similar */}
-      <section aria-label={t.similar} className="mt-14">
-        <h2 className="font-display text-2xl font-semibold sm:text-3xl">{t.similar}</h2>
-        <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
-          {similar.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
-      </section>
+      {similar.length > 0 && (
+        <section aria-label={t.similar} className="mt-14">
+          <h2 className="font-display text-2xl font-semibold sm:text-3xl">{t.similar}</h2>
+          <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
+            {similar.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

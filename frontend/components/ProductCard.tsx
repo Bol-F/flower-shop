@@ -111,17 +111,25 @@ export default function ProductCard({ product }: { product: Product }) {
         </h3>
 
         <div className="mt-1.5 flex items-center gap-1 text-xs text-stone">
-          <StarIcon className="size-3.5 text-blossom" />
-          <span className="font-bold text-ink/80">{product.rating.toFixed(1)}</span>
-          <span>({product.reviews})</span>
-          <span className="mx-0.5">/</span>
-          {product.deliveryToday ? (
+          {product.rating !== null ? (
+            <>
+              <StarIcon className="size-3.5 text-blossom" />
+              <span className="font-bold text-ink/80">{product.rating.toFixed(1)}</span>
+              <span>({product.reviews})</span>
+              <span className="mx-0.5">/</span>
+            </>
+          ) : (
+            <span className="font-semibold">No reviews yet /</span>
+          )}
+          {product.deliveryToday && product.deliveryMins !== null ? (
             <span className="flex items-center gap-0.5 font-semibold text-leaf">
               <BoltIcon className="size-3" />
               {product.deliveryMins} min
             </span>
-          ) : (
+          ) : product.deliveryToday === false ? (
             <span className="font-semibold">{t.tomorrow}</span>
+          ) : (
+            <span className="font-semibold">Delivery at checkout</span>
           )}
         </div>
       </div>

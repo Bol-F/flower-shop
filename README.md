@@ -87,7 +87,7 @@ Backend, from the repository root:
 
 ```powershell
 cd backend
-python -m venv venv
+python -m venv .venv
 venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
@@ -249,11 +249,13 @@ is accidentally supplied.
 
 ## Payment state and retry behavior
 
-1. Checkout creates an order and reserves inventory.
-2. `POST /api/orders/{order_id}/payments/` creates one payment for a supplied
-   idempotency key and returns a hosted checkout URL.
-3. Retrying the same key returns the original attempt. A browser refresh can
-   continue an active attempt from order history.
+1. Checkout atomically creates the order, reserves inventory, and creates the
+   initial hosted payment. A provider-initialization failure rolls everything
+   back.
+2. `POST /api/orders/{order_id}/payments/` resumes that active attempt or
+   creates a replacement after a terminal failure.
+3. Retrying with any key while an attempt is active returns that attempt. A
+   browser refresh can continue it from order history.
 4. Payme/Click calls the backend callback; only a verified, legal transition is
    persisted.
 5. The provider returns the browser to `/payment/return`, which polls

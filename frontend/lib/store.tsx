@@ -84,7 +84,7 @@ interface StoreValue extends PersistedState {
   addToCart: (product: Product | string, qty?: number) => void;
   setCartQty: (id: string, qty: number) => void;
   removeFromCart: (id: string) => void;
-  clearCart: () => void;
+  clearCart: (options?: { remote?: boolean }) => void;
   reloadCart: () => Promise<void>;
   cartLines: CartLine[];
   cartCount: number;
@@ -209,6 +209,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
   }, [persisted, hydrated]);
+
+  useEffect(() => {
+    document.documentElement.lang = persisted.language.toLowerCase();
+  }, [persisted.language]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -343,9 +347,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           });
         }
       },
-      clearCart: () => {
+      clearCart: (options) => {
         setPersisted((prev) => ({ ...prev, cart: {}, cartProducts: {} }));
-        if (user) {
+        if (user && options?.remote !== false) {
           void clearRemoteCart().catch(() => {
             setCartError("Could not clear the server cart.");
           });

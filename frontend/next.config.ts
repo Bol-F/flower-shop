@@ -12,6 +12,30 @@ const localDevOrigins = Object.values(os.networkInterfaces()).flatMap((addresses
     .map((address) => address.address),
 );
 
+const apiOrigin = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").origin;
+  } catch {
+    return "http://localhost:8000";
+  }
+})();
+
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "object-src 'none'",
+  `script-src 'self' 'unsafe-inline'${
+    process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"
+  }`,
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
+  "img-src 'self' data: blob: https:",
+  `connect-src 'self' ${apiOrigin} https: ws: wss:`,
+  ...(process.env.NODE_ENV === "production" ? ["upgrade-insecure-requests"] : []),
+].join("; ");
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: [...new Set([...configuredDevOrigins, ...localDevOrigins])],
   async headers() {
@@ -22,6 +46,7 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Content-Security-Policy", value: contentSecurityPolicy },
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), payment=(), usb=()",

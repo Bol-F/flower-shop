@@ -1,5 +1,4 @@
 from rest_framework import status
-from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -32,7 +31,7 @@ class CartItemView(APIView):
         serializer = AddToCartSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        cart_item = services.add_item_to_cart(
+        services.add_item_to_cart(
             user=request.user,
             product_id=serializer.validated_data['product_id'],
             quantity=serializer.validated_data['quantity'],

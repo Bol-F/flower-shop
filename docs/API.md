@@ -151,13 +151,15 @@ provider proves that email verified. An unverified email collision returns
 | `GET` | `/api/orders/` | JWT | Own orders; staff sees all |
 | `GET` | `/api/orders/{id}/` | JWT | Order detail |
 | `POST` | `/api/orders/{id}/repeat/` | JWT | Add available items to cart |
+| `POST` | `/api/orders/{id}/cancel/` | Owner JWT | Cancel an unpaid order and release stock |
 
 `POST /api/orders/create/` accepts delivery/recipient fields,
 `payment_method` (`cash`, `card`, or `online`), `city_slug`, `delivery_zone_id`,
 and `promo_code`. `card` and `online` select the backend's configured online
 provider. The response contains `latest_payment` when development test mode
-pre-created one; real provider payment initialization is the explicit next
-request.
+or a real provider created the hosted checkout. Order creation, stock
+reservation, and initial payment creation are one database transaction: if the
+provider cannot initialize checkout, none of them are committed.
 
 ## Payments
 
@@ -209,9 +211,10 @@ Content-Type: application/json
 {"provider": "payme"}
 ```
 
-The key can alternatively be supplied as `idempotency_key` in JSON. A new
-attempt returns `201`; retrying the same `(order, provider, key)` returns the
-same attempt with `200`.
+The key can alternatively be supplied as `idempotency_key` in JSON. Checkout
+usually creates the first attempt automatically. This endpoint resumes that
+active attempt or creates a replacement after a terminal failure. Reusing the
+same `(order, provider, key)` always returns the same attempt.
 
 ```json
 {

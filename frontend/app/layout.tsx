@@ -1,22 +1,10 @@
 import type { Metadata } from "next";
-import { Manrope, Playfair_Display } from "next/font/google";
 import { StoreProvider } from "@/lib/store";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SupportChat from "@/components/SupportChat";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
-
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin", "cyrillic"],
-  weight: ["600", "700", "800"],
-});
-
-const manrope = Manrope({
-  variable: "--font-manrope",
-  subsets: ["latin", "cyrillic"],
-});
 
 export const metadata: Metadata = {
   title: "Bloom & Petal — Flower Delivery in Tashkent",
@@ -29,11 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="ru"
-      data-scroll-behavior="smooth"
-      className={`${playfair.variable} ${manrope.variable} h-full antialiased`}
-    >
+    <html lang="en" data-scroll-behavior="smooth" className="h-full antialiased">
       <body className="flex min-h-full flex-col">
         <StoreProvider>
           <Header />

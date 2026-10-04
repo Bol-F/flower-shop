@@ -6,12 +6,19 @@ import { fallbackProduct, loadCatalogProduct } from "@/lib/catalog";
 import type { Product } from "@/lib/types";
 import ProductDetail from "./ProductDetail";
 
-export default function ProductPageClient({ id }: { id: string }) {
-  const [product, setProduct] = useState<Product | null>(() => fallbackProduct(id) ?? null);
-  const [loading, setLoading] = useState(!fallbackProduct(id));
+export default function ProductPageClient({
+  id,
+  initialProduct,
+}: {
+  id: string;
+  initialProduct: Product | null;
+}) {
+  const [product, setProduct] = useState<Product | null>(initialProduct);
+  const [loading, setLoading] = useState(!initialProduct);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    if (initialProduct?.source === "api") return;
     let cancelled = false;
     loadCatalogProduct(id)
       .then((item) => {
@@ -31,7 +38,7 @@ export default function ProductPageClient({ id }: { id: string }) {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, initialProduct]);
 
   if (product) return <ProductDetail product={product} />;
 

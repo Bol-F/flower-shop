@@ -63,6 +63,8 @@ PROVIDER_ENDPOINTS = {
 GOOGLE_ISSUER = 'https://accounts.google.com'
 GITHUB_ISSUER = 'https://github.com'
 MICROSOFT_CONSUMER_TENANT_ID = '9188040d-6c67-4c5b-b112-36a304b66dad'
+
+
 def _sha256(value: str) -> str:
     return hashlib.sha256(value.encode('utf-8')).hexdigest()
 

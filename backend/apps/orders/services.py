@@ -15,7 +15,6 @@ from apps.products.models import Product
 from . import notifications
 from .models import Order, OrderItem
 from .payments import (
-    TEST_PAYMENT_PROVIDER,
     initial_payment_provider,
     initial_payment_reference,
     initial_payment_status,
@@ -62,7 +61,10 @@ def create_order_from_cart(
         if item.quantity > product.stock:
             raise ValidationError(f'Only {product.stock} item(s) available for "{product.name}".')
 
-    subtotal = sum(item.product.price * item.quantity for item in cart_items)
+    # Use the locked rows as the single price/stock snapshot.  The cart rows
+    # were loaded before the locks were acquired and may contain stale product
+    # values if staff edited a product while checkout was starting.
+    subtotal = sum(products[item.product_id].price * item.quantity for item in cart_items)
     city = resolve_city(city_slug, user)
     if delivery_zone and delivery_zone.city_id and city and delivery_zone.city_id != city.id:
         raise ValidationError(
@@ -71,6 +73,15 @@ def create_order_from_cart(
     if delivery_zone and delivery_zone.city_id:
         city = delivery_zone.city
 
+    vendor_ids = {
+        products[item.product_id].vendor_id
+        for item in cart_items
+        if products[item.product_id].vendor_id
+    }
+    if len(vendor_ids) > 1:
+        raise ValidationError(
+            {'cart': 'Items from different florists must be checked out separately.'}
+        )
     vendor = next(
         (
             products[item.product_id].vendor
@@ -130,15 +141,11 @@ def create_order_from_cart(
 
     mark_promo_used(promo)
     clear_cart(user)
-    if (
-        payment_method != Order.PaymentMethod.CASH
-        and settings.PAYMENT_TEST_MODE_ENABLED
-        and settings.PAYMENT_PROVIDER == TEST_PAYMENT_PROVIDER
-    ):
+    if payment_method != Order.PaymentMethod.CASH:
         initialize_payment(
             order,
-            provider_name=TEST_PAYMENT_PROVIDER,
-            idempotency_key=f'test-order-{order.id}',
+            provider_name=settings.PAYMENT_PROVIDER,
+            idempotency_key=f'checkout-{order.id}-{settings.PAYMENT_PROVIDER}',
         )
         order.refresh_from_db()
     notifications.notify_order_created(order)

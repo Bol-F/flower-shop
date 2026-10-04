@@ -11,7 +11,7 @@ from apps.users.models import User
 from apps.categories.models import Category
 from apps.products.models import Product
 from apps.cart.models import Cart, CartItem
-from apps.marketplace.models import Courier, PromoCode
+from apps.marketplace.models import Courier, PromoCode, Vendor
 from apps.orders import notifications
 from apps.orders.models import DeliveryZone, NotificationLog, Order
 from apps.orders.payment_providers import get_payment_provider
@@ -160,6 +160,74 @@ class TestOrderCreation:
         assert response.data['payment_status'] == Order.PaymentStatus.PENDING
         assert response.data['payment_provider'] == 'test'
         assert response.data['payment_reference'].startswith('TEST-')
+
+    @override_settings(
+        PAYMENT_PROVIDER='payme',
+        PAYME_MERCHANT_ID='merchant-id',
+        PAYME_SECRET_KEY='secret',
+        PAYME_CHECKOUT_URL='https://checkout.paycom.uz',
+    )
+    def test_real_checkout_is_created_atomically_with_order(self, api_client, user, cart_with_item):
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            reverse('order-create'),
+            order_payload(payment_method=Order.PaymentMethod.CARD),
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['latest_payment']['provider'] == 'payme'
+        assert response.data['latest_payment']['checkout_url'].startswith(
+            'https://checkout.paycom.uz/'
+        )
+        assert response.data['payment_reference'] == response.data['latest_payment']['id']
+
+    def test_mixed_vendor_cart_is_rejected_without_reserving_stock(
+        self, api_client, user, cart_with_item, product
+    ):
+        first_vendor = Vendor.objects.create(name='First florist', slug='first-florist')
+        second_vendor = Vendor.objects.create(name='Second florist', slug='second-florist')
+        product.vendor = first_vendor
+        product.save(update_fields=['vendor'])
+        second_product = Product.objects.create(
+            name='Other florist bouquet',
+            description='Mixed bouquet',
+            price='15.00',
+            stock=4,
+            vendor=second_vendor,
+        )
+        CartItem.objects.create(cart=cart_with_item, product=second_product, quantity=1)
+        api_client.force_authenticate(user=user)
+
+        response = api_client.post(reverse('order-create'), order_payload(), format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'different florists' in str(response.data['cart'])
+        assert Order.objects.filter(user=user).count() == 0
+        product.refresh_from_db()
+        second_product.refresh_from_db()
+        assert product.stock == 15
+        assert second_product.stock == 4
+        assert cart_with_item.items.count() == 2
+
+    def test_customer_can_cancel_unpaid_order_and_restore_stock_once(
+        self, api_client, user, cart_with_item, product
+    ):
+        api_client.force_authenticate(user=user)
+        created = api_client.post(reverse('order-create'), order_payload(), format='json')
+
+        first = api_client.post(
+            reverse('order-cancel', args=[created.data['id']]), {}, format='json'
+        )
+        second = api_client.post(
+            reverse('order-cancel', args=[created.data['id']]), {}, format='json'
+        )
+
+        assert first.status_code == status.HTTP_200_OK
+        assert second.status_code == status.HTTP_200_OK
+        assert first.data['status'] == Order.Status.CANCELLED
+        product.refresh_from_db()
+        assert product.stock == 15
 
     @override_settings(
         PAYMENT_PROVIDER='stripe',
@@ -666,6 +734,8 @@ class TestOrderCreation:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['today_orders'] == 1
         assert response.data['pending_orders'] == 1
+        assert response.data['total_revenue_today'] == '0.00'
+        assert response.data['total_revenue_month'] == '0.00'
         assert response.data['low_stock_products'][0]['name'] == product.name
         assert response.data['delivery_queue'][0]['id']
 
