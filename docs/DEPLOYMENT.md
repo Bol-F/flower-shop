@@ -494,6 +494,38 @@ POST /api/orders/{id}/pay-test/
 Never deploy these values with `config.settings.production`; that settings
 module intentionally rejects them.
 
+## Optional Gemini flower advice and Tavily search
+
+The `/assistant` storefront page is a read-only bouquet and flower-care helper.
+It is disabled until you explicitly configure backend-only settings:
+
+```env
+FLOWER_ASSISTANT_ENABLED=true
+GEMINI_API_KEY=<server-side-key>
+GEMINI_MODEL=gemini-3.5-flash-lite
+TAVILY_API_KEY=<optional-server-side-key>
+ASSISTANT_HTTP_TIMEOUT_SECONDS=20
+```
+
+Never use a `NEXT_PUBLIC_` prefix for these keys or put them in Git. Configure
+provider billing limits and key restrictions appropriate to the service. The
+model can be changed to an available Gemini model without a code change.
+
+Requests require a signed-in user and are limited to 5/minute and 50/day per
+user. Use a shared Django cache in production so limits apply across workers.
+The assistant receives only the customer's question and a public, in-stock
+catalog snapshot, not account, order, address, or payment records. Customers
+are told which providers receive the question. Do not enter sensitive details.
+
+Tavily is optional and called only when the customer explicitly checks web
+search. The assistant cannot execute commerce actions or confirm payments.
+Review generated advice and provider privacy terms before enabling it publicly.
+Without credentials it stays hidden in the support panel; the direct page shows
+an unavailable message and a support link. Do not enable it merely to test the UI.
+
+The integration uses [Gemini generateContent](https://ai.google.dev/api/generate-content)
+and [Tavily Search](https://docs.tavily.com/documentation/api-reference/endpoint/search).
+
 ## 9. Production Verification Commands
 
 Backend:

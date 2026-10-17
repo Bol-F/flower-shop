@@ -652,3 +652,31 @@ def test_delivered_cash_order_can_be_marked_paid_once(payment_user):
     with pytest.raises(ValidationError):
         update_payment_status(order, Order.PaymentStatus.PAID, reason='Duplicate entry.')
     assert PaymentEvent.objects.filter(payment__order=order).count() == 1
+
+
+@pytest.mark.django_db
+@override_settings(**PAYME_SETTINGS)
+@pytest.mark.parametrize('amount', (12650000.1, '12650000', True, None, -1))
+def test_payme_amount_cannot_be_coerced_or_truncated(online_order, amount):
+    payment, _ = initialize_payment(online_order, provider_name='payme')
+    response = _payme_post(
+        APIClient(),
+        'CheckPerformTransaction',
+        {
+            'account': {'payment_id': str(payment.public_id)},
+            'amount': amount,
+        },
+    )
+    assert response.status_code == 200
+    assert response.data['error']['code'] == -31001
+    payment.refresh_from_db()
+    assert payment.status == PaymentAttempt.Status.PENDING
+
+
+@pytest.mark.django_db
+@override_settings(**PAYME_SETTINGS)
+@pytest.mark.parametrize('method, params', (([], {}), ({}, {}), ('CreateTransaction', [])))
+def test_payme_malformed_requests_return_protocol_errors(method, params):
+    response = _payme_post(APIClient(), method, params)
+    assert response.status_code == 200
+    assert response.data['error']['code'] == -32600

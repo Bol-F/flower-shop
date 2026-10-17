@@ -21,8 +21,31 @@ class FlowerUserCreationForm(UserCreationForm):
         return email
 
 
+class SocialIdentityInline(admin.TabularInline):
+    model = SocialIdentity
+    extra = 0
+    fields = ('provider', 'email', 'email_verified', 'issuer', 'created_at')
+    readonly_fields = fields
+    can_delete = False
+    show_change_link = True
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
+    inlines = (SocialIdentityInline,)
+
+    def get_inlines(self, request, obj=None):
+        return self.inlines if obj is not None else ()
+
     add_form = FlowerUserCreationForm
     add_fieldsets = (
         (

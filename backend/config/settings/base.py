@@ -17,6 +17,11 @@ env = environ.Env(
     DB_PORT=(str, '5432'),
     REDIS_URL=(str, 'redis://127.0.0.1:6379/0'),
     PEXELS_API_KEY=(str, ''),
+    FLOWER_ASSISTANT_ENABLED=(bool, False),
+    GEMINI_API_KEY=(str, ''),
+    GEMINI_MODEL=(str, 'gemini-3.5-flash-lite'),
+    TAVILY_API_KEY=(str, ''),
+    ASSISTANT_HTTP_TIMEOUT_SECONDS=(int, 20),
     EMAIL_HOST=(str, ''),
     EMAIL_PORT=(int, 587),
     EMAIL_HOST_USER=(str, ''),
@@ -251,6 +256,8 @@ REST_FRAMEWORK = {
         'auth_oauth_callback': '30/hour',
         'auth_oauth_exchange': '10/minute',
         'support_message': '10/hour',
+        'flower_assistant': '5/minute',
+        'flower_assistant_daily': '50/day',
         'promo_validate': '20/hour',
         'order_create': '20/hour',
         'test_payment': '20/hour',
@@ -328,6 +335,12 @@ PAYME_LOGIN = env('PAYME_LOGIN')
 PAYME_SECRET_KEY = env('PAYME_SECRET_KEY')
 PAYME_CHECKOUT_URL = env('PAYME_CHECKOUT_URL')
 PAYME_ALLOWED_IPS = env('PAYME_ALLOWED_IPS')
+
+FLOWER_ASSISTANT_ENABLED = env('FLOWER_ASSISTANT_ENABLED')
+GEMINI_API_KEY = env('GEMINI_API_KEY').strip()
+GEMINI_MODEL = env('GEMINI_MODEL').strip()
+TAVILY_API_KEY = env('TAVILY_API_KEY').strip()
+ASSISTANT_HTTP_TIMEOUT_SECONDS = env('ASSISTANT_HTTP_TIMEOUT_SECONDS')
 
 LOGGING = {
     'version': 1,

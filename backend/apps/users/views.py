@@ -9,6 +9,7 @@ from django.db import transaction
 from django.shortcuts import redirect
 from django.utils import timezone
 from rest_framework import generics, permissions, status
+from rest_framework.exceptions import Throttled
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -44,6 +45,18 @@ class OAuthNoStoreMixin:
         response['Pragma'] = 'no-cache'
         response['Referrer-Policy'] = 'no-referrer'
         return response
+
+
+class OAuthBrowserRedirectMixin(OAuthNoStoreMixin):
+    def handle_exception(self, exc):
+        if isinstance(exc, Throttled):
+            return redirect(
+                _frontend_callback(
+                    error='rate_limited',
+                    message='Too many sign-in attempts. Please wait a moment and try again.',
+                )
+            )
+        return super().handle_exception(exc)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -193,7 +206,7 @@ class OAuthProvidersView(OAuthNoStoreMixin, generics.GenericAPIView):
         )
 
 
-class OAuthStartView(OAuthNoStoreMixin, generics.GenericAPIView):
+class OAuthStartView(OAuthBrowserRedirectMixin, generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_oauth_start'
@@ -227,7 +240,7 @@ class OAuthLinkStartView(OAuthNoStoreMixin, generics.GenericAPIView):
         return Response({'authorization_url': authorization_url})
 
 
-class OAuthCallbackView(OAuthNoStoreMixin, generics.GenericAPIView):
+class OAuthCallbackView(OAuthBrowserRedirectMixin, generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_oauth_callback'

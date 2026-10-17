@@ -62,6 +62,27 @@ class TestRegistration:
 
 @pytest.mark.django_db
 class TestLogin:
+    def test_refresh_rotation_blacklists_old_token_and_prevents_caching(
+        self, api_client, created_user, user_data
+    ):
+        login = api_client.post(
+            reverse('login'),
+            {
+                'email': user_data['email'],
+                'password': user_data['password'],
+            },
+            format='json',
+        )
+        assert login['Cache-Control'] == 'no-store'
+        original = login.data['refresh']
+        refreshed = api_client.post(reverse('token-refresh'), {'refresh': original}, format='json')
+        assert refreshed.status_code == 200
+        assert refreshed['Cache-Control'] == 'no-store'
+        assert refreshed.data['refresh'] != original
+        replay = api_client.post(reverse('token-refresh'), {'refresh': original}, format='json')
+        assert replay.status_code == 401
+        assert replay['Cache-Control'] == 'no-store'
+
     def test_login_success(self, api_client, created_user, user_data):
         url = reverse('login')
         response = api_client.post(

@@ -357,6 +357,9 @@ def _verified_oidc_claims(provider: str, config: dict, id_token: str, nonce: str
             'invalid_token', 'The identity token claims could not be verified.'
         ) from exc
     audience = claims.get('aud')
+    subject = claims.get('sub')
+    if not isinstance(subject, str) or not subject.strip() or len(subject) > 255:
+        raise OAuthError('invalid_token', 'The identity token has an invalid subject.')
     authorized_party = claims.get('azp')
     if authorized_party is not None and authorized_party != config['client_id']:
         raise OAuthError('invalid_token', 'The identity token claims could not be verified.')

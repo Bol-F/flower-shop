@@ -182,6 +182,10 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
           name: zone.name,
           city: zone.city,
           fee: Number.parseFloat(zone.fee) || 0,
+          freeDeliveryThreshold:
+            zone.free_delivery_threshold === undefined
+              ? undefined
+              : Number(zone.free_delivery_threshold),
           requiresManualConfirmation: zone.requires_manual_confirmation,
           description: zone.description,
         }));
@@ -676,7 +680,10 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                 <div className="grid content-start gap-3">
                   <div>
                     <div className="mb-1.5 flex items-center justify-between gap-3">
-                      <label className="text-xs font-extrabold uppercase tracking-wider text-stone">
+                      <label
+                        htmlFor="checkout-address"
+                        className="text-xs font-extrabold uppercase tracking-wider text-stone"
+                      >
                         Delivery address
                       </label>
                       <button
@@ -691,6 +698,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                       <DeliveryMapPicker value={deliveryLocation} onChange={setDeliveryLocation} />
                     ) : (
                       <input
+                        id="checkout-address"
                         required
                         value={deliveryLocation.address}
                         onChange={(event) =>
@@ -707,10 +715,16 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                   </div>
 
                   <div>
-                    <label className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
+                    <label
+                      htmlFor="checkout-phone"
+                      className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone"
+                    >
                       Contact phone
                     </label>
                     <input
+                      id="checkout-phone"
+                      type="tel"
+                      autoComplete="tel"
                       required
                       value={phone}
                       onChange={(event) => setPhone(event.target.value)}
@@ -729,6 +743,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                           Day
                         </span>
                         <select
+                          aria-label="Delivery day"
                           value={deliveryDayMode}
                           onChange={(event) =>
                             setDeliveryDayMode(event.target.value as DeliveryDayMode)
@@ -745,6 +760,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                           Zone
                         </span>
                         <select
+                          aria-label="Delivery zone"
                           value={selectedDeliveryZoneId}
                           onChange={(event) =>
                             setSelectedDeliveryZoneId(Number(event.target.value))
@@ -763,6 +779,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                           Time
                         </span>
                         <select
+                          aria-label="Delivery time"
                           value={deliveryTimeSlot}
                           onChange={(event) =>
                             setDeliveryTimeSlot(event.target.value as DeliveryTimeSlot)
@@ -783,6 +800,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                       )}
                       {deliveryDayMode === "custom" && (
                         <input
+                          aria-label="Delivery date"
                           required
                           type="date"
                           min={minDeliveryDate}
@@ -816,6 +834,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                     {sendAsGift && (
                       <div className="grid gap-2">
                         <input
+                          aria-label="Recipient name"
                           required={sendAsGift}
                           value={recipientName}
                           onChange={(event) => setRecipientName(event.target.value)}
@@ -823,6 +842,8 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                           className="w-full rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
                         />
                         <input
+                          aria-label="Recipient phone"
+                          type="tel"
                           required={sendAsGift}
                           value={recipientPhone}
                           onChange={(event) => setRecipientPhone(event.target.value)}
@@ -830,6 +851,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                           className="w-full rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
                         />
                         <textarea
+                          aria-label="Gift note"
                           value={giftNote}
                           onChange={(event) => setGiftNote(event.target.value)}
                           rows={2}
@@ -859,6 +881,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                     </button>
                     {showExtraDetails && (
                       <textarea
+                        aria-label="Courier note"
                         value={notes}
                         onChange={(event) => setNotes(event.target.value)}
                         rows={2}
@@ -1277,12 +1300,12 @@ export default function Header() {
 
         <nav className="ml-auto hidden items-center gap-2 text-base font-bold text-ink/80 lg:flex">
           {!isStaff && (
-            <a
-              href="#catalog"
+            <Link
+              href="/#catalog"
               className="rounded-full px-3 py-2 transition hover:bg-blush hover:text-blossomdeep"
             >
               {t.shop}
-            </a>
+            </Link>
           )}
           {isSignedIn ? (
             <AccountMenu
@@ -1292,17 +1315,13 @@ export default function Header() {
               onSignOut={signOut}
             />
           ) : hydrated ? (
-            <>
-              <Link href="/profile?mode=login" className="transition hover:text-blossomdeep">
-                {t.login}
-              </Link>
-              <Link
-                href="/profile"
-                className="rounded-full bg-blossomdeep px-4 py-2 text-base font-extrabold text-white shadow-glow transition hover:-translate-y-0.5 hover:bg-raspberry active:translate-y-0"
-              >
-                {t.signUp}
-              </Link>
-            </>
+            <Link
+              href="/profile?mode=login"
+              className="flex items-center gap-2 rounded-full bg-blossomdeep px-4 py-2 text-sm font-extrabold text-white transition hover:bg-raspberry"
+            >
+              <UserIcon className="size-4" />
+              {t.login}
+            </Link>
           ) : null}
           <CitySwitch />
           <LanguageSwitch />
@@ -1350,13 +1369,13 @@ export default function Header() {
         <div className="border-t border-line bg-white px-5 py-4 shadow-soft lg:hidden">
           <nav className="mx-auto flex max-w-[1480px] flex-col gap-3 text-base font-bold">
             {!isStaff && (
-              <a
-                href="#catalog"
+              <Link
+                href="/#catalog"
                 onClick={() => setMenuOpen(false)}
                 className="rounded-2xl px-3 py-2 transition hover:bg-blush"
               >
                 {t.shop}
-              </a>
+              </Link>
             )}
             <Link
               href={isSignedIn ? "/profile" : "/profile?mode=login"}
@@ -1370,15 +1389,6 @@ export default function Header() {
               )}
               {isSignedIn ? displayName : t.login}
             </Link>
-            {!isSignedIn && hydrated && (
-              <Link
-                href="/profile"
-                onClick={() => setMenuOpen(false)}
-                className="rounded-full bg-blossomdeep px-5 py-3 text-center font-extrabold text-white"
-              >
-                {t.signUp}
-              </Link>
-            )}
             {isSignedIn && isStaff && (
               <Link
                 href="/admin"

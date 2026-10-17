@@ -7,6 +7,7 @@ import {
   ApiError,
   OfflineError,
   fetchMyMessages,
+  fetchAssistantCapabilities,
   sendSupportMessage,
   type SupportMessage,
 } from "@/lib/api";
@@ -89,8 +90,25 @@ export default function SupportChat() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [assistantEnabled, setAssistantEnabled] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bodyInputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    fetchAssistantCapabilities().then(
+      (result) => {
+        if (active) setAssistantEnabled(result.enabled);
+      },
+      () => {
+        if (active) setAssistantEnabled(false);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [open]);
 
   const orderedMessages = useMemo(
     () =>
@@ -203,6 +221,21 @@ export default function SupportChat() {
               ×
             </button>
           </header>
+
+          {assistantEnabled && (
+            <Link
+              href="/assistant"
+              onClick={() => setOpen(false)}
+              className="border-b border-line px-5 py-3 text-sm font-bold text-blossomdeep"
+            >
+              {language === "RU"
+                ? "Помощь с выбором цветов · AI"
+                : language === "UZ"
+                  ? "Gul tanlashda yordam · AI"
+                  : "Help choosing flowers · AI"}{" "}
+              →
+            </Link>
+          )}
 
           {!hydrated || !user ? (
             <div className="grid flex-1 place-items-center px-8 text-center">

@@ -15,6 +15,7 @@ export interface DeliveryZoneOption {
   name: string;
   city: string;
   fee: number;
+  freeDeliveryThreshold?: number;
   requiresManualConfirmation: boolean;
   description: string;
 }
@@ -57,8 +58,9 @@ export type DeliveryTimeSlot = (typeof deliveryTimeSlots)[number];
 
 export function calculateDeliveryFee(
   subtotal: number,
-  zone?: Pick<DeliveryZoneOption, "fee"> | null,
+  zone?: Pick<DeliveryZoneOption, "fee" | "freeDeliveryThreshold"> | null,
 ): number {
-  if (subtotal >= FREE_DELIVERY_MIN_AMOUNT) return 0;
+  const threshold = zone?.freeDeliveryThreshold ?? FREE_DELIVERY_MIN_AMOUNT;
+  if (subtotal >= threshold) return 0;
   return zone?.fee ?? FIXED_CITY_DELIVERY_FEE;
 }

@@ -27,7 +27,11 @@ export default function CategoryRail() {
   }, []);
 
   return (
-    <nav aria-label="Categories" className="mx-auto max-w-7xl px-4 pt-8">
+    <nav
+      id="collections"
+      aria-label="Categories"
+      className="mx-auto max-w-7xl scroll-mt-20 px-4 pt-8"
+    >
       <ul className="flex min-h-[7rem] gap-4 overflow-x-auto no-scrollbar px-1 pb-3 sm:gap-5 sm:justify-between">
         {categories.map((cat) => {
           const Icon = CATEGORY_ICONS[cat.id] ?? RoseIcon;

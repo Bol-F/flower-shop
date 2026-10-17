@@ -54,6 +54,8 @@ def payme_authenticated(authorization: str) -> bool:
 
 def _payment_from_account(params: dict, *, lock: bool = False) -> PaymentAttempt:
     account = params.get('account') or {}
+    if not isinstance(account, dict):
+        raise PaymeProtocolError(-31050, 'Payment account was not found.', 'payment_id')
     public_id = account.get('payment_id')
     queryset = PaymentAttempt.objects.select_related('order')
     if lock:
@@ -80,11 +82,9 @@ def _payment_from_transaction(transaction_id: str, *, lock: bool = False) -> Pay
 def _validate_payme_amount(payment: PaymentAttempt, amount) -> None:
     if payment.currency != 'UZS':
         raise PaymeProtocolError(-31001, 'Incorrect payment currency.', 'amount')
-    try:
-        received = int(amount)
-    except (TypeError, ValueError) as exc:
-        raise PaymeProtocolError(-31001, 'Incorrect payment amount.', 'amount') from exc
-    if received != int(payment.amount * 100):
+    # Payme defines Amount as a positive integer in tiyins. Never truncate
+    # fractional JSON numbers or coerce booleans/strings into a charge amount.
+    if type(amount) is not int or amount <= 0 or amount != int(payment.amount * 100):
         raise PaymeProtocolError(-31001, 'Incorrect payment amount.', 'amount')
 
 
@@ -120,7 +120,9 @@ def handle_payme_request(payload: dict) -> dict:
         return payme_error(None, -32600, 'Invalid JSON-RPC request.')
     request_id = payload.get('id')
     method = payload.get('method')
-    params = payload.get('params') or {}
+    params = payload.get('params')
+    if not isinstance(method, str) or not isinstance(params, dict):
+        return payme_error(request_id, -32600, 'Invalid JSON-RPC request.')
     handlers = {
         'CheckPerformTransaction': _payme_check_perform,
         'CreateTransaction': _payme_create,

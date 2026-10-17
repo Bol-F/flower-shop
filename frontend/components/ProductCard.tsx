@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import { useState } from "react";
 import type { Product } from "@/lib/types";
 import { copy } from "@/lib/i18n";
 import { usePriceFormatter, useStore } from "@/lib/store";
@@ -9,6 +10,7 @@ import BouquetArt from "./BouquetArt";
 import { BoltIcon, HeartIcon, PlusIcon, StarIcon } from "./icons";
 
 export default function ProductCard({ product }: { product: Product }) {
+  const [failedImage, setFailedImage] = useState<string | null>(null);
   const formatPrice = usePriceFormatter();
   const { currency, language, favorites, toggleFavorite, addToCart, showToast } = useStore();
   const t = copy[language].product;
@@ -25,10 +27,13 @@ export default function ProductCard({ product }: { product: Product }) {
         className="relative aspect-[4/5] overflow-hidden rounded-2xl"
         style={{ background: product.palette.backdrop }}
       >
-        {product.image ? (
+        {product.image && failedImage !== product.image ? (
           <img
             src={product.image}
             alt={product.name}
+            loading="lazy"
+            decoding="async"
+            onError={() => setFailedImage(product.image ?? null)}
             className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.05]"
           />
         ) : (

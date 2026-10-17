@@ -18,7 +18,6 @@ import {
   fetchAdminSupportMessages,
   fetchOAuthProviders,
   fetchOrders,
-  fetchProfile,
   login as apiLogin,
   initializePayment,
   payTestOrder,
@@ -1463,17 +1462,12 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
   );
 }
 
-function ConnectedAccounts({
-  user,
-  onUserRefresh,
-}: {
-  user: AuthUser;
-  onUserRefresh: (user: AuthUser) => void;
-}) {
+function ConnectedAccounts({ user }: { user: AuthUser }) {
   const [available, setAvailable] = useState<Set<OAuthProvider> | null>(null);
   const [linking, setLinking] = useState<OAuthProvider | null>(null);
   const [error, setError] = useState("");
-  const [connectedNotice, setConnectedNotice] = useState("");
+  const [discoveryFailed, setDiscoveryFailed] = useState(false);
+  const [discoveryAttempt, setDiscoveryAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -1484,26 +1478,12 @@ function ConnectedAccounts({
         }
       })
       .catch(() => {
-        if (active) setAvailable(new Set());
+        if (active) setDiscoveryFailed(true);
       });
     return () => {
       active = false;
     };
-  }, []);
-
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const provider = url.searchParams.get("connected") as OAuthProvider | null;
-    if (!provider || !(provider in socialProviderLabels)) return;
-    url.searchParams.delete("connected");
-    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-    void fetchProfile()
-      .then((refreshedUser) => {
-        onUserRefresh(refreshedUser);
-        setConnectedNotice(`${socialProviderLabels[provider]} is now connected.`);
-      })
-      .catch(() => undefined);
-  }, [onUserRefresh]);
+  }, [discoveryAttempt]);
 
   const identities = new Map(
     (user.social_identities ?? []).map((identity) => [identity.provider, identity]),
@@ -1530,15 +1510,24 @@ function ConnectedAccounts({
         Connected accounts
       </h2>
       <p className="mt-1 text-sm text-stone">
-        Link a provider only after signing in here, so an existing account cannot be taken over by
-        an unverified email match.
+        Connect an account to sign in more easily next time.
       </p>
-      {connectedNotice && (
+      {discoveryFailed && (
         <p
-          className="mt-4 rounded-2xl bg-mint px-4 py-3 text-sm font-semibold text-leaf"
-          role="status"
+          className="mt-4 rounded-2xl bg-berrysoft px-4 py-3 text-sm font-semibold text-berry"
+          role="alert"
         >
-          {connectedNotice}
+          We couldn’t check available providers.{" "}
+          <button
+            type="button"
+            className="underline underline-offset-4"
+            onClick={() => {
+              setDiscoveryFailed(false);
+              setDiscoveryAttempt((attempt) => attempt + 1);
+            }}
+          >
+            Try again
+          </button>
         </p>
       )}
       {error && (
@@ -1578,11 +1567,13 @@ function ConnectedAccounts({
                 >
                   {linking === provider
                     ? "Opening provider…"
-                    : !capabilityLoaded
-                      ? "Checking…"
-                      : enabled
-                        ? "Connect"
-                        : "Not configured"}
+                    : discoveryFailed
+                      ? "Unavailable"
+                      : !capabilityLoaded
+                        ? "Checking…"
+                        : enabled
+                          ? "Connect"
+                          : "Not configured"}
                 </button>
               )}
             </div>
@@ -2271,7 +2262,7 @@ export default function ProfileSettings({ initialMode = "register" }: { initialM
         </section>
       </div>
 
-      <ConnectedAccounts user={user} onUserRefresh={setUser} />
+      <ConnectedAccounts user={user} />
 
       <CustomerOrderHistory currency={currency} />
 

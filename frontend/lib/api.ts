@@ -204,6 +204,7 @@ export interface ApiDeliveryZone {
   city: string;
   city_slug: string;
   fee: string;
+  free_delivery_threshold?: string;
   is_active: boolean;
   requires_manual_confirmation: boolean;
   description: string;
@@ -393,15 +394,43 @@ export class OfflineError extends Error {
 }
 
 export function loadAuth(): StoredAuth | null {
+  if (typeof window === "undefined") return null;
   if (useVolatileAuth) return volatileAuth;
   try {
     const raw = localStorage.getItem(AUTH_KEY);
-    const auth = raw ? (JSON.parse(raw) as StoredAuth) : null;
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    const auth = isStoredAuth(parsed) ? parsed : null;
     volatileAuth = auth;
     return auth;
   } catch {
     useVolatileAuth = true;
     return volatileAuth;
+  }
+}
+
+function isStoredAuth(value: unknown): value is StoredAuth {
+  if (!value || typeof value !== "object") return false;
+  const auth = value as Partial<StoredAuth>;
+  return (
+    typeof auth.access === "string" &&
+    Boolean(auth.access.trim()) &&
+    typeof auth.refresh === "string" &&
+    Boolean(auth.refresh.trim()) &&
+    Boolean(auth.user) &&
+    typeof auth.user?.id === "number" &&
+    typeof auth.user?.username === "string" &&
+    typeof auth.user?.email === "string"
+  );
+}
+
+async function responseDetails(response: Response): Promise<Record<string, unknown>> {
+  try {
+    const parsed: unknown = await response.json();
+    return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
   }
 }
 
@@ -469,12 +498,7 @@ async function request<T>(
   }
 
   if (!res.ok) {
-    let details: Record<string, unknown> = {};
-    try {
-      details = await res.json();
-    } catch {
-      /* non-JSON error body */
-    }
+    const details = await responseDetails(res);
     throw new ApiError(res.status, details);
   }
   if (res.status === 204) return undefined as T;
@@ -482,14 +506,13 @@ async function request<T>(
 }
 
 async function refreshAuth(stored: StoredAuth): Promise<StoredAuth | null> {
-  const latest = loadAuth();
-  if (latest && latest.user.id === stored.user.id && latest.refresh !== stored.refresh) {
-    return latest;
-  }
   if (refreshFlight?.token === stored.refresh) return refreshFlight.promise;
 
   const token = stored.refresh;
-  const promise = (async () => {
+  const rotate = async () => {
+    const latest = loadAuth();
+    if (!latest || latest.user.id !== stored.user.id) return null;
+    if (latest.refresh !== token || latest.access !== stored.access) return latest;
     const result = await doFetchRefresh(token);
     const current = loadAuth();
 
@@ -513,6 +536,14 @@ async function refreshAuth(stored: StoredAuth): Promise<StoredAuth | null> {
     };
     saveAuth(updated);
     return updated;
+  };
+  // Serialize token rotation across tabs as well as within this module.
+  // Re-read storage after acquiring the lock, so waiting tabs reuse the result.
+  const promise: Promise<StoredAuth | null> = (async () => {
+    if (typeof navigator !== "undefined" && navigator.locks) {
+      return await navigator.locks.request("bloompetal:refresh", rotate);
+    }
+    return rotate();
   })();
   refreshFlight = { token, promise };
   try {
@@ -534,12 +565,7 @@ async function doFetchRefresh(refresh: string): Promise<RefreshResult> {
     return { status: "retryable", error: new OfflineError() };
   }
 
-  let details: Record<string, unknown> = {};
-  try {
-    details = (await res.json()) as Record<string, unknown>;
-  } catch {
-    // Handled below as a malformed success or an ordinary error response.
-  }
+  const details = await responseDetails(res);
   if (!res.ok) {
     if (res.status === 400 || res.status === 401) return { status: "invalid" };
     return { status: "retryable", error: new ApiError(res.status, details) };
@@ -1005,6 +1031,32 @@ export async function submitReview(
 export async function deleteMyReview(productId: string): Promise<ProductSocial> {
   return request<ProductSocial>(`/api/reviews/products/${productId}/review/`, {
     method: "DELETE",
+    auth: true,
+  });
+}
+
+export interface AssistantCapabilities {
+  enabled: boolean;
+  web_search_enabled: boolean;
+}
+
+export interface FlowerAdvice {
+  answer: string;
+  sources: Array<{ title: string; url: string }>;
+}
+
+export function fetchAssistantCapabilities(): Promise<AssistantCapabilities> {
+  return request<AssistantCapabilities>("/api/contact/assistant/capabilities/");
+}
+
+export function askFlowerAdvice(payload: {
+  message: string;
+  language: "EN" | "RU" | "UZ";
+  use_web_search: boolean;
+}): Promise<FlowerAdvice> {
+  return request<FlowerAdvice>("/api/contact/assistant/", {
+    method: "POST",
+    body: payload,
     auth: true,
   });
 }

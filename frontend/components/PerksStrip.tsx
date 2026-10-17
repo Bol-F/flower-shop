@@ -1,39 +1,56 @@
+"use client";
+
+import { useStore } from "@/lib/store";
 import { BoltIcon, CameraIcon, LeafIcon, TruckIcon } from "./icons";
+
+const descriptions = {
+  EN: [
+    ["Delivery your way", "Choose an available delivery zone and time at checkout"],
+    ["Made for gifting", "Add a recipient and a personal note to your bouquet"],
+    ["Clear availability", "See which bouquets are in stock before you order"],
+    ["Help when you need it", "Track your orders and reach our support team"],
+  ],
+  RU: [
+    ["Удобная доставка", "Выберите доступную зону и время при оформлении"],
+    ["Для ваших подарков", "Укажите получателя и добавьте личное пожелание"],
+    ["Понятное наличие", "Проверьте наличие букетов перед заказом"],
+    ["Мы на связи", "Следите за заказами и обращайтесь в поддержку"],
+  ],
+  UZ: [
+    ["Qulay yetkazish", "Buyurtmada mavjud hudud va vaqtni tanlang"],
+    ["Sovg‘a uchun", "Qabul qiluvchi va shaxsiy tilakni qo‘shing"],
+    ["Aniq mavjudlik", "Buyurtmadan oldin guldastalar mavjudligini tekshiring"],
+    ["Yordam doim yoningizda", "Buyurtmalarni kuzating va yordam xizmatiga yozing"],
+  ],
+} as const;
 
 const perks = [
   {
     icon: BoltIcon,
-    title: "Fast delivery",
-    text: "Same-day courier windows across Tashkent demo zones",
     tint: "bg-blush text-raspberry",
   },
   {
     icon: CameraIcon,
-    title: "Ready for photos",
-    text: "Product pages, checkout, and staff screens are screenshot-ready",
     tint: "bg-berrysoft text-berry",
   },
   {
     icon: LeafIcon,
-    title: "Stock-aware",
-    text: "Low-stock and out-of-stock products are visible to staff",
     tint: "bg-mint text-leaf",
   },
   {
     icon: TruckIcon,
-    title: "Complete workflow",
-    text: "Orders, payments, support, and notifications stay connected",
     tint: "bg-lilac text-iris",
   },
 ];
 
 export default function PerksStrip() {
+  const { language } = useStore();
   return (
     <section aria-label="Why Bloom and Petal" className="mx-auto max-w-7xl px-4 py-10">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {perks.map(({ icon: Icon, title, text, tint }) => (
+        {perks.map(({ icon: Icon, tint }, index) => (
           <div
-            key={title}
+            key={index}
             className="group flex items-center gap-4 rounded-3xl bg-card p-5 shadow-soft transition duration-300 hover:-translate-y-1"
           >
             <span
@@ -42,8 +59,10 @@ export default function PerksStrip() {
               <Icon className="size-5.5" />
             </span>
             <div>
-              <p className="text-sm font-bold">{title}</p>
-              <p className="mt-0.5 text-xs leading-snug text-stone">{text}</p>
+              <p className="text-sm font-bold">{descriptions[language][index][0]}</p>
+              <p className="mt-0.5 text-xs leading-snug text-stone">
+                {descriptions[language][index][1]}
+              </p>
             </div>
           </div>
         ))}

@@ -85,6 +85,76 @@ class NotificationLogInline(admin.TabularInline):
         return False
 
 
+class PaymentAttemptInline(admin.TabularInline):
+    model = PaymentAttempt
+    extra = 0
+    fields = ('public_id', 'provider', 'amount', 'currency', 'status', 'paid_at', 'created_at')
+    readonly_fields = fields
+    can_delete = False
+    show_change_link = True
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class PaymentEventInline(admin.TabularInline):
+    model = PaymentEvent
+    extra = 0
+    fields = ('source', 'event_type', 'status_from', 'status_to', 'message', 'actor', 'created_at')
+    readonly_fields = fields
+    can_delete = False
+    ordering = ('-created_at',)
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class OrderAttentionFilter(admin.SimpleListFilter):
+    title = _('Needs attention')
+    parameter_name = 'attention'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('payment', _('Awaiting card payment')),
+            ('cash', _('Cash to collect')),
+            ('courier', _('Courier not assigned')),
+            ('overdue', _('Delivery overdue')),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() not in {'payment', 'cash', 'courier', 'overdue'}:
+            return queryset
+        active = queryset.exclude(status__in=(Order.Status.DELIVERED, Order.Status.CANCELLED))
+        if self.value() == 'payment':
+            return active.exclude(payment_method=Order.PaymentMethod.CASH).filter(
+                payment_status__in=(
+                    Order.PaymentStatus.UNPAID,
+                    Order.PaymentStatus.PENDING,
+                    Order.PaymentStatus.FAILED,
+                )
+            )
+        if self.value() == 'cash':
+            return queryset.filter(
+                payment_method=Order.PaymentMethod.CASH,
+                payment_status=Order.PaymentStatus.UNPAID,
+            ).exclude(status=Order.Status.CANCELLED)
+        if self.value() == 'courier':
+            return active.filter(assigned_courier__isnull=True)
+        return active.filter(delivery_date__lt=timezone.localdate())
+
+
 @admin.register(DeliveryZone)
 class DeliveryZoneAdmin(admin.ModelAdmin):
     list_display = ('name', 'city', 'fee', 'is_active', 'requires_manual_confirmation')
@@ -154,6 +224,7 @@ class OrderAdmin(admin.ModelAdmin):
     )
     list_display_links = ('id', 'recipient_name')
     list_filter = (
+        OrderAttentionFilter,
         'city',
         'vendor',
         'assigned_courier',
@@ -212,7 +283,7 @@ class OrderAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    inlines = (OrderItemInline, NotificationLogInline)
+    inlines = (OrderItemInline, PaymentAttemptInline, NotificationLogInline)
     actions = (
         'mark_cash_paid',
         'assign_courier',
@@ -547,6 +618,7 @@ class PaymentAttemptAdmin(admin.ModelAdmin):
     list_select_related = ('order',)
     list_per_page = 25
     readonly_fields = tuple(field.name for field in PaymentAttempt._meta.fields)
+    inlines = (PaymentEventInline,)
 
     def has_add_permission(self, request):
         return False

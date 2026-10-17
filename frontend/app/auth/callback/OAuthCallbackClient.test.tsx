@@ -2,7 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { ComponentProps } from "react";
+import { StrictMode, type ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OfflineError } from "@/lib/api";
 import OAuthCallbackClient from "./OAuthCallbackClient";
@@ -137,7 +137,7 @@ describe("OAuthCallbackClient", () => {
 
     renderCallback();
 
-    const retry = await screen.findByRole("button", { name: /try exchange again/i });
+    const retry = await screen.findByRole("button", { name: /try again/i });
     expect(window.location.hash).toBe("");
     fireEvent.click(retry);
     await waitFor(() => expect(mocks.completeOAuth).toHaveBeenCalledTimes(2));
@@ -164,6 +164,29 @@ describe("OAuthCallbackClient", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("did not include one usable code");
     expect(mocks.completeOAuth).not.toHaveBeenCalled();
     expect(mocks.completeOAuthLink).not.toHaveBeenCalled();
+  });
+
+  it.each(["code", "link_code"])("exchanges %s once under StrictMode", async (kind) => {
+    window.history.replaceState(null, "", `/auth/callback#${kind}=single-use-code`);
+    render(
+      <StrictMode>
+        <OAuthCallbackClient {...defaultProps} />
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/profile"));
+    const complete = kind === "code" ? mocks.completeOAuth : mocks.completeOAuthLink;
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(mocks.showToast).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows missing-code errors after StrictMode replays the effect", async () => {
+    render(
+      <StrictMode>
+        <OAuthCallbackClient {...defaultProps} />
+      </StrictMode>,
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("did not include one usable code");
   });
 
   it.each([

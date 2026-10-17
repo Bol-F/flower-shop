@@ -8,6 +8,7 @@ import {
   OfflineError,
   completeOAuth,
   completeOAuthLink,
+  type AuthUser,
   type OAuthProvider,
 } from "@/lib/api";
 import { useStore } from "@/lib/store";
@@ -85,6 +86,8 @@ export default function OAuthCallbackClient({
   const { setUser, setName, showToast } = useStore();
   const initialized = useRef(false);
   const credential = useRef<CallbackCredential | null>(null);
+  const invalidResponse = useRef<CallbackFailure | null>(null);
+  const exchange = useRef<{ attempt: number; promise: Promise<AuthUser> } | null>(null);
   const [retryAttempt, setRetryAttempt] = useState(0);
   const [failure, setFailure] = useState<CallbackFailure | null>(
     error
@@ -97,7 +100,6 @@ export default function OAuthCallbackClient({
   );
 
   useEffect(() => {
-    let failureTimer: number | undefined;
     if (!initialized.current) {
       initialized.current = true;
       const fragment = new URLSearchParams(window.location.hash.slice(1));
@@ -109,72 +111,62 @@ export default function OAuthCallbackClient({
 
       if (error) return;
       if ((!loginCode && !accountLinkCode) || (loginCode && accountLinkCode)) {
-        failureTimer = window.setTimeout(() => {
-          setFailure({
-            message: "The connection response did not include one usable code.",
-            isLink: Boolean(accountLinkCode) || flow === "link",
-            canRetry: false,
-          });
-        }, 0);
-        return () => window.clearTimeout(failureTimer);
+        invalidResponse.current = {
+          message: "The connection response did not include one usable code.",
+          isLink: Boolean(accountLinkCode) || flow === "link",
+          canRetry: false,
+        };
+      } else {
+        credential.current = {
+          code: accountLinkCode || loginCode,
+          isLink: Boolean(accountLinkCode),
+          next: fragment.get("next") || fallbackNextPath,
+          provider: fragment.get("provider") || "",
+        };
       }
-      credential.current = {
-        code: accountLinkCode || loginCode,
-        isLink: Boolean(accountLinkCode),
-        next: fragment.get("next") || fallbackNextPath,
-        provider: fragment.get("provider") || "",
-      };
     }
 
+    if (invalidResponse.current) {
+      const timer = window.setTimeout(() => setFailure(invalidResponse.current), 0);
+      return () => window.clearTimeout(timer);
+    }
     const pending = credential.current;
     if (!pending || error) return;
     let active = true;
     const destination = safeNextPath(pending.next);
-    if (pending.isLink) {
-      void completeOAuthLink(pending.code)
-        .then((user) => {
-          if (!active) return;
-          setUser(user);
-          setName(user.username);
+    // Reuse the exchange during effect replays: the server code is single-use.
+    if (exchange.current?.attempt !== retryAttempt) {
+      exchange.current = {
+        attempt: retryAttempt,
+        promise: pending.isLink ? completeOAuthLink(pending.code) : completeOAuth(pending.code),
+      };
+    }
+    void exchange.current.promise
+      .then((user) => {
+        if (!active) return;
+        setUser(user);
+        setName(user.username);
+        if (pending.isLink) {
           const label = isOAuthProvider(pending.provider)
             ? providerLabels[pending.provider]
             : "Account";
           showToast(`${label} is now connected.`);
-          router.replace(destination);
-        })
-        .catch((reason: unknown) => {
-          if (!active) return;
-          setFailure({
-            message:
-              reason instanceof Error
-                ? reason.message
-                : "This account connection is invalid or expired.",
-            isLink: true,
-            canRetry: retryableFailure(reason),
-          });
-        });
-    } else {
-      void completeOAuth(pending.code)
-        .then((user) => {
-          if (!active) return;
-          setUser(user);
-          setName(user.username);
+        } else {
           showToast(`Welcome, ${user.username}`);
-          router.replace(destination);
-        })
-        .catch((reason: unknown) => {
-          if (!active) return;
-          setFailure({
-            message:
-              reason instanceof Error ? reason.message : "This sign-in link is invalid or expired.",
-            isLink: false,
-            canRetry: retryableFailure(reason),
-          });
+        }
+        router.replace(destination);
+      })
+      .catch((reason: unknown) => {
+        if (!active) return;
+        setFailure({
+          message:
+            reason instanceof Error ? reason.message : "This connection is invalid or expired.",
+          isLink: pending.isLink,
+          canRetry: retryableFailure(reason),
         });
-    }
+      });
     return () => {
       active = false;
-      if (failureTimer !== undefined) window.clearTimeout(failureTimer);
     };
   }, [error, flow, retryAttempt, router, setName, setUser, showToast]);
 
@@ -199,7 +191,7 @@ export default function OAuthCallbackClient({
             }}
             className="mt-6 inline-flex rounded-full bg-blossomdeep px-6 py-3 text-sm font-extrabold text-white shadow-glow"
           >
-            Try exchange again
+            Try again
           </button>
         )}
         <Link

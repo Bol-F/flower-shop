@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import time
 from datetime import timedelta
@@ -12,6 +13,8 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
+from joserfc import jwt
+from joserfc.jwk import RSAKey
 
 from .models import (
     OAuthExchangeCode,
@@ -500,7 +503,12 @@ class TestOAuthFlow:
         state = query['state'][0]
         attempt = OAuthLoginAttempt.objects.get()
         assert query['code_challenge_method'] == ['S256']
-        assert query['code_challenge'][0]
+        expected_challenge = (
+            base64.urlsafe_b64encode(hashlib.sha256(attempt.code_verifier.encode('ascii')).digest())
+            .rstrip(b'=')
+            .decode('ascii')
+        )
+        assert query['code_challenge'] == [expected_challenge]
         assert 'client_secret' not in query
         assert attempt.state_digest == hashlib.sha256(state.encode()).hexdigest()
         assert state not in attempt.state_digest
@@ -740,3 +748,69 @@ def test_oidc_multiple_audiences_require_authorized_party():
             'google', {'client_id': 'google-client'}, 'signed-id-token', 'expected-nonce'
         )
     assert error.value.code == 'invalid_token'
+
+
+@pytest.mark.parametrize(
+    'claims',
+    (
+        _oidc_claims(azp='attacker-client'),
+        _oidc_claims(sub=[]),
+        _oidc_claims(sub=''),
+    ),
+)
+def test_oidc_rejects_invalid_subject_or_authorized_party(claims):
+    with (
+        patch('apps.users.oauth._fetch_json', return_value={'keys': []}),
+        patch('apps.users.oauth.KeySet.import_key_set', return_value=object()),
+        patch('apps.users.oauth.jwt.decode', return_value=SimpleNamespace(claims=claims)),
+        pytest.raises(OAuthError),
+    ):
+        _verified_oidc_claims(
+            'google', {'client_id': 'google-client'}, 'id-token', 'expected-nonce'
+        )
+
+
+def test_oidc_signature_is_verified_against_real_public_keys():
+    trusted = RSAKey.generate_key(parameters={'kid': 'provider-key'})
+    attacker = RSAKey.generate_key(parameters={'kid': 'provider-key'})
+    jwks = {'keys': [trusted.as_dict()]}
+    header = {'alg': 'RS256', 'kid': 'provider-key'}
+    with patch('apps.users.oauth._fetch_json', return_value=jwks):
+        valid = jwt.encode(header, _oidc_claims(), trusted)
+        assert (
+            _verified_oidc_claims(
+                'google', {'client_id': 'google-client'}, valid, 'expected-nonce'
+            )['sub']
+            == 'google-subject'
+        )
+        forged = jwt.encode(header, _oidc_claims(), attacker)
+        with pytest.raises(OAuthError):
+            _verified_oidc_claims(
+                'google', {'client_id': 'google-client'}, forged, 'expected-nonce'
+            )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('endpoint', ('oauth-exchange', 'oauth-link-exchange'))
+@pytest.mark.parametrize('body', ([], {}, {'code': ''}, {'code': 'x' * 129}))
+def test_malformed_exchange_requests_are_rejected(endpoint, body):
+    client = APIClient()
+    if endpoint == 'oauth-link-exchange':
+        user = User.objects.create_user('link-user', 'link-user@example.test', 'password')
+        client.force_authenticate(user)
+    response = client.post(reverse(endpoint), body, format='json')
+    assert response.status_code == 400
+    assert response['Cache-Control'] == 'no-store'
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('endpoint', ('oauth-start', 'oauth-callback'))
+def test_throttled_browser_oauth_redirects_to_a_readable_error(endpoint):
+    with (
+        patch('rest_framework.throttling.ScopedRateThrottle.allow_request', return_value=False),
+        patch('rest_framework.throttling.ScopedRateThrottle.wait', return_value=60),
+    ):
+        response = APIClient().get(reverse(endpoint, args=['google']))
+    assert response.status_code == 302
+    assert 'error=rate_limited' in response['Location']
+    assert response['Cache-Control'] == 'no-store'

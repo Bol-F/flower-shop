@@ -122,9 +122,10 @@ successful response is `{ "user": { ... } }` with the refreshed
 `social_identities` list. If the stable provider identity belongs to another
 user, finalization fails with `identity_in_use`.
 
-The backend automatically matches a local account by email only when the
-provider proves that email verified. An unverified email collision returns
-`account_exists` and requires this authenticated linking flow.
+The backend never links an existing account by email alone. An email collision
+returns `account_exists`, even if the provider marks the email verified. The
+customer must sign in to the original account and use this authenticated linking
+flow. New accounts require a provider-verified email.
 
 ## Catalog and marketplace
 
@@ -330,6 +331,26 @@ and cannot be deleted there.
 | `GET` | `/api/contact/my-messages/` | Customer support history |
 | `GET` | `/api/contact/admin/messages/` | Staff support queue |
 | `POST` | `/api/contact/admin/messages/{id}/reply/` | Staff reply |
+
+## Optional flower advice
+
+| Method | Endpoint | Auth | Notes |
+| --- | --- | --- | --- |
+| `GET` | `/api/contact/assistant/capabilities/` | No | `{enabled, web_search_enabled}`; no keys returned |
+| `POST` | `/api/contact/assistant/` | JWT | Read-only advice; 5/minute, 50/day per user |
+
+Example request:
+
+```json
+{"message": "Which bouquet suits a birthday under $60?", "language": "EN", "use_web_search": false}
+```
+
+`message` is required and limited to 1500 characters; `language` defaults to
+`EN` and also accepts `RU` or `UZ`. Web search defaults to `false` and requires
+Tavily configuration. The response contains `{answer, sources: [{title, url}]}`.
+Disabled or unavailable providers return a generic `503`; rate limits return
+`429`. No provider errors or keys are exposed. Advice never changes commerce
+state. See [deployment settings](DEPLOYMENT.md#optional-gemini-flower-advice-and-tavily-search).
 
 ## Error and retry guidance
 

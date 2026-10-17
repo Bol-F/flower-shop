@@ -174,4 +174,65 @@ describe("OAuth API authentication state", () => {
       }),
     );
   });
+
+  it("reuses the token rotated by another tab while waiting for the browser lock", async () => {
+    const requestLock = vi.fn(async (_name: string, callback: () => unknown) => {
+      localStorage.setItem(
+        authKey,
+        JSON.stringify({
+          access: "tab-access",
+          refresh: "tab-refresh",
+          user: originalUser,
+        }),
+      );
+      return callback();
+    });
+    vi.stubGlobal("navigator", { locks: { request: requestLock } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(401, { detail: "expired" }))
+      .mockResolvedValueOnce(jsonResponse(200, originalUser));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchProfile()).resolves.toEqual(originalUser);
+    expect(requestLock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe("Bearer tab-access");
+  });
+
+  it("does not use another account's credentials after waiting for the browser lock", async () => {
+    vi.stubGlobal("navigator", {
+      locks: {
+        request: async (_name: string, callback: () => unknown) => {
+          localStorage.setItem(
+            authKey,
+            JSON.stringify({
+              access: "other-access",
+              refresh: "other-refresh",
+              user: { ...originalUser, id: 9 },
+            }),
+          );
+          return callback();
+        },
+      },
+    });
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(401, { detail: "expired" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchProfile()).rejects.toMatchObject({ status: 401 });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(localStorage.getItem(authKey) ?? "null").user.id).toBe(9);
+  });
+
+  it.each(["null", "[]", '{"access":1}', '{"access":"a","refresh":"r","user":null}'])(
+    "ignores malformed stored credentials: %s",
+    async (stored) => {
+      localStorage.setItem(authKey, stored);
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse(401, null));
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(fetchProfile()).rejects.toBeInstanceOf(ApiError);
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(fetchMock.mock.calls[0][1].headers.Authorization).toBeUndefined();
+    },
+  );
 });

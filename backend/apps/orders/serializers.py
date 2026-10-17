@@ -30,6 +30,12 @@ class PaymentAttemptSerializer(serializers.ModelSerializer):
 class DeliveryZoneSerializer(serializers.ModelSerializer):
     city = serializers.CharField(source='city.name', read_only=True)
     city_slug = serializers.CharField(source='city.slug', read_only=True)
+    free_delivery_threshold = serializers.DecimalField(
+        source='city.free_delivery_threshold',
+        max_digits=10,
+        decimal_places=2,
+        read_only=True,
+    )
 
     class Meta:
         model = DeliveryZone
@@ -39,6 +45,7 @@ class DeliveryZoneSerializer(serializers.ModelSerializer):
             'city',
             'city_slug',
             'fee',
+            'free_delivery_threshold',
             'is_active',
             'requires_manual_confirmation',
             'description',

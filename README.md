@@ -28,9 +28,9 @@ adjustments.
   Google, GitHub, and Microsoft. OAuth uses browser-session-bound state, PKCE
   S256, OIDC nonce, signed-token verification, short-lived one-time exchange
   codes, and stable provider issuer/subject identifiers.
-- Authenticated provider linking in Profile. A provider email is only used for
-  automatic account matching when that provider proves it is verified;
-  ambiguous matches must be linked from an already authenticated account.
+- Authenticated provider linking in Profile. Existing accounts are never linked
+  by email alone, including verified provider emails. Sign in to the original
+  account and connect the provider explicitly.
 - Idempotent payment initialization and persisted `PaymentAttempt` and
   append-only `PaymentEvent` records.
 - Payme JSON-RPC methods: `CheckPerformTransaction`, `CreateTransaction`,
@@ -48,6 +48,9 @@ adjustments.
   cash orders.
 - Customer support, reviews, notification logs, loyalty points, and Django
   admin operations.
+- Optional read-only Gemini flower advice with explicit opt-in Tavily web
+  search, server-side keys, authenticated requests, and per-user rate limits.
+  Disabled by default; see the deployment guide before enabling it.
 
 ## Architecture
 

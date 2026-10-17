@@ -230,7 +230,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
+    } catch {
+      // Keep checkout and sign-in usable when browser storage is unavailable.
+    }
   }, [persisted, hydrated]);
 
   useEffect(() => {
@@ -259,6 +263,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       currency: nextUser.currency || prev.currency,
       language: nextUser.language || prev.language,
     }));
+  }, []);
+
+  const setName = useCallback((name: string) => {
+    setPersisted((prev) => (prev.name === name ? prev : { ...prev, name }));
   }, []);
 
   const value = useMemo<StoreValue>(() => {
@@ -314,7 +322,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setCategory,
       setCurrency: (currency) => update({ currency }),
       setLanguage: (language) => update({ language }),
-      setName: (name) => update({ name }),
+      setName,
       setCity: (city) => update({ city }),
       toggleFavorite: (productOrId) => {
         const product = productFor(productOrId);
@@ -394,6 +402,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     hydrated,
     user,
     setUser,
+    setName,
     signOut,
     query,
     category,
