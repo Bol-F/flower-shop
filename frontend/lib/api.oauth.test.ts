@@ -1,7 +1,14 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, completeOAuthLink, fetchProfile } from "./api";
+import {
+  ApiError,
+  completeOAuthLink,
+  fetchProfile,
+  logout,
+  mergeGuestSelections,
+  updateProfile,
+} from "./api";
 
 const authKey = "bloompetal:auth";
 const originalUser = {
@@ -20,6 +27,33 @@ const refreshedUser = {
     },
   ],
 };
+const replacement = {
+  access: "other-access",
+  refresh: "other-refresh",
+  user: { ...originalUser, id: 9, email: "other@example.com" },
+};
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+const userRequests = [
+  { name: "profile fetch", run: () => fetchProfile(), response: refreshedUser },
+  {
+    name: "profile update",
+    run: () => updateProfile({ username: "refreshed" }),
+    response: refreshedUser,
+  },
+  {
+    name: "OAuth account link",
+    run: () => completeOAuthLink("one-time-link-code"),
+    response: { user: refreshedUser },
+  },
+];
 
 function jsonResponse(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -120,11 +154,6 @@ describe("OAuth API authentication state", () => {
   });
 
   it("does not clear a different account after a late refresh failure", async () => {
-    const replacement = {
-      access: "other-access",
-      refresh: "other-refresh",
-      user: { ...originalUser, id: 9, email: "other@example.com" },
-    };
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse(401, { detail: "expired" }))
@@ -219,9 +248,193 @@ describe("OAuth API authentication state", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(401, { detail: "expired" }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(fetchProfile()).rejects.toMatchObject({ status: 401 });
+    await expect(fetchProfile()).rejects.toMatchObject({
+      status: 409,
+      details: { code: "auth_changed" },
+    });
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(JSON.parse(localStorage.getItem(authKey) ?? "null").user.id).toBe(9);
+  });
+
+  describe.each(userRequests)("stale $name responses", ({ run, response }) => {
+    it.each(["account switch", "logout"])("discards a response after %s", async (change) => {
+      const responseFlight = deferred<Response>();
+      const fetchMock = vi.fn().mockReturnValue(responseFlight.promise);
+      vi.stubGlobal("fetch", fetchMock);
+      const pending = run();
+      const rejected = expect(pending).rejects.toMatchObject({
+        status: 409,
+        details: { code: "auth_changed" },
+      });
+
+      if (change === "account switch") {
+        localStorage.setItem(authKey, JSON.stringify(replacement));
+      } else {
+        logout();
+      }
+      const authChanged = vi.fn();
+      window.addEventListener("bloompetal:auth-changed", authChanged);
+      responseFlight.resolve(jsonResponse(200, response));
+      try {
+        await rejected;
+        expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual(
+          change === "account switch" ? replacement : null,
+        );
+        expect(authChanged).not.toHaveBeenCalled();
+        expect(fetchMock).toHaveBeenCalledOnce();
+      } finally {
+        window.removeEventListener("bloompetal:auth-changed", authChanged);
+      }
+    });
+
+    it("keeps tokens rotated while the user response was loading", async () => {
+      const responseFlight = deferred<Response>();
+      vi.stubGlobal("fetch", vi.fn().mockReturnValue(responseFlight.promise));
+      const pending = run();
+      localStorage.setItem(
+        authKey,
+        JSON.stringify({
+          access: "rotated-access",
+          refresh: "rotated-refresh",
+          user: originalUser,
+        }),
+      );
+      responseFlight.resolve(jsonResponse(200, response));
+
+      await expect(pending).resolves.toEqual(refreshedUser);
+      expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual({
+        access: "rotated-access",
+        refresh: "rotated-refresh",
+        user: refreshedUser,
+      });
+    });
+
+    it("rejects a user response belonging to an unexpected account", async () => {
+      const invalid = "user" in response ? { user: replacement.user } : replacement.user;
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, invalid)));
+
+      await expect(run()).rejects.toMatchObject({ status: 502 });
+      expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual({
+        access: "old-access",
+        refresh: "old-refresh",
+        user: originalUser,
+      });
+    });
+  });
+
+  it("discards a profile response if the account switches while decoding its body", async () => {
+    const bodyFlight = deferred<typeof refreshedUser>();
+    const decoding = deferred<void>();
+    const response = jsonResponse(200, {});
+    vi.spyOn(response, "json").mockImplementation(() => {
+      decoding.resolve();
+      return bodyFlight.promise;
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
+    const pending = fetchProfile();
+    const rejected = expect(pending).rejects.toMatchObject({
+      status: 409,
+      details: { code: "auth_changed" },
+    });
+    await decoding.promise;
+    localStorage.setItem(authKey, JSON.stringify(replacement));
+    bodyFlight.resolve(refreshedUser);
+
+    await rejected;
+    expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual(replacement);
+  });
+
+  it("does not refresh or retry another account after a delayed 401 response", async () => {
+    const responseFlight = deferred<Response>();
+    const fetchMock = vi.fn().mockReturnValue(responseFlight.promise);
+    vi.stubGlobal("fetch", fetchMock);
+    const pending = fetchProfile();
+    const rejected = expect(pending).rejects.toMatchObject({ status: 409 });
+    localStorage.setItem(authKey, JSON.stringify(replacement));
+    responseFlight.resolve(jsonResponse(401, { detail: "expired" }));
+
+    await rejected;
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer old-access");
+    expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual(replacement);
+  });
+
+  it("discards a late successful response after refreshing the original account", async () => {
+    const retryFlight = deferred<Response>();
+    const retried = deferred<void>();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(401, { detail: "expired" }))
+      .mockResolvedValueOnce(jsonResponse(200, { access: "new-access", refresh: "new-refresh" }))
+      .mockImplementationOnce(() => {
+        retried.resolve();
+        return retryFlight.promise;
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const pending = completeOAuthLink("one-time-link-code");
+    const rejected = expect(pending).rejects.toMatchObject({ status: 409 });
+    await retried.promise;
+    localStorage.setItem(authKey, JSON.stringify(replacement));
+    retryFlight.resolve(jsonResponse(200, { user: refreshedUser }));
+
+    await rejected;
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[2][1].headers.Authorization).toBe("Bearer new-access");
+    expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual(replacement);
+  });
+
+  it("posts an authenticated, idempotent guest-selection merge", async () => {
+    const payload = {
+      merge_id: "guest-merge-id",
+      items: [{ product_slug: "pink-roses", quantity: 2 }],
+      wishlist: ["pink-roses"],
+    };
+    const result = {
+      cart: { id: 1, items: [], total_price: "0.00", total_items: 0, updated_at: "" },
+      wishlist: [],
+      adjusted_products: [],
+      unavailable_products: [],
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, result));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(mergeGuestSelections(payload)).resolves.toEqual(result);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/cart/merge/"),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: expect.objectContaining({ Authorization: "Bearer old-access" }),
+      }),
+    );
+  });
+
+  it("discards a guest merge completed after switching accounts", async () => {
+    const responseFlight = deferred<Response>();
+    vi.stubGlobal("fetch", vi.fn().mockReturnValue(responseFlight.promise));
+    const pending = mergeGuestSelections({ merge_id: "guest-merge-id", items: [], wishlist: [] });
+    const rejected = expect(pending).rejects.toMatchObject({
+      status: 409,
+      details: { code: "auth_changed" },
+    });
+    localStorage.setItem(authKey, JSON.stringify(replacement));
+    responseFlight.resolve(jsonResponse(200, { cart: { items: [] }, wishlist: [] }));
+
+    await rejected;
+    expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual(replacement);
+  });
+
+  it("retains a 401 response when the active refresh token is invalid", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse(401, { detail: "expired" }))
+        .mockResolvedValueOnce(jsonResponse(401, { detail: "token_not_valid" })),
+    );
+
+    await expect(fetchProfile()).rejects.toMatchObject({ status: 401 });
+    expect(localStorage.getItem(authKey)).toBeNull();
   });
 
   it.each(["null", "[]", '{"access":1}', '{"access":"a","refresh":"r","user":null}'])(

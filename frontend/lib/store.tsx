@@ -18,6 +18,7 @@ import {
   fetchPaymentConfiguration,
   fetchWishlist,
   loadAuth,
+  mergeGuestSelections,
   logout as apiLogout,
   removeCartItem,
   removeWishlistItem,
@@ -28,6 +29,17 @@ import {
 } from "./api";
 import { apiProductToProduct, fallbackCatalogProducts } from "./catalog";
 import { formatPrice as formatCurrencyPrice, UZS_PER_USD } from "./currency";
+import {
+  emptySelection,
+  hasSelections,
+  newGuestMerge,
+  pendingSelection,
+  readPendingGuestMerges,
+  selectionFrom,
+  stockLimit,
+  type PendingGuestMerge,
+  type SelectionState,
+} from "./selection-state";
 import type { CategoryId, Currency, Language, Product } from "./types";
 
 /**
@@ -36,24 +48,23 @@ import type { CategoryId, Currency, Language, Product } from "./types";
  * the catalog filters driven from the header. Persisted to localStorage.
  */
 
-interface PersistedState {
+interface PersistedState extends SelectionState {
+  schemaVersion: 2;
+  selectionOwner: number | null;
   currency: Currency;
   language: Language;
   name: string;
   city: string;
-  favorites: string[];
-  cart: Record<string, number>;
-  cartProducts: Record<string, Product>;
 }
 
 const DEFAULTS: PersistedState = {
+  schemaVersion: 2,
+  selectionOwner: null,
   currency: "USD",
   language: "EN",
   name: "",
   city: "Tashkent",
-  favorites: [],
-  cart: {},
-  cartProducts: {},
+  ...emptySelection(),
 };
 
 export interface CartLine {
@@ -94,6 +105,7 @@ interface StoreValue extends PersistedState {
   cartCount: number;
   cartLoading: boolean;
   cartError: string;
+  cartSyncBlocked: boolean;
   /* feedback */
   showToast: (message: string) => void;
 }
@@ -104,11 +116,11 @@ const fallbackProductById = new Map(
   fallbackCatalogProducts.map((product) => [product.id, product]),
 );
 
-function hydratePersisted(raw: string | null): PersistedState {
+function hydratePersisted(raw: string | null, currentUserId: number | null): PersistedState {
   if (!raw) return DEFAULTS;
   const parsed = JSON.parse(raw) as Partial<PersistedState>;
-  const cart = parsed.cart ?? {};
-  const cartProducts = { ...(parsed.cartProducts ?? {}) };
+  const selections = selectionFrom(parsed);
+  const { cart, cartProducts } = selections;
 
   for (const id of Object.keys(cart)) {
     if (!cartProducts[id]) {
@@ -117,7 +129,23 @@ function hydratePersisted(raw: string | null): PersistedState {
     }
   }
 
-  return { ...DEFAULTS, ...parsed, cart, cartProducts };
+  // v1 mixed guest and signed-in snapshots. If already signed in, treat that
+  // legacy snapshot as account-owned rather than adding it a second time.
+  const selectionOwner =
+    parsed.schemaVersion === 2
+      ? typeof parsed.selectionOwner === "number"
+        ? parsed.selectionOwner
+        : null
+      : currentUserId;
+  return {
+    ...DEFAULTS,
+    currency: parsed.currency === "UZS" ? "UZS" : "USD",
+    language: parsed.language === "RU" || parsed.language === "UZ" ? parsed.language : "EN",
+    name: typeof parsed.name === "string" ? parsed.name : "",
+    city: typeof parsed.city === "string" ? parsed.city : "Tashkent",
+    ...selections,
+    selectionOwner,
+  };
 }
 
 function cartStateFromApi(cart: ApiCart): Pick<PersistedState, "cart" | "cartProducts"> {
@@ -135,6 +163,7 @@ function cartStateFromApi(cart: ApiCart): Pick<PersistedState, "cart" | "cartPro
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [persisted, setPersisted] = useState<PersistedState>(DEFAULTS);
+  const persistedRef = useRef(persisted);
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [paymentRate, setPaymentRate] = useState(UZS_PER_USD);
@@ -144,10 +173,188 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
   const [cartLoading, setCartLoading] = useState(false);
   const [cartError, setCartError] = useState("");
+  const [cartSyncBlocked, setCartSyncBlocked] = useState(false);
+  const blockedRef = useRef(false);
+  const sessionRef = useRef({ userId: null as number | null, generation: 0 });
+  const initializedRef = useRef(false);
+  const pendingMemory = useRef(new Map<number, PendingGuestMerge[]>());
+  const pendingStorageUnavailable = useRef(new Set<number>());
+  const queueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const cartRevision = useRef(0);
+  const wishlistRevision = useRef(0);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const commit = useCallback((change: (previous: PersistedState) => PersistedState) => {
+    const next = change(persistedRef.current);
+    persistedRef.current = next;
+    setPersisted(next);
+  }, []);
+
+  const blockCart = useCallback((blocked: boolean) => {
+    blockedRef.current = blocked;
+    setCartSyncBlocked(blocked);
+  }, []);
+
+  const readPending = useCallback((userId: number) => {
+    if (pendingStorageUnavailable.current.has(userId)) {
+      return pendingMemory.current.get(userId) ?? [];
+    }
+    try {
+      const pending = readPendingGuestMerges(
+        localStorage.getItem(`bloompetal:guest-merge:v1:${userId}`),
+      );
+      pendingMemory.current.set(userId, pending);
+      return pending;
+    } catch {
+      pendingStorageUnavailable.current.add(userId);
+      return pendingMemory.current.get(userId) ?? [];
+    }
+  }, []);
+
+  const savePending = useCallback((userId: number, pending: PendingGuestMerge[]) => {
+    pendingMemory.current.set(userId, pending);
+    try {
+      const key = `bloompetal:guest-merge:v1:${userId}`;
+      if (pending.length) localStorage.setItem(key, JSON.stringify(pending));
+      else localStorage.removeItem(key);
+    } catch {
+      // A blocked storage API still has the in-memory retry bundle for this tab.
+      pendingStorageUnavailable.current.add(userId);
+    }
+  }, []);
+
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
+  }, []);
+
+  const applyUser = useCallback(
+    (nextUser: AuthUser | null) => {
+      const nextId = nextUser?.id ?? null;
+      const changed = sessionRef.current.userId !== nextId;
+      if (changed) {
+        sessionRef.current = { userId: nextId, generation: sessionRef.current.generation + 1 };
+        queueRef.current = Promise.resolve();
+        cartRevision.current += 1;
+        wishlistRevision.current += 1;
+        setCartLoading(false);
+        setCartError("");
+        blockCart(nextId !== null);
+      }
+      const previous = persistedRef.current;
+      if (
+        changed &&
+        nextId !== null &&
+        previous.selectionOwner === null &&
+        hasSelections(previous)
+      ) {
+        const merge = newGuestMerge(previous);
+        if (merge) savePending(nextId, [...readPending(nextId), merge]);
+      }
+      commit((prev) => ({
+        ...prev,
+        ...(prev.selectionOwner === nextId
+          ? {}
+          : nextId === null
+            ? emptySelection()
+            : pendingSelection(readPending(nextId))),
+        selectionOwner: nextId,
+        name: nextUser?.username || (nextId === null ? "" : prev.name),
+        city: nextUser?.city || prev.city,
+        currency: nextUser?.currency || prev.currency,
+        language: nextUser?.language || prev.language,
+      }));
+      setUserState(nextUser);
+    },
+    [blockCart, commit, readPending, savePending],
+  );
+
+  type Session = typeof sessionRef.current;
+  const isCurrent = useCallback(
+    (session: Session) =>
+      session.userId !== null &&
+      sessionRef.current.generation === session.generation &&
+      sessionRef.current.userId === session.userId &&
+      loadAuth()?.user.id === session.userId,
+    [],
+  );
+
+  const enqueue = useCallback(
+    (session: Session, action: () => Promise<void>) => {
+      const task = queueRef.current.then(async () => {
+        if (isCurrent(session)) await action();
+      });
+      // Keep a failed operation from preventing a later explicit retry.
+      queueRef.current = task.catch(() => undefined);
+      return task;
+    },
+    [isCurrent],
+  );
+
+  const applyRemoteCart = useCallback(
+    (cart: ApiCart) => {
+      commit((prev) => ({ ...prev, ...cartStateFromApi(cart) }));
+      setCartError("");
+    },
+    [commit],
+  );
+
+  const reloadCart = useCallback(async () => {
+    const session = sessionRef.current;
+    if (session.userId === null) return;
+    const expectedCartRevision = cartRevision.current;
+    const expectedWishlistRevision = wishlistRevision.current;
+    await enqueue(session, async () => {
+      setCartLoading(true);
+      try {
+        let cart: ApiCart | undefined;
+        let wishlist: Awaited<ReturnType<typeof fetchWishlist>> | undefined;
+        for (const pending of readPending(session.userId!)) {
+          if (!isCurrent(session)) return;
+          const result = await mergeGuestSelections(pending.payload);
+          if (!isCurrent(session)) return;
+          // Only discard after confirmation. A lost response safely retries the
+          // same merge id, never an additive POST for each guest cart item.
+          savePending(
+            session.userId!,
+            readPending(session.userId!).filter(
+              (item) => item.payload.merge_id !== pending.payload.merge_id,
+            ),
+          );
+          cart = result.cart;
+          wishlist = result.wishlist;
+          if (result.adjusted_products.length || result.unavailable_products.length) {
+            showToast("Your saved selections were updated to match current stock.");
+          }
+        }
+        if (!cart || !wishlist)
+          [cart, wishlist] = await Promise.all([fetchCart(), fetchWishlist()]);
+        if (!isCurrent(session)) return;
+        if (cartRevision.current === expectedCartRevision) applyRemoteCart(cart);
+        if (wishlistRevision.current === expectedWishlistRevision) {
+          commit((prev) => ({
+            ...prev,
+            favorites: wishlist.map((product) => product.slug),
+            favoriteProducts: Object.fromEntries(
+              wishlist.map((product) => [product.slug, apiProductToProduct(product)]),
+            ),
+          }));
+        }
+        blockCart(false);
+        setCartError("");
+      } catch {
+        if (!isCurrent(session)) return;
+        blockCart(true);
+        setCartError("Your selections are saved. Retry syncing before checkout.");
+      } finally {
+        if (isCurrent(session)) setCartLoading(false);
+      }
+    });
+  }, [applyRemoteCart, blockCart, commit, enqueue, isCurrent, readPending, savePending, showToast]);
 
   useEffect(() => {
     let active = true;
@@ -166,67 +373,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // one-time hydration from localStorage: the server render must use
     // DEFAULTS, so the stored state can only be applied after mount
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (raw) setPersisted(hydratePersisted(raw));
-    } catch {
-      /* corrupted storage — fall back to defaults */
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      try {
+        const state = hydratePersisted(
+          localStorage.getItem(STORAGE_KEY),
+          loadAuth()?.user.id ?? null,
+        );
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        commit(() => state);
+      } catch {
+        /* corrupted storage — fall back to defaults */
+      }
     }
     const applyAuth = (auth: ReturnType<typeof loadAuth>) => {
-      setUserState(auth?.user ?? null);
-      if (!auth?.user) return;
-      setPersisted((prev) => ({
-        ...prev,
-        name: auth.user.username || prev.name,
-        city: auth.user.city || prev.city,
-        currency: auth.user.currency || prev.currency,
-        language: auth.user.language || prev.language,
-      }));
+      applyUser(auth?.user ?? null);
     };
     applyAuth(loadAuth());
     setHydrated(true);
     return subscribeAuth(applyAuth);
-  }, []);
+  }, [applyUser, commit]);
 
-  const applyRemoteCart = useCallback((cart: ApiCart) => {
-    setPersisted((prev) => ({ ...prev, ...cartStateFromApi(cart) }));
-    setCartError("");
-  }, []);
-
-  const reloadCart = useCallback(async () => {
-    if (!user) return;
-    try {
-      setCartLoading(true);
-      applyRemoteCart(await fetchCart());
-    } catch {
-      setCartError("Could not sync cart with the server.");
-    } finally {
-      setCartLoading(false);
-    }
-  }, [applyRemoteCart, user]);
-
-  const reloadWishlist = useCallback(async () => {
-    if (!user) return;
-    try {
-      const products = await fetchWishlist();
-      setPersisted((prev) => ({
-        ...prev,
-        favorites: products.map((product) => product.slug),
-      }));
-    } catch {
-      /* local favorites remain usable if the wishlist API is unavailable */
-    }
-  }, [user]);
-
+  const userId = user?.id ?? null;
   useEffect(() => {
-    if (!hydrated || !user) return;
+    if (!hydrated || userId === null) return;
     const timer = window.setTimeout(() => {
       void reloadCart();
-      void reloadWishlist();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [hydrated, reloadCart, reloadWishlist, user]);
+  }, [hydrated, reloadCart, userId]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -241,46 +416,64 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = persisted.language.toLowerCase();
   }, [persisted.language]);
 
-  const showToast = useCallback((message: string) => {
-    setToast(message);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 2200);
-  }, []);
-
   const signOut = useCallback(() => {
     apiLogout();
-    setUserState(null);
-    setPersisted((prev) => ({ ...prev, cart: {}, cartProducts: {} }));
-  }, []);
+    applyUser(null);
+  }, [applyUser]);
 
-  const setUser = useCallback((nextUser: AuthUser | null) => {
-    setUserState(nextUser);
-    if (!nextUser) return;
-    setPersisted((prev) => ({
-      ...prev,
-      name: nextUser.username || prev.name,
-      city: nextUser.city || prev.city,
-      currency: nextUser.currency || prev.currency,
-      language: nextUser.language || prev.language,
-    }));
-  }, []);
+  const setUser = applyUser;
 
-  const setName = useCallback((name: string) => {
-    setPersisted((prev) => (prev.name === name ? prev : { ...prev, name }));
-  }, []);
+  const setName = useCallback(
+    (name: string) => {
+      commit((prev) => (prev.name === name ? prev : { ...prev, name }));
+    },
+    [commit],
+  );
+
+  const syncCartMutation = useCallback(
+    (action: () => Promise<ApiCart | void>) => {
+      const session = sessionRef.current;
+      const expectedRevision = cartRevision.current;
+      void enqueue(session, async () => {
+        try {
+          const cart = await action();
+          if (isCurrent(session) && cart && cartRevision.current === expectedRevision) {
+            applyRemoteCart(cart);
+          }
+        } catch {
+          if (!isCurrent(session)) return;
+          blockCart(true);
+          setCartError("Could not save your cart change. Retry syncing before checkout.");
+        }
+      });
+    },
+    [applyRemoteCart, blockCart, enqueue, isCurrent],
+  );
 
   const value = useMemo<StoreValue>(() => {
-    const update = (patch: Partial<PersistedState>) =>
-      setPersisted((prev) => ({ ...prev, ...patch }));
+    const update = (patch: Partial<PersistedState>) => commit((prev) => ({ ...prev, ...patch }));
 
     const productFor = (productOrId: Product | string) => {
       if (typeof productOrId !== "string") return productOrId;
-      return persisted.cartProducts[productOrId] ?? fallbackProductById.get(productOrId);
+      return (
+        persistedRef.current.cartProducts[productOrId] ??
+        persistedRef.current.favoriteProducts[productOrId] ??
+        fallbackProductById.get(productOrId)
+      );
+    };
+
+    const canEditSelections = () => {
+      if (sessionRef.current.userId === null || !blockedRef.current) return true;
+      showToast("Sync your saved selections before making more changes.");
+      void reloadCart();
+      return false;
     };
 
     const updateLocalCart = (product: Product, qty: number, mode: "add" | "set") => {
-      setPersisted((prev) => {
-        const nextQty = mode === "add" ? (prev.cart[product.id] ?? 0) + qty : qty;
+      cartRevision.current += 1;
+      commit((prev) => {
+        const requested = mode === "add" ? (prev.cart[product.id] ?? 0) + qty : qty;
+        const nextQty = Math.min(Math.max(0, Math.floor(requested)), stockLimit(product));
         const cart = { ...prev.cart };
         const cartProducts = { ...prev.cartProducts, [product.id]: product };
         if (nextQty <= 0) {
@@ -294,7 +487,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const removeLocalCartItem = (id: string) => {
-      setPersisted((prev) => {
+      cartRevision.current += 1;
+      commit((prev) => {
         const cart = { ...prev.cart };
         const cartProducts = { ...prev.cartProducts };
         delete cart[id];
@@ -325,67 +519,73 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setName,
       setCity: (city) => update({ city }),
       toggleFavorite: (productOrId) => {
+        if (!canEditSelections()) return;
         const product = productFor(productOrId);
         const id = typeof productOrId === "string" ? productOrId : productOrId.id;
-        const willRemove = persisted.favorites.includes(id);
+        const willRemove = persistedRef.current.favorites.includes(id);
 
-        setPersisted((prev) => ({
+        wishlistRevision.current += 1;
+        commit((prev) => ({
           ...prev,
           favorites: willRemove ? prev.favorites.filter((f) => f !== id) : [...prev.favorites, id],
+          favoriteProducts: product
+            ? { ...prev.favoriteProducts, [id]: product }
+            : prev.favoriteProducts,
         }));
 
         if (user && product?.backendId) {
-          const action = willRemove
-            ? removeWishlistItem(product.backendId)
-            : addWishlistItem(product.backendId);
-          void action.catch(() => {
-            showToast("Could not sync wishlist with the server.");
+          const session = sessionRef.current;
+          void enqueue(session, async () => {
+            try {
+              if (willRemove) await removeWishlistItem(product.backendId!);
+              else await addWishlistItem(product.backendId!);
+            } catch {
+              if (isCurrent(session)) showToast("Could not sync wishlist with the server.");
+            }
           });
         }
       },
       addToCart: (productOrId, qty = 1) => {
+        if (!canEditSelections() || !Number.isFinite(qty) || qty <= 0) return;
         const product = productFor(productOrId);
         if (!product) return;
+        const previousQty = persistedRef.current.cart[product.id] ?? 0;
         updateLocalCart(product, qty, "add");
+        const addedQty = (persistedRef.current.cart[product.id] ?? 0) - previousQty;
 
-        if (user && product.backendId) {
-          void addCartItem(product.backendId, qty)
-            .then(applyRemoteCart)
-            .catch(() => {
-              setCartError("Could not add item to the server cart.");
-            });
+        if (user && product.backendId && addedQty > 0) {
+          syncCartMutation(() => addCartItem(product.backendId!, addedQty));
         }
       },
       setCartQty: (id, qty) => {
+        if (!canEditSelections() || !Number.isFinite(qty)) return;
         const product = productFor(id);
         if (!product) return;
         updateLocalCart(product, qty, "set");
 
         if (user && product.backendId) {
-          const action =
-            qty <= 0
-              ? removeCartItem(product.backendId).then(() => undefined)
-              : updateCartItem(product.backendId, qty).then(applyRemoteCart);
-          void action.catch(() => {
-            setCartError("Could not update the server cart.");
-          });
+          const finalQty = persistedRef.current.cart[id] ?? 0;
+          syncCartMutation(() =>
+            finalQty <= 0
+              ? removeCartItem(product.backendId!)
+              : updateCartItem(product.backendId!, finalQty),
+          );
         }
       },
       removeFromCart: (id) => {
+        if (!canEditSelections()) return;
         const product = productFor(id);
         removeLocalCartItem(id);
         if (user && product?.backendId) {
-          void removeCartItem(product.backendId).catch(() => {
-            setCartError("Could not remove item from the server cart.");
-          });
+          syncCartMutation(() => removeCartItem(product.backendId!));
         }
       },
       clearCart: (options) => {
-        setPersisted((prev) => ({ ...prev, cart: {}, cartProducts: {} }));
+        if (options?.remote !== false && !canEditSelections()) return;
+        cartRevision.current += 1;
+        commit((prev) => ({ ...prev, cart: {}, cartProducts: {} }));
         if (user && options?.remote !== false) {
-          void clearRemoteCart().catch(() => {
-            setCartError("Could not clear the server cart.");
-          });
+          syncCartMutation(clearRemoteCart);
         }
       },
       reloadCart,
@@ -393,6 +593,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       cartCount: Object.values(persisted.cart).reduce((a, b) => a + b, 0),
       cartLoading,
       cartError,
+      cartSyncBlocked,
       showToast,
     };
   }, [
@@ -406,10 +607,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     signOut,
     query,
     category,
-    applyRemoteCart,
+    commit,
+    enqueue,
+    isCurrent,
     reloadCart,
     cartLoading,
     cartError,
+    cartSyncBlocked,
+    syncCartMutation,
     showToast,
   ]);
 

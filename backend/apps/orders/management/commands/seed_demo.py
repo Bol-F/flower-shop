@@ -7,7 +7,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -22,6 +22,29 @@ from apps.reviews.models import Review
 
 DEMO_PASSWORD = 'demo12345'
 DEMO_ASSET_DIR = Path(__file__).with_name('demo_assets')
+DEMO_OPERATIONS_GROUP = 'Demo flower shop operations'
+DEMO_OPERATIONS_PERMISSIONS = (
+    'orders.view_order',
+    'orders.change_order',
+    'orders.view_orderitem',
+    'orders.view_deliveryzone',
+    'orders.view_paymentattempt',
+    'orders.view_paymentevent',
+    'orders.view_notificationlog',
+    'products.view_product',
+    'products.add_product',
+    'products.change_product',
+    'products.delete_product',
+    'categories.view_category',
+    'categories.add_category',
+    'categories.change_category',
+    'categories.delete_category',
+    'marketplace.view_courier',
+    'marketplace.view_city',
+    'marketplace.view_vendor',
+    'contact.view_usermessage',
+    'contact.change_usermessage',
+)
 
 
 CATEGORIES = [
@@ -239,19 +262,18 @@ class Command(BaseCommand):
         return f'{username}_demo' if conflict else username
 
     def _sync_staff_permissions(self, staff):
-        project_apps = {
-            'cart',
-            'categories',
-            'contact',
-            'marketplace',
-            'orders',
-            'products',
-            'reviews',
-            'users',
-        }
-        staff.user_permissions.set(
-            Permission.objects.filter(content_type__app_label__in=project_apps)
-        )
+        # This command owns only the named demo account and demo operations group.
+        # A known demo password must not grant user/security management or blanket writes.
+        group, _ = Group.objects.get_or_create(name=DEMO_OPERATIONS_GROUP)
+        permissions = []
+        for permission in DEMO_OPERATIONS_PERMISSIONS:
+            app_label, codename = permission.split('.')
+            permissions.append(
+                Permission.objects.get(content_type__app_label=app_label, codename=codename)
+            )
+        group.permissions.set(permissions)
+        staff.user_permissions.clear()
+        staff.groups.set([group])
 
     def _upsert_city(self):
         city, _ = City.objects.update_or_create(

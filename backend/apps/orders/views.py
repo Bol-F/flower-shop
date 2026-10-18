@@ -12,7 +12,11 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from apps.common.permissions import IsOwnerOrAdmin
+from apps.common.permissions import (
+    HasStaffModelPermissions,
+    IsOwnerOrAdmin,
+    staff_has_model_permissions,
+)
 from apps.marketplace.models import Courier
 from apps.marketplace.services import award_loyalty_points_if_eligible, repeat_order_to_cart
 from apps.products.models import Product
@@ -80,7 +84,7 @@ class OrderListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         queryset = order_queryset()
-        if user.is_staff:
+        if staff_has_model_permissions(user, 'orders.view_order'):
             return queryset
         return queryset.filter(user=user)
 
@@ -107,11 +111,13 @@ class CreateOrderView(APIView):
 class OrderDetailView(generics.RetrieveAPIView):
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    staff_permissions = ('orders.view_order',)
     queryset = order_queryset()
 
 
 class CancelOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    staff_permissions = ('orders.change_order',)
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'order_create'
 
@@ -130,7 +136,8 @@ class CancelOrderView(APIView):
 
 class UpdateOrderStatusView(generics.UpdateAPIView):
     serializer_class = UpdateOrderStatusSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [HasStaffModelPermissions]
+    staff_permissions = ('orders.change_order',)
     queryset = Order.objects.all()
     http_method_names = ['patch']
 
@@ -146,7 +153,8 @@ class UpdateOrderStatusView(generics.UpdateAPIView):
 
 
 class UpdatePaymentStatusView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [HasStaffModelPermissions]
+    staff_permissions = ('orders.change_order',)
 
     def patch(self, request, pk):
         order = get_object_or_404(Order, pk=pk)
@@ -224,7 +232,7 @@ class PaymentDetailView(generics.RetrieveAPIView):
         queryset = PaymentAttempt.objects.select_related('order').filter(
             order_id=self.kwargs['pk'],
         )
-        if self.request.user.is_staff:
+        if staff_has_model_permissions(self.request.user, 'orders.view_order'):
             return queryset
         return queryset.filter(order__user=self.request.user)
 
@@ -281,7 +289,8 @@ class ClickCompleteWebhookView(ClickWebhookBaseView):
 
 
 class AssignCourierView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [HasStaffModelPermissions]
+    staff_permissions = ('orders.change_order',)
 
     def patch(self, request, pk):
         order = get_object_or_404(Order, pk=pk)
@@ -298,6 +307,7 @@ class AssignCourierView(APIView):
 
 class RepeatOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    staff_permissions = ('orders.view_order',)
 
     def post(self, request, pk):
         order = get_object_or_404(order_queryset(), pk=pk)
@@ -306,7 +316,8 @@ class RepeatOrderView(APIView):
 
 
 class AdminDashboardView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [HasStaffModelPermissions]
+    staff_permissions = ('orders.view_order', 'products.view_product')
 
     def get(self, request):
         today = timezone.localdate()
@@ -337,7 +348,8 @@ class AdminDashboardView(APIView):
             is_available=False,
         ).order_by('name')[:10]
         best_selling = (
-            OrderItem.objects.values('product_name')
+            OrderItem.objects.filter(order__in=paid_orders)
+            .values('product_name')
             .annotate(
                 quantity_sold=Sum('quantity'),
                 revenue=Sum(

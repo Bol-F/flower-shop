@@ -4,7 +4,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.filters import OrderingFilter, SearchFilter
 
-from apps.common.permissions import IsAdminOrReadOnly
+from apps.common.permissions import IsAdminOrReadOnly, staff_has_model_permissions
 from apps.reviews.models import Review
 
 from .models import Product
@@ -41,7 +41,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
 
     def get_queryset(self):
-        if self.request.user and self.request.user.is_staff:
+        if staff_has_model_permissions(self.request.user, 'products.view_product'):
             return product_queryset()
         return product_queryset().filter(is_available=True)
 

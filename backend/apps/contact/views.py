@@ -3,7 +3,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from apps.common.permissions import IsCustomer
+from apps.common.permissions import HasStaffModelPermissions, IsCustomer, staff_has_model_permissions
 from apps.orders.notifications import notify_support_message_created
 from .models import UserMessage
 from .serializers import (
@@ -46,7 +46,8 @@ class AdminMessageListView(generics.ListAPIView):
     """Admin: list all incoming messages ordered newest first."""
 
     serializer_class = UserMessageAdminSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [HasStaffModelPermissions]
+    staff_permissions = ('contact.view_usermessage',)
     queryset = UserMessage.objects.select_related('user').all()
 
 
@@ -54,12 +55,20 @@ class AdminMessageDetailView(generics.RetrieveUpdateAPIView):
     """Admin: read a message; PATCH to mark read or add a reply."""
 
     serializer_class = UserMessageAdminSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [HasStaffModelPermissions]
     queryset = UserMessage.objects.select_related('user').all()
+
+    @property
+    def staff_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return ('contact.view_usermessage',)
+        return ('contact.change_usermessage',)
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        if not instance.is_read:
+        if not instance.is_read and staff_has_model_permissions(
+            request.user, 'contact.change_usermessage'
+        ):
             instance.is_read = True
             instance.save(update_fields=['is_read'])
         return super().retrieve(request, *args, **kwargs)
@@ -76,7 +85,8 @@ class AdminReplyView(generics.GenericAPIView):
     """Admin: send another message into the selected customer's conversation."""
 
     serializer_class = AdminReplyCreateSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [HasStaffModelPermissions]
+    staff_permissions = ('contact.change_usermessage',)
     queryset = UserMessage.objects.select_related('user').all()
 
     def post(self, request, *args, **kwargs):

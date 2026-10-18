@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ApiError } from "@/lib/api";
 import { fallbackProduct, loadCatalogProduct } from "@/lib/catalog";
 import type { Product } from "@/lib/types";
 import ProductDetail from "./ProductDetail";
@@ -16,31 +17,57 @@ export default function ProductPageClient({
   const [product, setProduct] = useState<Product | null>(initialProduct);
   const [loading, setLoading] = useState(!initialProduct);
   const [notFound, setNotFound] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
 
   useEffect(() => {
-    if (initialProduct?.source === "api") return;
     let cancelled = false;
-    loadCatalogProduct(id)
-      .then((item) => {
-        if (cancelled) return;
-        setProduct(item);
-        setNotFound(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        const fallback = fallbackProduct(id);
-        setProduct(fallback ?? null);
-        setNotFound(!fallback);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    const refresh = () =>
+      loadCatalogProduct(id)
+        .then((item) => {
+          if (cancelled) return;
+          setProduct(item);
+          setNotFound(false);
+          setRefreshFailed(false);
+        })
+        .catch((error: unknown) => {
+          if (cancelled) return;
+          if (initialProduct?.source === "api") {
+            if (error instanceof ApiError && error.status === 404) {
+              setProduct(null);
+              setNotFound(true);
+            } else setRefreshFailed(true);
+            return;
+          }
+          const fallback = fallbackProduct(id);
+          setProduct(fallback ?? null);
+          setNotFound(!fallback);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    void refresh();
+    const onFocus = () => {
+      void refresh();
+    };
+    window.addEventListener("focus", onFocus);
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", onFocus);
     };
   }, [id, initialProduct]);
 
-  if (product) return <ProductDetail product={product} />;
+  if (product)
+    return (
+      <>
+        {refreshFailed && (
+          <p role="status" className="mx-auto max-w-7xl bg-blush px-5 py-3 text-sm text-stone">
+            We couldn’t refresh this bouquet. Checkout will confirm the latest price and
+            availability.
+          </p>
+        )}
+        <ProductDetail product={product} />
+      </>
+    );
 
   return (
     <main className="mx-auto grid min-h-[calc(100vh-66px)] max-w-2xl place-items-center px-5 text-center">

@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 
 import pytest
 from django.contrib.admin.sites import AdminSite
+from django.contrib.auth.models import Permission
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.test import override_settings
 from django.urls import reverse
@@ -399,6 +400,9 @@ def test_real_provider_status_cannot_be_manually_overridden(payment_user, online
     client = APIClient()
     payment_user.is_staff = True
     payment_user.save(update_fields=('is_staff',))
+    payment_user.user_permissions.add(
+        Permission.objects.get(content_type__app_label='orders', codename='change_order')
+    )
     client.force_authenticate(user=payment_user)
     response = client.patch(
         reverse('order-payment-status-update', args=[online_order.id]),

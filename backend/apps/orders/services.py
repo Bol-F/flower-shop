@@ -4,7 +4,7 @@ from django.conf import settings
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
-from apps.cart.services import clear_cart, get_or_create_cart
+from apps.cart.services import clear_cart, get_cart_for_update
 from apps.marketplace.services import (
     mark_promo_used,
     resolve_city,
@@ -43,14 +43,14 @@ def create_order_from_cart(
     call_recipient_before_delivery: bool = False,
     notes: str = '',
 ) -> Order:
-    cart = get_or_create_cart(user)
+    cart = get_cart_for_update(user)
     cart_items = list(cart.items.select_related('product').all())
 
     if not cart_items:
         raise ValidationError('Your cart is empty.')
 
     product_ids = [item.product_id for item in cart_items]
-    products = Product.objects.select_for_update().in_bulk(product_ids)
+    products = Product.objects.select_for_update().order_by('pk').in_bulk(product_ids)
 
     for item in cart_items:
         product = products.get(item.product_id)

@@ -31,3 +31,18 @@ class AddToCartSerializer(serializers.Serializer):
 
 class UpdateCartItemSerializer(serializers.Serializer):
     quantity = serializers.IntegerField(min_value=1)
+
+
+class GuestCartItemSerializer(serializers.Serializer):
+    product_slug = serializers.SlugField(max_length=200)
+    quantity = serializers.IntegerField(min_value=1, max_value=999)
+
+
+class GuestSelectionMergeSerializer(serializers.Serializer):
+    merge_id = serializers.UUIDField()
+    items = GuestCartItemSerializer(many=True, max_length=100, default=list)
+    wishlist = serializers.ListField(
+        child=serializers.SlugField(max_length=200),
+        max_length=100,
+        default=list,
+    )

@@ -107,7 +107,9 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
     city,
     clearCart,
     cartLoading,
+    cartSyncBlocked,
     cartError,
+    reloadCart,
     showToast,
   } = useStore();
   const t = copy[language].cart;
@@ -236,6 +238,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
   }, [checkoutOpen, syncPaymentRate]);
 
   function openCheckout() {
+    if (cartLoading || cartSyncBlocked) return;
     setPaymentMethodsLoading(true);
     setPaymentMethodsError("");
     setCheckoutOpen(true);
@@ -297,6 +300,10 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
     setError("");
     if (!user) {
       setError("Sign in before checkout.");
+      return;
+    }
+    if (cartLoading || cartSyncBlocked) {
+      setError("Sync your cart before checkout so the order matches your selection.");
       return;
     }
     if (!deliveryLocation.address.trim() || !phone.trim()) {
@@ -544,6 +551,21 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
               {cartLoading ? "Syncing cart" : "Your cart is empty"}
             </p>
             <p className="mt-1 text-sm text-stone">{cartLoading ? "Syncing cart..." : t.empty}</p>
+            {cartError && (
+              <p role="alert" className="mt-3 text-sm text-berry">
+                {cartError}
+              </p>
+            )}
+            {cartError && user && (
+              <button
+                type="button"
+                disabled={cartLoading}
+                onClick={() => void reloadCart()}
+                className="mt-3 rounded-full border border-line px-5 py-2 font-bold disabled:opacity-50"
+              >
+                Retry cart sync
+              </button>
+            )}
             {!cartLoading && (
               <a
                 href="#catalog"
@@ -621,13 +643,24 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                 {error || cartError}
               </p>
             )}
+            {cartError && user && (
+              <button
+                type="button"
+                disabled={cartLoading}
+                onClick={() => void reloadCart()}
+                className="mt-3 rounded-full border border-line px-4 py-2 text-sm font-bold disabled:opacity-50"
+              >
+                Retry cart sync
+              </button>
+            )}
 
             {!checkoutOpen ? (
               user ? (
                 <button
                   type="button"
                   onClick={openCheckout}
-                  className="mt-3 w-full rounded-full bg-blossomdeep py-3 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry active:scale-95"
+                  disabled={cartLoading || cartSyncBlocked}
+                  className="mt-3 w-full rounded-full bg-blossomdeep py-3 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry active:scale-95 disabled:opacity-50"
                 >
                   {t.checkout}
                 </button>
@@ -1029,7 +1062,11 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                     <button
                       type="submit"
                       disabled={
-                        submitting || paymentMethodsLoading || !selectedPaymentOption?.enabled
+                        submitting ||
+                        cartLoading ||
+                        cartSyncBlocked ||
+                        paymentMethodsLoading ||
+                        !selectedPaymentOption?.enabled
                       }
                       className="rounded-full bg-blossomdeep py-2.5 text-sm font-extrabold text-white shadow-glow transition hover:bg-raspberry disabled:cursor-wait disabled:opacity-70"
                     >

@@ -33,11 +33,22 @@ if FRONTEND_URL not in CORS_ALLOWED_ORIGINS:
 if not PAYMENT_FRONTEND_RETURN_URL.startswith(f'{FRONTEND_URL}/'):
     raise ImproperlyConfigured('PAYMENT_FRONTEND_RETURN_URL must use FRONTEND_URL.')
 
-# The portfolio demo supports email/password login only. Ignore any stray OAuth
-# values so an incomplete dashboard configuration cannot expose broken buttons.
-OAUTH_PROVIDERS = {
-    provider: {key: '' for key in values} for provider, values in OAUTH_PROVIDERS.items()
-}
+# Real sign-in is an explicit opt-in, separate from mock payment authorization.
+# A key accidentally added to a portfolio demo must not enable an identity flow.
+DEMO_OAUTH_ENABLED = env.bool('DEMO_OAUTH_ENABLED', default=False)
+if DEMO_OAUTH_ENABLED:
+    from .public_oauth import validate_public_oauth
+
+    validate_public_oauth(
+        frontend_url=FRONTEND_URL,
+        callback_url=OAUTH_FRONTEND_CALLBACK_URL,
+        providers=OAUTH_PROVIDERS,
+        allowed_hosts=ALLOWED_HOSTS,
+    )
+else:
+    OAUTH_PROVIDERS = {
+        provider: {key: '' for key in values} for provider, values in OAUTH_PROVIDERS.items()
+    }
 
 PAYMENT_PROVIDER = 'test'
 PAYMENT_TEST_MODE_ENABLED = True

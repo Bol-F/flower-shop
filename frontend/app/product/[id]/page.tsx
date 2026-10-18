@@ -1,17 +1,16 @@
 import type { Metadata } from "next";
 import { cache } from "react";
-import { fallbackCatalogProducts, fallbackProduct, loadCatalogProduct } from "@/lib/catalog";
+import { connection } from "next/server";
+import { fallbackProduct, loadCatalogProduct } from "@/lib/catalog";
 import ProductPageClient from "@/components/ProductPageClient";
 
 interface Props {
   params: Promise<{ id: string }>;
 }
 
-export function generateStaticParams() {
-  return fallbackCatalogProducts.map((p) => ({ id: p.id }));
-}
-
 const getProduct = cache(async (id: string) => {
+  // Inventory and prices must be read at request time, never frozen at build.
+  await connection();
   try {
     return await loadCatalogProduct(id);
   } catch {

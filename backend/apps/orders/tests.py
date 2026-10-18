@@ -1,6 +1,7 @@
 import pytest
 from decimal import Decimal
 from unittest.mock import Mock, patch
+from django.contrib.auth.models import Permission
 from django.test import override_settings
 from django.utils import timezone
 from django.urls import reverse
@@ -35,12 +36,19 @@ def user(db):
 
 @pytest.fixture
 def staff_user(db):
-    return User.objects.create_user(
+    user = User.objects.create_user(
         username='stafforder',
         email='staff-order@example.com',
         password='pass123',
         is_staff=True,
     )
+    user.user_permissions.add(
+        *Permission.objects.filter(
+            content_type__app_label='orders', codename__in=('view_order', 'change_order')
+        ),
+        Permission.objects.get(content_type__app_label='products', codename='view_product'),
+    )
+    return user
 
 
 @pytest.fixture

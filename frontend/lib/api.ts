@@ -140,6 +140,19 @@ export interface ApiCart {
   updated_at: string;
 }
 
+export interface GuestSelectionMergePayload {
+  merge_id: string;
+  items: Array<{ product_slug: string; quantity: number }>;
+  wishlist: string[];
+}
+
+export interface GuestSelectionMergeResult {
+  cart: ApiCart;
+  wishlist: ApiProductListItem[];
+  adjusted_products: string[];
+  unavailable_products: string[];
+}
+
 export interface ApiOrderItem {
   id: number;
   product: number | null;
@@ -372,7 +385,11 @@ type RefreshResult =
 
 let volatileAuth: StoredAuth | null = null;
 let useVolatileAuth = false;
-let refreshFlight: { token: string; promise: Promise<StoredAuth | null> } | null = null;
+let refreshFlight: {
+  token: string;
+  userId: number;
+  promise: Promise<StoredAuth | null>;
+} | null = null;
 
 export class ApiError extends Error {
   /** DRF error payload, e.g. {email: ["..."], password: ["..."]} */
@@ -391,6 +408,28 @@ export class OfflineError extends Error {
   constructor() {
     super("Can't reach the server. Is the backend running?");
   }
+}
+
+function accountChangedError() {
+  return new ApiError(409, {
+    code: "auth_changed",
+    detail: "Your account changed while this request was in progress. Please try again.",
+  });
+}
+
+function assertCurrentAccount(userId: number | undefined) {
+  if (loadAuth()?.user.id !== userId) throw accountChangedError();
+}
+
+function saveCurrentUser(user: AuthUser, requestedUserId: number | undefined): AuthUser {
+  const current = loadAuth();
+  if (!current || current.user.id !== requestedUserId) throw accountChangedError();
+  if (!user || user.id !== requestedUserId) {
+    throw new ApiError(502, { detail: "The account response did not match the signed-in user." });
+  }
+  // A concurrent refresh may have rotated either token while the profile was loading.
+  saveAuth({ ...current, user });
+  return user;
 }
 
 export function loadAuth(): StoredAuth | null {
@@ -469,6 +508,11 @@ async function request<T>(
   options: { method?: string; body?: unknown; auth?: boolean } = {},
 ): Promise<T> {
   const { method = "GET", body, auth = false } = options;
+  let stored = auth ? loadAuth() : null;
+  const requestedUserId = stored?.user.id;
+  const assertRequestAccount = () => {
+    if (auth) assertCurrentAccount(requestedUserId);
+  };
 
   const doFetch = async (access?: string) => {
     try {
@@ -481,32 +525,41 @@ async function request<T>(
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch {
+      assertRequestAccount();
       throw new OfflineError();
     }
   };
 
-  let stored = auth ? loadAuth() : null;
   let res = await doFetch(stored?.access);
+  assertRequestAccount();
 
   // expired access token → refresh once and retry
   if (res.status === 401 && stored?.refresh) {
     const refreshed = await refreshAuth(stored);
+    assertRequestAccount();
     if (refreshed) {
+      if (refreshed.user.id !== requestedUserId) throw accountChangedError();
       stored = refreshed;
       res = await doFetch(stored.access);
+      assertRequestAccount();
     }
   }
 
   if (!res.ok) {
     const details = await responseDetails(res);
+    assertRequestAccount();
     throw new ApiError(res.status, details);
   }
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  const data = (await res.json()) as T;
+  assertRequestAccount();
+  return data;
 }
 
 async function refreshAuth(stored: StoredAuth): Promise<StoredAuth | null> {
-  if (refreshFlight?.token === stored.refresh) return refreshFlight.promise;
+  if (refreshFlight?.token === stored.refresh && refreshFlight.userId === stored.user.id) {
+    return refreshFlight.promise;
+  }
 
   const token = stored.refresh;
   const rotate = async () => {
@@ -527,7 +580,7 @@ async function refreshAuth(stored: StoredAuth): Promise<StoredAuth | null> {
     if (result.status === "retryable") throw result.error;
     if (result.status === "invalid") {
       saveAuth(null);
-      return null;
+      throw new ApiError(401, { detail: "Your session expired. Please sign in again." });
     }
     const updated = {
       ...current,
@@ -545,7 +598,7 @@ async function refreshAuth(stored: StoredAuth): Promise<StoredAuth | null> {
     }
     return rotate();
   })();
-  refreshFlight = { token, promise };
+  refreshFlight = { token, userId: stored.user.id, promise };
   try {
     return await promise;
   } finally {
@@ -615,14 +668,13 @@ export async function completeOAuth(code: string): Promise<AuthUser> {
 }
 
 export async function completeOAuthLink(linkCode: string): Promise<AuthUser> {
+  const requestedUserId = loadAuth()?.user.id;
   const data = await request<{ user: AuthUser }>("/api/auth/oauth/link/exchange/", {
     method: "POST",
     body: { code: linkCode },
     auth: true,
   });
-  const stored = loadAuth();
-  if (stored) saveAuth({ ...stored, user: data.user });
-  return data.user;
+  return saveCurrentUser(data.user, requestedUserId);
 }
 
 export async function startOAuthLink(provider: OAuthProvider): Promise<string> {
@@ -658,10 +710,9 @@ export function logout() {
 }
 
 export async function fetchProfile(): Promise<AuthUser> {
+  const requestedUserId = loadAuth()?.user.id;
   const user = await request<AuthUser>("/api/auth/profile/", { auth: true });
-  const stored = loadAuth();
-  if (stored) saveAuth({ ...stored, user });
-  return user;
+  return saveCurrentUser(user, requestedUserId);
 }
 
 export async function updateProfile(
@@ -669,14 +720,13 @@ export async function updateProfile(
     Pick<AuthUser, "username" | "phone" | "address" | "bio" | "city" | "language" | "currency">
   >,
 ): Promise<AuthUser> {
+  const requestedUserId = loadAuth()?.user.id;
   const user = await request<AuthUser>("/api/auth/profile/", {
     method: "PATCH",
     body: patch,
     auth: true,
   });
-  const stored = loadAuth();
-  if (stored) saveAuth({ ...stored, user });
-  return user;
+  return saveCurrentUser(user, requestedUserId);
 }
 
 export async function changePassword(payload: {
@@ -814,6 +864,16 @@ export async function validatePromoCode(payload: { code: string; subtotal: strin
 
 export async function fetchCart(): Promise<ApiCart> {
   return request<ApiCart>("/api/cart/", { auth: true });
+}
+
+export function mergeGuestSelections(
+  payload: GuestSelectionMergePayload,
+): Promise<GuestSelectionMergeResult> {
+  return request<GuestSelectionMergeResult>("/api/cart/merge/", {
+    method: "POST",
+    body: payload,
+    auth: true,
+  });
 }
 
 export async function addCartItem(productId: number, quantity = 1): Promise<ApiCart> {

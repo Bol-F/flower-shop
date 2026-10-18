@@ -260,6 +260,7 @@ REST_FRAMEWORK = {
         'flower_assistant_daily': '50/day',
         'promo_validate': '20/hour',
         'order_create': '20/hour',
+        'cart_merge': '20/minute',
         'test_payment': '20/hour',
         'payment_create': '20/hour',
         'payment_webhook': '240/minute',

@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from apps.common.permissions import HasStaffModelPermissions
+
 from .models import City, Courier, Vendor, WishlistItem
 from .serializers import (
     CitySerializer,
@@ -27,7 +29,8 @@ class VendorListView(generics.ListAPIView):
 
 class CourierListView(generics.ListAPIView):
     serializer_class = CourierSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [HasStaffModelPermissions]
+    staff_permissions = ('marketplace.view_courier',)
     queryset = Courier.objects.filter(is_active=True).select_related('user', 'city')
 
 

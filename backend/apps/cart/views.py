@@ -2,12 +2,16 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import ScopedRateThrottle
+
+from apps.products.serializers import ProductListSerializer
 
 from . import services
 from .serializers import (
     CartSerializer,
     AddToCartSerializer,
     UpdateCartItemSerializer,
+    GuestSelectionMergeSerializer,
 )
 
 
@@ -54,3 +58,34 @@ class CartItemView(APIView):
     def delete(self, request, product_id):
         services.remove_item_from_cart(request.user, product_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GuestSelectionMergeView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'cart_merge'
+
+    def post(self, request):
+        serializer = GuestSelectionMergeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        adjustments = services.merge_guest_selections(
+            user=request.user, **serializer.validated_data
+        )
+        cart = services.get_cart_for_response(request.user)
+        products = [
+            item.product
+            for item in request.user.wishlist_items.select_related(
+                'product__category',
+                'product__city',
+                'product__vendor',
+            )
+        ]
+        response = Response(
+            {
+                'cart': CartSerializer(cart).data,
+                'wishlist': ProductListSerializer(products, many=True).data,
+                **adjustments,
+            }
+        )
+        response['Cache-Control'] = 'no-store'
+        return response

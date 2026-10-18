@@ -49,3 +49,18 @@ class CartItem(models.Model):
     @property
     def subtotal(self):
         return self.product.price * self.quantity
+
+
+class GuestSelectionMerge(models.Model):
+    """A durable idempotency receipt; retries must not re-add checked-out items."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    merge_id = models.UUIDField()
+    payload_hash = models.CharField(max_length=64)
+    adjustments = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=('user', 'merge_id'), name='guest_merge_user_id_unique'),
+        ]
