@@ -82,6 +82,60 @@ class TestOAuthFlow:
         assert SocialIdentity.objects.filter(provider=provider, subject=identity.subject).exists()
         assert not User.objects.get(email=identity.email).has_usable_password()
 
+    def test_google_signed_provider_response_completes_login_and_authenticates_profile(self):
+        client = APIClient()
+        state = _start(client, 'google')
+        attempt = OAuthLoginAttempt.objects.get()
+        trusted = RSAKey.generate_key(parameters={'kid': 'local-provider-key'})
+        signed = jwt.encode(
+            {'alg': 'RS256', 'kid': 'local-provider-key'},
+            _oidc_claims(
+                nonce=attempt.nonce,
+                sub='local-google-subject',
+                email='local-google@example.test',
+                email_verified=True,
+                name='Local Flower Friend',
+            ),
+            trusted,
+        )
+        token_response = SimpleNamespace(
+            ok=True,
+            json=lambda: {
+                'access_token': 'provider-access',
+                'token_type': 'Bearer',
+                'id_token': signed,
+            },
+        )
+        key_response = SimpleNamespace(ok=True, json=lambda: {'keys': [trusted.as_dict()]})
+        with (
+            patch('apps.users.oauth.requests.post', return_value=token_response) as token_post,
+            patch('apps.users.oauth.requests.get', return_value=key_response) as keys_get,
+        ):
+            callback = client.get(
+                reverse('oauth-callback', args=['google']),
+                {'state': state, 'code': 'local-provider-code'},
+            )
+        assert callback.status_code == 302
+        assert not urlparse(callback['Location']).query
+        code = _callback_fragment(callback)['code'][0]
+        assert token_post.call_args.kwargs['data']['code_verifier'] == attempt.code_verifier
+        assert token_post.call_args.kwargs['data']['client_secret'] == 'google-secret'
+        assert keys_get.call_args.args == ('https://www.googleapis.com/oauth2/v3/certs',)
+        exchange = client.post(reverse('oauth-exchange'), {'code': code}, format='json')
+        assert exchange.status_code == 200
+        assert exchange['Cache-Control'] == 'no-store'
+        assert exchange.data['user']['email'] == 'local-google@example.test'
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {exchange.data["access"]}')
+        profile = client.get(reverse('profile'))
+        assert profile.status_code == 200
+        assert profile.data['id'] == exchange.data['user']['id']
+        assert profile.data['social_identities'] == [
+            {'provider': 'google', 'email': 'local-google@example.test', 'email_verified': True},
+        ]
+        attempt.refresh_from_db()
+        assert attempt.used_at is not None
+        assert attempt.code_verifier == attempt.nonce == ''
+
     def test_microsoft_login_requires_an_existing_account(self):
         client = APIClient()
         state = _start(client, 'microsoft')
@@ -475,6 +529,9 @@ class TestOAuthFlow:
         (
             'https://evil.example/steal',
             '//evil.example/steal',
+            '//[',
+            '/%2F%5B',
+            '/%252F%255B',
             '/\\evil.example/steal',
             '/%5C%5Cevil.example/steal',
             '/%2F%2Fevil.example/steal',

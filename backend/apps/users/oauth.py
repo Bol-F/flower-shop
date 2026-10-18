@@ -139,7 +139,10 @@ def safe_next_path(value: str | None, default: str = '/profile') -> str:
     decoded = value
     for _ in range(2):
         decoded = unquote(decoded)
-    parsed = urlparse(decoded)
+    try:
+        parsed = urlparse(decoded)
+    except ValueError:
+        return default
     if (
         not decoded.startswith('/')
         or decoded.startswith('//')

@@ -130,12 +130,20 @@ if missing_payment_settings:
     raise ImproperlyConfigured(
         f'Missing {PAYMENT_PROVIDER} settings: {", ".join(missing_payment_settings)}.'
     )
-if not PAYMENT_FRONTEND_RETURN_URL.startswith('https://'):
-    raise ImproperlyConfigured('PAYMENT_FRONTEND_RETURN_URL must use HTTPS in production.')
-
 frontend_url = _production_url(FRONTEND_URL, 'FRONTEND_URL', origin_only=True)
 if FRONTEND_URL not in CORS_ALLOWED_ORIGINS:
     raise ImproperlyConfigured('CORS_ALLOWED_ORIGINS must include the exact FRONTEND_URL origin.')
+
+payment_frontend_return = _production_url(
+    PAYMENT_FRONTEND_RETURN_URL,
+    'PAYMENT_FRONTEND_RETURN_URL',
+    expected_path='/payment/return',
+)
+if _origin(frontend_url) != _origin(payment_frontend_return):
+    raise ImproperlyConfigured(
+        'PAYMENT_FRONTEND_RETURN_URL must use the same origin as FRONTEND_URL.'
+    )
+
 oauth_frontend_callback = _production_url(
     OAUTH_FRONTEND_CALLBACK_URL,
     'OAUTH_FRONTEND_CALLBACK_URL',

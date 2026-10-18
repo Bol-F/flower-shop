@@ -1,9 +1,16 @@
+import logging
+
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from apps.common.permissions import HasStaffModelPermissions, IsCustomer, staff_has_model_permissions
+from apps.common.permissions import (
+    HasStaffModelPermissions,
+    IsCustomer,
+    staff_has_model_permissions,
+)
 from apps.orders.notifications import notify_support_message_created
 from .models import UserMessage
 from .serializers import (
@@ -13,6 +20,55 @@ from .serializers import (
     UserMessageAdminSerializer,
 )
 from .tasks import notify_admin_new_message
+
+
+logger = logging.getLogger(__name__)
+SUPPORT_BROKER_TIMEOUT_SECONDS = 1
+
+
+def _publish_admin_notification(message):
+    task = notify_admin_new_message
+    options = {
+        'args': (message.pk, message.user.email, message.subject),
+        'retry': False,
+        'expires': 60,
+        'ignore_result': True,
+    }
+    if task.app.conf.task_always_eager:
+        task.apply_async(**options)
+        return
+
+    # This best-effort UI hint must not hold up a saved support request while
+    # Redis is unreachable. A dedicated producer bounds both connect and read
+    # waits without changing worker/beat retry behavior for important jobs.
+    with task.app.connection_for_write(
+        connect_timeout=SUPPORT_BROKER_TIMEOUT_SECONDS,
+        transport_options={
+            'socket_connect_timeout': SUPPORT_BROKER_TIMEOUT_SECONDS,
+            'socket_timeout': SUPPORT_BROKER_TIMEOUT_SECONDS,
+            'retry_on_timeout': False,
+        },
+    ) as connection:
+        connection.ensure_connection(max_retries=0)
+        task.apply_async(connection=connection, **options)
+
+
+def _notify_support_after_commit(message):
+    for label, action in (
+        ('notification adapters', notify_support_message_created),
+        ('admin websocket publish', _publish_admin_notification),
+    ):
+        try:
+            action(message)
+        except Exception as exc:
+            # Keep the durable message available in the inbox. Do not log
+            # exception text, which can contain a credential-bearing broker URL.
+            logger.warning(
+                'Support message #%s saved; %s failed (%s).',
+                message.pk,
+                label,
+                type(exc).__name__,
+            )
 
 
 class SendMessageView(generics.CreateAPIView):
@@ -25,11 +81,7 @@ class SendMessageView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         msg = serializer.save(user=self.request.user)
-        notify_support_message_created(msg)
-        try:
-            notify_admin_new_message.delay(msg.id, self.request.user.email, msg.subject)
-        except Exception:
-            pass  # Don't break the request if Redis / Celery is down
+        transaction.on_commit(lambda: _notify_support_after_commit(msg), robust=True)
 
 
 class MyMessagesView(generics.ListAPIView):

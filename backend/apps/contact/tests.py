@@ -47,12 +47,13 @@ class TestSendMessage:
         response = api_client.post(url, {'subject': 'Hi', 'body': 'Hello'}, format='json')
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_user_can_send_message(self, api_client, user):
+    def test_user_can_send_message(self, api_client, user, django_capture_on_commit_callbacks):
         api_client.force_authenticate(user=user)
         url = reverse('contact-send')
-        response = api_client.post(
-            url, {'subject': 'Question', 'body': 'Do you deliver on Sundays?'}, format='json'
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = api_client.post(
+                url, {'subject': 'Question', 'body': 'Do you deliver on Sundays?'}, format='json'
+            )
         assert response.status_code == status.HTTP_201_CREATED
         msg = UserMessage.objects.get(subject='Question')
         assert msg.user == user
