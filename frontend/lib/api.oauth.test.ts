@@ -3,10 +3,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ApiError,
+  completeOAuth,
   completeOAuthLink,
   fetchProfile,
+  login,
   logout,
   mergeGuestSelections,
+  register,
   updateProfile,
 } from "./api";
 
@@ -53,6 +56,10 @@ const userRequests = [
     run: () => completeOAuthLink("one-time-link-code"),
     response: { user: refreshedUser },
   },
+];
+const authenticationRequests = [
+  { name: "password sign-in", run: () => login("original@example.com", "password") },
+  { name: "OAuth sign-in", run: () => completeOAuth("one-time-login-code") },
 ];
 
 function jsonResponse(status: number, body: unknown) {
@@ -435,6 +442,147 @@ describe("OAuth API authentication state", () => {
 
     await expect(fetchProfile()).rejects.toMatchObject({ status: 401 });
     expect(localStorage.getItem(authKey)).toBeNull();
+  });
+
+  describe.each(authenticationRequests)("$name completion", ({ run }) => {
+    it("can intentionally replace an unchanged existing account", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, replacement)));
+
+      await expect(run()).resolves.toEqual(replacement.user);
+      expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual(replacement);
+    });
+
+    it("does not overwrite an account switched while the response was pending", async () => {
+      const flight = deferred<Response>();
+      vi.stubGlobal("fetch", vi.fn().mockReturnValue(flight.promise));
+      const pending = run();
+      const rejected = expect(pending).rejects.toMatchObject({
+        status: 409,
+        details: { code: "auth_changed" },
+      });
+      localStorage.setItem(authKey, JSON.stringify(replacement));
+      flight.resolve(
+        jsonResponse(200, {
+          access: "late-access",
+          refresh: "late-refresh",
+          user: originalUser,
+        }),
+      );
+
+      await rejected;
+      expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual(replacement);
+    });
+
+    it("does not sign in after logout, even when the request began signed out", async () => {
+      localStorage.clear();
+      const flight = deferred<Response>();
+      vi.stubGlobal("fetch", vi.fn().mockReturnValue(flight.promise));
+      const pending = run();
+      const rejected = expect(pending).rejects.toMatchObject({ status: 409 });
+      logout();
+      flight.resolve(jsonResponse(200, replacement));
+
+      await rejected;
+      expect(localStorage.getItem(authKey)).toBeNull();
+    });
+
+    it.each([null, [], {}, { access: "a", refresh: "r", user: null }])(
+      "rejects malformed successful sign-in responses without changing the session: %j",
+      async (response) => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, response)));
+
+        await expect(run()).rejects.toMatchObject({ status: 502 });
+        expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual({
+          access: "old-access",
+          refresh: "old-refresh",
+          user: originalUser,
+        });
+      },
+    );
+  });
+
+  it("does not let an older sign-in overwrite a more recently completed sign-in", async () => {
+    const firstFlight = deferred<Response>();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockReturnValueOnce(firstFlight.promise)
+        .mockResolvedValueOnce(jsonResponse(200, replacement)),
+    );
+    const pending = completeOAuth("older-code");
+    const rejected = expect(pending).rejects.toMatchObject({ status: 409 });
+    await login("other@example.com", "password");
+    firstFlight.resolve(
+      jsonResponse(200, {
+        access: "late-access",
+        refresh: "late-refresh",
+        user: originalUser,
+      }),
+    );
+
+    await rejected;
+    expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual(replacement);
+  });
+
+  it("rejects an old profile response after logout and a fresh sign-in to the same account", async () => {
+    const profileFlight = deferred<Response>();
+    const signedInAgain = { access: "fresh-access", refresh: "fresh-refresh", user: originalUser };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockReturnValueOnce(profileFlight.promise)
+        .mockResolvedValueOnce(jsonResponse(200, signedInAgain)),
+    );
+    const pending = fetchProfile();
+    const rejected = expect(pending).rejects.toMatchObject({ status: 409 });
+    logout();
+    await login("original@example.com", "password");
+    profileFlight.resolve(jsonResponse(200, refreshedUser));
+
+    await rejected;
+    expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual(signedInAgain);
+  });
+
+  it("does not automatically sign in after registration if the session changed", async () => {
+    const registrationFlight = deferred<Response>();
+    const fetchMock = vi.fn().mockReturnValue(registrationFlight.promise);
+    vi.stubGlobal("fetch", fetchMock);
+    const pending = register({
+      username: "new-customer",
+      email: "new-customer@example.test",
+      password: "password",
+      password_confirm: "password",
+    });
+    const rejected = expect(pending).rejects.toMatchObject({ status: 409 });
+    localStorage.setItem(authKey, JSON.stringify(replacement));
+    registrationFlight.resolve(jsonResponse(201, { ...originalUser, id: 18 }));
+
+    await rejected;
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual(replacement);
+  });
+
+  it("allows OAuth completion after an ordinary token rotation of the original session", async () => {
+    const oauthFlight = deferred<Response>();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockReturnValueOnce(oauthFlight.promise)
+        .mockResolvedValueOnce(jsonResponse(401, { detail: "expired" }))
+        .mockResolvedValueOnce(
+          jsonResponse(200, { access: "rotated-access", refresh: "rotated-refresh" }),
+        )
+        .mockResolvedValueOnce(jsonResponse(200, refreshedUser)),
+    );
+    const pending = completeOAuth("replacement-login-code");
+    await expect(fetchProfile()).resolves.toEqual(refreshedUser);
+    oauthFlight.resolve(jsonResponse(200, replacement));
+
+    await expect(pending).resolves.toEqual(replacement.user);
+    expect(JSON.parse(localStorage.getItem(authKey) ?? "null")).toEqual(replacement);
   });
 
   it.each(["null", "[]", '{"access":1}', '{"access":"a","refresh":"r","user":null}'])(

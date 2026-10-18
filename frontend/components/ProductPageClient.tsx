@@ -21,16 +21,18 @@ export default function ProductPageClient({
 
   useEffect(() => {
     let cancelled = false;
-    const refresh = () =>
-      loadCatalogProduct(id)
+    let generation = 0;
+    const refresh = () => {
+      const current = ++generation;
+      return loadCatalogProduct(id)
         .then((item) => {
-          if (cancelled) return;
+          if (cancelled || current !== generation) return;
           setProduct(item);
           setNotFound(false);
           setRefreshFailed(false);
         })
         .catch((error: unknown) => {
-          if (cancelled) return;
+          if (cancelled || current !== generation) return;
           if (initialProduct?.source === "api") {
             if (error instanceof ApiError && error.status === 404) {
               setProduct(null);
@@ -43,8 +45,9 @@ export default function ProductPageClient({
           setNotFound(!fallback);
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled && current === generation) setLoading(false);
         });
+    };
     void refresh();
     const onFocus = () => {
       void refresh();

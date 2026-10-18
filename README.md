@@ -103,6 +103,33 @@ Create `flower_shop_db` first or point the `DB_*` variables in `backend/.env`
 to an existing PostgreSQL database. The API runs at `http://localhost:8000/api/`
 and Django admin at `http://localhost:8000/admin/`.
 
+### Background tasks and support notifications
+
+Normal development uses Redis for Channels and Celery. Starting Django alone
+does **not** start a task worker. From the repository root, run Redis and the
+Linux Docker worker in separate terminals:
+
+```powershell
+docker compose up -d db redis
+docker compose up --build celery
+```
+
+The Compose worker uses `backend/.env` and the same Docker PostgreSQL database;
+check the configured database before starting it. Use Docker or WSL/Linux for
+Celery rather than native Windows, which Celery does not officially support.
+The optional `celery-beat` service schedules daily support summaries and checks
+abandoned online-payment reservations every 15 minutes. **Starting beat can
+cancel existing unpaid orders and release their reserved stock**; only run it
+against the database where those scheduled changes are intended.
+
+Support messages are saved even when optional notification delivery is down.
+The authenticated support inbox remains the source of truth. The backend's
+`/ws/admin/notifications/` endpoint requires a Django admin session with support
+read permission; it is not authenticated by a storefront JWT. The current
+frontend refreshes the support conversation by polling, not this WebSocket.
+Tests use an in-memory channel layer, so test notifications never enter a real
+Redis admin group.
+
 Frontend, in a second terminal:
 
 ```powershell

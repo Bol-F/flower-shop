@@ -51,6 +51,7 @@ import type { CategoryId, Currency, Language, Product } from "./types";
 interface PersistedState extends SelectionState {
   schemaVersion: 2;
   selectionOwner: number | null;
+  guestSelectionId: string | null;
   currency: Currency;
   language: Language;
   name: string;
@@ -60,6 +61,7 @@ interface PersistedState extends SelectionState {
 const DEFAULTS: PersistedState = {
   schemaVersion: 2,
   selectionOwner: null,
+  guestSelectionId: null,
   currency: "USD",
   language: "EN",
   name: "",
@@ -145,6 +147,11 @@ function hydratePersisted(raw: string | null, currentUserId: number | null): Per
     city: typeof parsed.city === "string" ? parsed.city : "Tashkent",
     ...selections,
     selectionOwner,
+    guestSelectionId:
+      typeof parsed.guestSelectionId === "string" &&
+      /^[0-9a-f-]{36}$/i.test(parsed.guestSelectionId)
+        ? parsed.guestSelectionId
+        : null,
   };
 }
 
@@ -188,7 +195,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const commit = useCallback((change: (previous: PersistedState) => PersistedState) => {
-    const next = change(persistedRef.current);
+    let next = change(persistedRef.current);
+    if (next.selectionOwner === null && !next.guestSelectionId && hasSelections(next)) {
+      next = { ...next, guestSelectionId: crypto.randomUUID() };
+    }
     persistedRef.current = next;
     setPersisted(next);
   }, []);
@@ -252,8 +262,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         previous.selectionOwner === null &&
         hasSelections(previous)
       ) {
-        const merge = newGuestMerge(previous);
-        if (merge) savePending(nextId, [...readPending(nextId), merge]);
+        const merge = newGuestMerge(previous, previous.guestSelectionId ?? crypto.randomUUID());
+        if (merge) {
+          const pending = readPending(nextId);
+          if (!pending.some((item) => item.payload.merge_id === merge.payload.merge_id)) {
+            savePending(nextId, [...pending, merge]);
+          }
+        }
       }
       commit((prev) => ({
         ...prev,
@@ -263,6 +278,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ? emptySelection()
             : pendingSelection(readPending(nextId))),
         selectionOwner: nextId,
+        guestSelectionId:
+          nextId === null && prev.selectionOwner === null ? prev.guestSelectionId : null,
         name: nextUser?.username || (nextId === null ? "" : prev.name),
         city: nextUser?.city || prev.city,
         currency: nextUser?.currency || prev.currency,
@@ -331,16 +348,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             showToast("Your saved selections were updated to match current stock.");
           }
         }
-        if (!cart || !wishlist)
-          [cart, wishlist] = await Promise.all([fetchCart(), fetchWishlist()]);
+        if (!cart || !wishlist) {
+          const [remoteCart, remoteWishlist] = await Promise.allSettled([
+            fetchCart(),
+            fetchWishlist(),
+          ]);
+          if (remoteCart.status === "rejected") throw remoteCart.reason;
+          cart = remoteCart.value;
+          if (remoteWishlist.status === "fulfilled") wishlist = remoteWishlist.value;
+          else if (isCurrent(session)) showToast("Could not sync wishlist with the server.");
+        }
         if (!isCurrent(session)) return;
         if (cartRevision.current === expectedCartRevision) applyRemoteCart(cart);
-        if (wishlistRevision.current === expectedWishlistRevision) {
+        if (wishlist && wishlistRevision.current === expectedWishlistRevision) {
+          const products = wishlist;
           commit((prev) => ({
             ...prev,
-            favorites: wishlist.map((product) => product.slug),
+            favorites: products.map((product) => product.slug),
             favoriteProducts: Object.fromEntries(
-              wishlist.map((product) => [product.slug, apiProductToProduct(product)]),
+              products.map((product) => [product.slug, apiProductToProduct(product)]),
             ),
           }));
         }
@@ -380,7 +406,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           localStorage.getItem(STORAGE_KEY),
           loadAuth()?.user.id ?? null,
         );
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         commit(() => state);
       } catch {
         /* corrupted storage — fall back to defaults */
@@ -390,6 +415,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       applyUser(auth?.user ?? null);
     };
     applyAuth(loadAuth());
+    // Browser-only storage/auth hydration must follow the server's default render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHydrated(true);
     return subscribeAuth(applyAuth);
   }, [applyUser, commit]);
@@ -523,6 +550,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const product = productFor(productOrId);
         const id = typeof productOrId === "string" ? productOrId : productOrId.id;
         const willRemove = persistedRef.current.favorites.includes(id);
+        if (!willRemove && persistedRef.current.favorites.length >= 100) {
+          showToast("You can save up to 100 favorites.");
+          return;
+        }
 
         wishlistRevision.current += 1;
         commit((prev) => ({
@@ -550,6 +581,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const product = productFor(productOrId);
         if (!product) return;
         const previousQty = persistedRef.current.cart[product.id] ?? 0;
+        if (previousQty === 0 && Object.keys(persistedRef.current.cart).length >= 100) {
+          showToast("Your cart can contain up to 100 different products.");
+          return;
+        }
         updateLocalCart(product, qty, "add");
         const addedQty = (persistedRef.current.cart[product.id] ?? 0) - previousQty;
 

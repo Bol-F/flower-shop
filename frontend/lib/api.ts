@@ -378,6 +378,11 @@ interface StoredAuth {
   user: AuthUser;
 }
 
+interface AuthSnapshot {
+  userId: number | undefined;
+  generation: number;
+}
+
 type RefreshResult =
   | { status: "ok"; access: string; refresh?: string }
   | { status: "invalid" }
@@ -385,9 +390,13 @@ type RefreshResult =
 
 let volatileAuth: StoredAuth | null = null;
 let useVolatileAuth = false;
+// Explicit login/logout changes invalidate in-flight work; token refresh and
+// profile updates remain part of the same session and must not invalidate it.
+let authGeneration = 0;
 let refreshFlight: {
   token: string;
   userId: number;
+  generation: number;
   promise: Promise<StoredAuth | null>;
 } | null = null;
 
@@ -417,19 +426,35 @@ function accountChangedError() {
   });
 }
 
-function assertCurrentAccount(userId: number | undefined) {
-  if (loadAuth()?.user.id !== userId) throw accountChangedError();
+function authSnapshot(): AuthSnapshot {
+  return { userId: loadAuth()?.user.id, generation: authGeneration };
 }
 
-function saveCurrentUser(user: AuthUser, requestedUserId: number | undefined): AuthUser {
+function assertCurrentAccount(snapshot: AuthSnapshot) {
+  if (loadAuth()?.user.id !== snapshot.userId || authGeneration !== snapshot.generation) {
+    throw accountChangedError();
+  }
+}
+
+function saveCurrentUser(user: AuthUser, snapshot: AuthSnapshot): AuthUser {
+  assertCurrentAccount(snapshot);
   const current = loadAuth();
-  if (!current || current.user.id !== requestedUserId) throw accountChangedError();
-  if (!user || user.id !== requestedUserId) {
+  if (!current) throw accountChangedError();
+  if (!user || user.id !== snapshot.userId) {
     throw new ApiError(502, { detail: "The account response did not match the signed-in user." });
   }
   // A concurrent refresh may have rotated either token while the profile was loading.
   saveAuth({ ...current, user });
   return user;
+}
+
+function completeAuthentication(data: unknown, snapshot: AuthSnapshot): AuthUser {
+  assertCurrentAccount(snapshot);
+  if (!isStoredAuth(data)) {
+    throw new ApiError(502, { detail: "The sign-in response was invalid. Please try again." });
+  }
+  saveAuth(data, true);
+  return data.user;
 }
 
 export function loadAuth(): StoredAuth | null {
@@ -473,7 +498,8 @@ async function responseDetails(response: Response): Promise<Record<string, unkno
   }
 }
 
-function saveAuth(auth: StoredAuth | null) {
+function saveAuth(auth: StoredAuth | null, newSession = false) {
+  if (newSession) authGeneration += 1;
   volatileAuth = auth;
   if (!useVolatileAuth) {
     try {
@@ -491,8 +517,10 @@ export function subscribeAuth(listener: (auth: StoredAuth | null) => void) {
   const notify = () => listener(loadAuth());
   const syncFromStorage = (event: StorageEvent) => {
     if (event.key !== AUTH_KEY && event.key !== null) return;
+    const previousUserId = volatileAuth?.user.id;
     useVolatileAuth = false;
     volatileAuth = null;
+    if (loadAuth()?.user.id !== previousUserId) authGeneration += 1;
     notify();
   };
   window.addEventListener(AUTH_CHANGED_EVENT, notify);
@@ -509,9 +537,9 @@ async function request<T>(
 ): Promise<T> {
   const { method = "GET", body, auth = false } = options;
   let stored = auth ? loadAuth() : null;
-  const requestedUserId = stored?.user.id;
+  const snapshot = { userId: stored?.user.id, generation: authGeneration };
   const assertRequestAccount = () => {
-    if (auth) assertCurrentAccount(requestedUserId);
+    if (auth) assertCurrentAccount(snapshot);
   };
 
   const doFetch = async (access?: string) => {
@@ -538,7 +566,7 @@ async function request<T>(
     const refreshed = await refreshAuth(stored);
     assertRequestAccount();
     if (refreshed) {
-      if (refreshed.user.id !== requestedUserId) throw accountChangedError();
+      if (refreshed.user.id !== snapshot.userId) throw accountChangedError();
       stored = refreshed;
       res = await doFetch(stored.access);
       assertRequestAccount();
@@ -557,17 +585,23 @@ async function request<T>(
 }
 
 async function refreshAuth(stored: StoredAuth): Promise<StoredAuth | null> {
-  if (refreshFlight?.token === stored.refresh && refreshFlight.userId === stored.user.id) {
+  if (
+    refreshFlight?.token === stored.refresh &&
+    refreshFlight.userId === stored.user.id &&
+    refreshFlight.generation === authGeneration
+  ) {
     return refreshFlight.promise;
   }
 
   const token = stored.refresh;
+  const generation = authGeneration;
   const rotate = async () => {
     const latest = loadAuth();
-    if (!latest || latest.user.id !== stored.user.id) return null;
+    if (!latest || latest.user.id !== stored.user.id || authGeneration !== generation) return null;
     if (latest.refresh !== token || latest.access !== stored.access) return latest;
     const result = await doFetchRefresh(token);
     const current = loadAuth();
+    if (authGeneration !== generation) return null;
 
     // Another request or browser tab may already have rotated this token.
     if (current && current.user.id === stored.user.id && current.refresh !== token) {
@@ -579,7 +613,7 @@ async function refreshAuth(stored: StoredAuth): Promise<StoredAuth | null> {
     }
     if (result.status === "retryable") throw result.error;
     if (result.status === "invalid") {
-      saveAuth(null);
+      saveAuth(null, true);
       throw new ApiError(401, { detail: "Your session expired. Please sign in again." });
     }
     const updated = {
@@ -598,7 +632,7 @@ async function refreshAuth(stored: StoredAuth): Promise<StoredAuth | null> {
     }
     return rotate();
   })();
-  refreshFlight = { token, userId: stored.user.id, promise };
+  refreshFlight = { token, userId: stored.user.id, generation, promise };
   try {
     return await promise;
   } finally {
@@ -639,12 +673,12 @@ async function doFetchRefresh(refresh: string): Promise<RefreshResult> {
 /* ── auth ─────────────────────────────────────────────────────── */
 
 export async function login(email: string, password: string): Promise<AuthUser> {
+  const snapshot = authSnapshot();
   const data = await request<{ access: string; refresh: string; user: AuthUser }>(
     "/api/auth/login/",
     { method: "POST", body: { email, password } },
   );
-  saveAuth({ access: data.access, refresh: data.refresh, user: data.user });
-  return data.user;
+  return completeAuthentication(data, snapshot);
 }
 
 export function oauthStartUrl(provider: OAuthProvider, next = "/profile") {
@@ -659,22 +693,22 @@ export async function fetchOAuthProviders(): Promise<OAuthProviderAvailability[]
 }
 
 export async function completeOAuth(code: string): Promise<AuthUser> {
+  const snapshot = authSnapshot();
   const data = await request<{ access: string; refresh: string; user: AuthUser }>(
     "/api/auth/oauth/exchange/",
     { method: "POST", body: { code } },
   );
-  saveAuth({ access: data.access, refresh: data.refresh, user: data.user });
-  return data.user;
+  return completeAuthentication(data, snapshot);
 }
 
 export async function completeOAuthLink(linkCode: string): Promise<AuthUser> {
-  const requestedUserId = loadAuth()?.user.id;
+  const snapshot = authSnapshot();
   const data = await request<{ user: AuthUser }>("/api/auth/oauth/link/exchange/", {
     method: "POST",
     body: { code: linkCode },
     auth: true,
   });
-  return saveCurrentUser(data.user, requestedUserId);
+  return saveCurrentUser(data.user, snapshot);
 }
 
 export async function startOAuthLink(provider: OAuthProvider): Promise<string> {
@@ -700,19 +734,21 @@ export interface RegisterPayload {
 }
 
 export async function register(payload: RegisterPayload): Promise<AuthUser> {
+  const snapshot = authSnapshot();
   await request("/api/auth/register/", { method: "POST", body: payload });
+  assertCurrentAccount(snapshot);
   // the register endpoint returns no tokens — log in right after
   return login(payload.email, payload.password);
 }
 
 export function logout() {
-  saveAuth(null);
+  saveAuth(null, true);
 }
 
 export async function fetchProfile(): Promise<AuthUser> {
-  const requestedUserId = loadAuth()?.user.id;
+  const snapshot = authSnapshot();
   const user = await request<AuthUser>("/api/auth/profile/", { auth: true });
-  return saveCurrentUser(user, requestedUserId);
+  return saveCurrentUser(user, snapshot);
 }
 
 export async function updateProfile(
@@ -720,13 +756,13 @@ export async function updateProfile(
     Pick<AuthUser, "username" | "phone" | "address" | "bio" | "city" | "language" | "currency">
   >,
 ): Promise<AuthUser> {
-  const requestedUserId = loadAuth()?.user.id;
+  const snapshot = authSnapshot();
   const user = await request<AuthUser>("/api/auth/profile/", {
     method: "PATCH",
     body: patch,
     auth: true,
   });
-  return saveCurrentUser(user, requestedUserId);
+  return saveCurrentUser(user, snapshot);
 }
 
 export async function changePassword(payload: {

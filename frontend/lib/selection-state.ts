@@ -59,12 +59,15 @@ export function hasSelections(selection: SelectionState): boolean {
   return selection.favorites.length > 0 || Object.keys(selection.cart).length > 0;
 }
 
-export function newGuestMerge(selection: SelectionState): PendingGuestMerge | null {
+export function newGuestMerge(
+  selection: SelectionState,
+  mergeId: string = crypto.randomUUID(),
+): PendingGuestMerge | null {
   if (!hasSelections(selection)) return null;
   const snapshot = selectionFrom(selection);
   return {
     payload: {
-      merge_id: crypto.randomUUID(),
+      merge_id: mergeId,
       items: Object.entries(snapshot.cart).map(([id, quantity]) => ({
         product_slug: snapshot.cartProducts[id]?.slug || id,
         quantity,

@@ -150,7 +150,7 @@ flow. New accounts require a provider-verified email.
 | `PATCH/DELETE` | `/api/cart/items/{product_id}/` | JWT | Update/remove a line |
 | `GET` | `/api/orders/delivery-zones/?city=tashkent` | No | Delivery choices |
 | `POST` | `/api/orders/create/` | JWT | Create an order and reserve stock |
-| `GET` | `/api/orders/` | JWT | Own orders; staff sees all |
+| `GET` | `/api/orders/` | JWT | Own orders; staff with `orders.view_order` sees all |
 | `GET` | `/api/orders/{id}/` | JWT | Order detail |
 | `POST` | `/api/orders/{id}/repeat/` | JWT | Add available items to cart |
 | `POST` | `/api/orders/{id}/cancel/` | Owner JWT | Cancel an unpaid order and release stock |
@@ -331,6 +331,31 @@ and cannot be deleted there.
 | `GET` | `/api/contact/my-messages/` | Customer support history |
 | `GET` | `/api/contact/admin/messages/` | Staff support queue |
 | `POST` | `/api/contact/admin/messages/{id}/reply/` | Staff reply |
+
+## Guest selections and staff permissions
+
+`POST /api/cart/merge/` requires the customer's JWT and accepts:
+
+```json
+{"merge_id":"<uuid>","items":[{"product_slug":"red-rose-bouquet","quantity":2}],"wishlist":["red-rose-bouquet"]}
+```
+
+The response is `{cart, wishlist, adjusted_products, unavailable_products}`.
+Selections are transferred atomically, quantities are capped by current stock,
+and unavailable products are reported. Reuse the same UUID and exact payload
+when retrying a lost response. A durable per-account receipt prevents re-adding
+items, including after checkout or removal; a reused ID with different content
+returns 400. Up to 100 cart entries and 100 wishlist slugs are accepted, with
+quantities 1–999 per entry. Carts never reserve stock; checkout revalidates it.
+
+Run `python manage.py migrate` before deploying the merge endpoint; migration
+`cart.0004_guest_selection_merge` stores its durable retry receipts.
+
+Staff status alone no longer grants cross-customer order access. Assign
+`orders.view_order` to inspect orders/payments and `orders.change_order` to
+change fulfillment, assign couriers, or record cash. The consolidated dashboard
+also requires `products.view_product`. Customer ownership permissions are
+unchanged. Use explicit Django groups; superusers retain their normal access.
 
 ## Optional flower advice
 
