@@ -3,7 +3,7 @@ import hashlib
 import time
 from datetime import timedelta
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import call, patch
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -190,6 +190,192 @@ class TestOAuthFlow:
         attempt.refresh_from_db()
         assert attempt.used_at is not None
         assert attempt.code_verifier == attempt.nonce == ''
+
+    @pytest.mark.parametrize('unverified_primary', (False, True))
+    def test_github_http_contract_registers_with_private_verified_email(self, unverified_primary):
+        client = APIClient()
+        start = client.get(reverse('oauth-start', args=['github']))
+        authorization = parse_qs(urlparse(start['Location']).query)
+        assert set(authorization['scope'][0].split()) == {'read:user', 'user:email'}
+        assert authorization['code_challenge_method'] == ['S256']
+        assert authorization['allow_signup'] == ['true']
+        attempt = OAuthLoginAttempt.objects.get()
+        expected_challenge = (
+            base64.urlsafe_b64encode(hashlib.sha256(attempt.code_verifier.encode('ascii')).digest())
+            .rstrip(b'=')
+            .decode('ascii')
+        )
+        assert authorization['code_challenge'] == [expected_challenge]
+        profile = {'id': 12345, 'login': 'github-flower-friend', 'name': None, 'email': None}
+        emails = [
+            {'email': 'unverified@example.test', 'verified': False, 'primary': unverified_primary},
+            {
+                'email': 'PRIVATE@example.test',
+                'verified': True,
+                'primary': not unverified_primary,
+                'visibility': 'private',
+            },
+        ]
+        # GitHub's optional expiring-token fields must not replace our JWTs.
+        token_response = SimpleNamespace(
+            ok=True,
+            json=lambda: {
+                'access_token': 'synthetic-github-access',
+                'token_type': 'bearer',
+                'scope': 'read:user,user:email',
+                'expires_in': 28800,
+                'refresh_token': 'synthetic-github-refresh',
+            },
+        )
+        with (
+            patch('apps.users.oauth.requests.post', return_value=token_response) as token_post,
+            patch(
+                'apps.users.oauth.requests.get',
+                side_effect=[
+                    SimpleNamespace(ok=True, json=lambda: profile),
+                    SimpleNamespace(ok=True, json=lambda: emails),
+                ],
+            ) as profile_get,
+        ):
+            callback = client.get(
+                reverse('oauth-callback', args=['github']),
+                {'state': authorization['state'][0], 'code': 'synthetic-provider-code'},
+            )
+
+        token_post.assert_called_once_with(
+            'https://github.com/login/oauth/access_token',
+            data={
+                'client_id': 'github-client',
+                'client_secret': 'github-secret',
+                'code': 'synthetic-provider-code',
+                'redirect_uri': OAUTH_SETTINGS['github']['redirect_uri'],
+                'grant_type': 'authorization_code',
+                'code_verifier': attempt.code_verifier,
+            },
+            headers={'Accept': 'application/json'},
+            timeout=settings.OAUTH_HTTP_TIMEOUT_SECONDS,
+        )
+        expected_headers = {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer synthetic-github-access',
+        }
+        assert profile_get.call_args_list == [
+            call(
+                'https://api.github.com/user',
+                headers=expected_headers,
+                timeout=settings.OAUTH_HTTP_TIMEOUT_SECONDS,
+            ),
+            call(
+                'https://api.github.com/user/emails',
+                headers=expected_headers,
+                timeout=settings.OAUTH_HTTP_TIMEOUT_SECONDS,
+            ),
+        ]
+        assert callback.status_code == 302
+        exchange = client.post(
+            reverse('oauth-exchange'),
+            {'code': _callback_fragment(callback)['code'][0]},
+            format='json',
+        )
+        assert exchange.status_code == 200
+        assert exchange.data['user']['email'] == 'private@example.test'
+        assert exchange.data['user']['username'] == 'github-flower-friend'
+        assert exchange.data['access'] != 'synthetic-github-access'
+        assert exchange.data['refresh'] != 'synthetic-github-refresh'
+        identity = SocialIdentity.objects.get(provider='github')
+        assert identity.subject == '12345'
+        assert identity.issuer == 'https://github.com'
+        assert identity.email == 'private@example.test'
+        assert identity.email_verified is True
+        assert not identity.user.has_usable_password()
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {exchange.data["access"]}')
+        assert client.get(reverse('profile')).status_code == 200
+
+    @pytest.mark.parametrize('failed_endpoint', ('token', 'profile', 'emails'))
+    def test_github_http_provider_rejection_does_not_create_account(self, failed_endpoint):
+        client = APIClient()
+        state = _start(client, 'github')
+        rejected = SimpleNamespace(
+            ok=False,
+            json=lambda: {
+                'error': 'provider-rejected',
+                'error_description': 'private-provider-data',
+            },
+        )
+        token = SimpleNamespace(
+            ok=True,
+            json=lambda: {'access_token': 'synthetic-access', 'token_type': 'bearer'},
+        )
+        profile = SimpleNamespace(
+            ok=True,
+            json=lambda: {'id': 12345, 'login': 'github-friend', 'name': None, 'email': None},
+        )
+        with (
+            patch(
+                'apps.users.oauth.requests.post',
+                return_value=rejected if failed_endpoint == 'token' else token,
+            ),
+            patch(
+                'apps.users.oauth.requests.get',
+                side_effect=[rejected] if failed_endpoint == 'profile' else [profile, rejected],
+            ) as profile_get,
+        ):
+            callback = client.get(
+                reverse('oauth-callback', args=['github']),
+                {'state': state, 'code': 'synthetic-provider-code'},
+            )
+
+        assert 'error=provider_rejected' in callback['Location']
+        assert 'private-provider-data' not in callback['Location']
+        assert 'synthetic' not in callback['Location']
+        assert not User.objects.exists()
+        assert not SocialIdentity.objects.exists()
+        assert not OAuthExchangeCode.objects.exists()
+        assert profile_get.call_count == {'token': 0, 'profile': 1, 'emails': 2}[failed_endpoint]
+        attempt = OAuthLoginAttempt.objects.get()
+        assert attempt.used_at is not None
+        assert attempt.code_verifier == attempt.nonce == ''
+
+    @pytest.mark.parametrize(
+        'emails',
+        ([], [{'email': 'unverified@example.test', 'verified': False, 'primary': True}]),
+    )
+    def test_github_http_without_verified_email_cannot_register(self, emails):
+        client = APIClient()
+        state = _start(client, 'github')
+        with (
+            patch(
+                'apps.users.oauth.requests.post',
+                return_value=SimpleNamespace(
+                    ok=True,
+                    json=lambda: {'access_token': 'synthetic-access', 'token_type': 'bearer'},
+                ),
+            ),
+            patch(
+                'apps.users.oauth.requests.get',
+                side_effect=[
+                    SimpleNamespace(
+                        ok=True,
+                        json=lambda: {
+                            'id': 12345,
+                            'login': 'github-friend',
+                            'name': None,
+                            'email': 'unverified@example.test',
+                        },
+                    ),
+                    SimpleNamespace(ok=True, json=lambda: emails),
+                ],
+            ),
+        ):
+            callback = client.get(
+                reverse('oauth-callback', args=['github']),
+                {'state': state, 'code': 'synthetic-provider-code'},
+            )
+
+        assert 'error=email_required' in callback['Location']
+        assert not User.objects.exists()
+        assert not SocialIdentity.objects.exists()
+        assert not OAuthExchangeCode.objects.exists()
 
     def test_microsoft_login_requires_an_existing_account(self):
         client = APIClient()
