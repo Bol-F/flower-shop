@@ -9,6 +9,8 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from django.conf import settings
 from django.core.management import call_command
+from django.db.backends.postgresql.base import DatabaseWrapper as PostgreSQLDatabaseWrapper
+from django.db.models import QuerySet
 from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -23,7 +25,14 @@ from .models import (
     SocialIdentity,
     User,
 )
-from .oauth import OAuthError, ProviderIdentity, _verified_oidc_claims, resolve_social_user
+from .oauth import (
+    OAuthError,
+    ProviderIdentity,
+    _verified_oidc_claims,
+    consume_login_attempt,
+    create_login_attempt,
+    resolve_social_user,
+)
 
 OAUTH_SETTINGS = {
     provider: {
@@ -53,6 +62,52 @@ class TestOAuthFlow:
     def _oauth_settings(self):
         with override_settings(OAUTH_PROVIDERS=OAUTH_SETTINGS):
             yield
+
+    @pytest.mark.parametrize('linking', (False, True))
+    def test_consuming_attempt_keeps_postgresql_row_lock_without_nullable_join(self, linking):
+        user = (
+            User.objects.create_user('link-owner', 'link-owner@example.test', 'password')
+            if linking
+            else None
+        )
+        attempt, state, _ = create_login_attempt('google', linking_user=user)
+        postgres = PostgreSQLDatabaseWrapper(
+            {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': 'offline_oauth_sql_regression',
+                'OPTIONS': {},
+                'TIME_ZONE': None,
+            },
+            alias='offline_oauth_sql_regression',
+        )
+        sql_statements = []
+        original_first = QuerySet.first
+
+        def inspect_locked_attempt(queryset):
+            if queryset.model is OAuthLoginAttempt:
+                assert queryset.query.select_for_update is True
+                sql, _ = queryset[:1].query.get_compiler(connection=postgres).as_sql()
+                sql_statements.append(sql)
+            return original_first(queryset)
+
+        # Compile the real consume query with PostgreSQL's compiler, without
+        # connecting to any database. SQLite alone omits FOR UPDATE entirely.
+        with (
+            patch.object(postgres, 'get_autocommit', return_value=False),
+            patch.object(QuerySet, 'first', inspect_locked_attempt),
+        ):
+            consumed = consume_login_attempt('google', state, anonymous_attempt_id=attempt.pk)
+            with pytest.raises(OAuthError) as replay:
+                consume_login_attempt('google', state, anonymous_attempt_id=attempt.pk)
+
+        assert replay.value.code == 'already_used'
+        assert consumed.used_at is not None
+        assert consumed.linking_user_id == (user.pk if user else None)
+        assert len(sql_statements) == 2
+        for sql in sql_statements:
+            assert 'FOR UPDATE' in sql
+            assert 'JOIN' not in sql
+        assert postgres.connection is None
 
     @pytest.mark.parametrize('provider', ('google', 'github'))
     def test_new_user_login_issues_simplejwt(self, provider):

@@ -203,9 +203,10 @@ def consume_login_attempt(
     anonymous_attempt_id: int | None = None,
 ) -> OAuthLoginAttempt:
     state_digest = _sha256(state or '')
+    # Lock only the attempt. Eager-loading its optional linking_user introduces
+    # an outer join that PostgreSQL cannot lock for anonymous sign-in attempts.
     attempt = (
         OAuthLoginAttempt.objects.select_for_update()
-        .select_related('linking_user')
         .filter(provider=provider, state_digest=state_digest)
         .first()
     )

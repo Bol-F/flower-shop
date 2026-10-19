@@ -74,6 +74,16 @@ jobs:
       - name: Run tests
         run: pytest
 
+      - name: OAuth regression tests on PostgreSQL
+        run: pytest apps/users/test_oauth.py
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test_postgres
+          TEST_POSTGRES_DB: flower_shop_db
+          TEST_POSTGRES_USER: postgres
+          TEST_POSTGRES_PASSWORD: postgres
+          TEST_POSTGRES_HOST: 127.0.0.1
+          TEST_POSTGRES_PORT: "5432"
+
   frontend:
     name: Frontend (Next.js)
     runs-on: ubuntu-latest

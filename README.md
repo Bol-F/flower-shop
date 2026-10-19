@@ -13,7 +13,7 @@ adjustments.
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS, Leaflet |
 | Backend | Python 3.12, Django 5.2 LTS, Django REST Framework |
 | Authentication | SimpleJWT plus Google, GitHub, and Microsoft OAuth/OIDC |
-| Database | PostgreSQL in development/production; SQLite in isolated tests |
+| Database | PostgreSQL in development/production and OAuth CI; SQLite in default isolated tests |
 | Payments | Payme hosted checkout + Merchant API, Click hosted checkout + Shop API, development-only test provider, cash |
 | Async-ready services | Redis, Celery, Django Channels, Daphne |
 | Tests | pytest, pytest-django, Vitest, Testing Library, ESLint |
@@ -348,6 +348,18 @@ npm run lint
 npm test
 npm run build
 ```
+
+CI also runs the OAuth suite on PostgreSQL: SQLite does not enforce PostgreSQL
+row-lock/join restrictions. To repeat this against a disposable local PostgreSQL
+instance, set `TEST_POSTGRES_DB`, `TEST_POSTGRES_USER`, `TEST_POSTGRES_PASSWORD`,
+`TEST_POSTGRES_HOST`, and `TEST_POSTGRES_PORT`, then run from `backend`:
+
+```powershell
+python -m pytest --ds=config.settings.test_postgres apps/users/test_oauth.py
+```
+
+This configuration ignores deployment `DATABASE_URL` and `DB_*` values. Use only
+a disposable test server; pytest creates and drops its own test database.
 
 OAuth and payment tests mock external provider responses but exercise state,
 PKCE/nonce handling, account collisions, invalid/duplicate callbacks,
