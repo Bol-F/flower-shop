@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/api";
 import { fallbackProduct, loadCatalogProduct } from "@/lib/catalog";
 import type { Product } from "@/lib/types";
 import ProductDetail from "./ProductDetail";
+import "./catalog-product.css";
 
 export default function ProductPageClient({
   id,
@@ -63,7 +64,7 @@ export default function ProductPageClient({
     return (
       <>
         {refreshFailed && (
-          <p role="status" className="mx-auto max-w-7xl bg-blush px-5 py-3 text-sm text-stone">
+          <p role="status" className="site-container flower-notice">
             We couldn’t refresh this bouquet. Checkout will confirm the latest price and
             availability.
           </p>
@@ -73,23 +74,16 @@ export default function ProductPageClient({
     );
 
   return (
-    <main className="mx-auto grid min-h-[calc(100vh-66px)] max-w-2xl place-items-center px-5 text-center">
-      <section className="rounded-3xl bg-card px-8 py-12 shadow-soft">
-        <p className="text-sm font-bold uppercase tracking-[0.18em] text-stone">
-          {loading ? "Loading" : "Not found"}
-        </p>
-        <h1 className="mt-3 font-display text-3xl font-bold">
-          {loading ? "Preparing bouquet details..." : "This product is unavailable"}
-        </h1>
-        {!loading && notFound && (
-          <Link
-            href="/#catalog"
-            className="mt-6 inline-flex rounded-full bg-blossomdeep px-6 py-3 text-sm font-bold text-white shadow-glow"
-          >
-            Back to catalog
-          </Link>
-        )}
-      </section>
+    <main className="site-container flower-product-state">
+      <p className="ui-label">{loading ? "Loading" : "Not found"}</p>
+      <h1 className="flower-section-heading">
+        {loading ? "Preparing bouquet details..." : "This product is unavailable"}
+      </h1>
+      {!loading && notFound && (
+        <Link href="/#catalog" className="ui-button">
+          Back to catalog
+        </Link>
+      )}
     </main>
   );
 }

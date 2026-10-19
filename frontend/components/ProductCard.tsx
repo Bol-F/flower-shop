@@ -4,147 +4,117 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { Product } from "@/lib/types";
-import { copy } from "@/lib/i18n";
 import { usePriceFormatter, useStore } from "@/lib/store";
 import BouquetArt from "./BouquetArt";
-import { BoltIcon, HeartIcon, PlusIcon, StarIcon } from "./icons";
+import { HeartIcon } from "./icons";
+import "./catalog-product.css";
+
+const labels = {
+  EN: {
+    add: "Add to bag",
+    unavailable: "Out of stock",
+    delivery: "Delivery at checkout",
+    save: "Save",
+    unsave: "Remove from saved flowers",
+    view: "View",
+    added: "added to bag",
+    left: "left",
+    photo: "Photo unavailable",
+  },
+  RU: {
+    add: "В корзину",
+    unavailable: "Нет в наличии",
+    delivery: "Доставка при оформлении",
+    save: "Сохранить",
+    unsave: "Удалить из избранного",
+    view: "Смотреть",
+    added: "в корзине",
+    left: "осталось",
+    photo: "Фото недоступно",
+  },
+  UZ: {
+    add: "Savatga qo‘shish",
+    unavailable: "Mavjud emas",
+    delivery: "Yetkazish buyurtmada",
+    save: "Saqlash",
+    unsave: "Saqlanganlardan o‘chirish",
+    view: "Ko‘rish",
+    added: "savatga qo‘shildi",
+    left: "qoldi",
+    photo: "Surat mavjud emas",
+  },
+};
 
 export default function ProductCard({ product }: { product: Product }) {
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const formatPrice = usePriceFormatter();
   const { currency, language, favorites, toggleFavorite, addToCart, showToast } = useStore();
-  const t = copy[language].product;
+  const t = labels[language];
   const liked = favorites.includes(product.id);
-  const purchasable = product.isAvailable !== false && product.isInStock !== false;
+  const purchasable =
+    product.isAvailable !== false && product.isInStock !== false && product.stock !== 0;
   const lowStock =
     purchasable && typeof product.stock === "number" && product.stock > 0 && product.stock <= 3;
-  const discount = product.oldPrice ? Math.round((1 - product.price / product.oldPrice) * 100) : 0;
+  const hasPhoto = product.image && failedImage !== product.image;
 
   return (
-    <article className="group relative flex flex-col rounded-3xl bg-card p-2 shadow-soft transition duration-300 hover:-translate-y-1 hover:shadow-lift">
-      {/* image area */}
-      <div
-        className="relative aspect-[4/5] overflow-hidden rounded-2xl"
-        style={{ background: product.palette.backdrop }}
-      >
-        {product.image && failedImage !== product.image ? (
-          <img
-            src={product.image}
-            alt={product.name}
-            loading="lazy"
-            decoding="async"
-            onError={() => setFailedImage(product.image ?? null)}
-            className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.05]"
-          />
-        ) : (
-          <BouquetArt
-            palette={product.palette}
-            className="absolute inset-x-0 bottom-0 mx-auto h-[94%] transition duration-500 group-hover:scale-[1.07] group-hover:-rotate-1"
-          />
-        )}
-
-        {/* badges */}
-        <div className="absolute left-2.5 top-2.5 z-20 flex flex-col items-start gap-1.5">
-          {discount > 0 && (
-            <span className="rounded-full bg-berry px-2.5 py-1 text-[11px] font-bold text-white">
-              Save {discount}%
-            </span>
+    <article className="flower-card">
+      <div className="flower-card-media">
+        <Link
+          href={`/product/${product.slug ?? product.id}`}
+          aria-label={`${t.view} ${product.name}`}
+          className="flower-card-photo-link"
+        >
+          {hasPhoto ? (
+            <img
+              src={product.image!}
+              alt={product.name}
+              loading="lazy"
+              decoding="async"
+              onError={() => setFailedImage(product.image ?? null)}
+              className="flower-card-photo"
+            />
+          ) : (
+            <div className="flower-card-art" style={{ background: product.palette.backdrop }}>
+              <BouquetArt palette={product.palette} className="flower-card-bouquet" />
+              {product.source === "api" && <span className="flower-photo-notice">{t.photo}</span>}
+            </div>
           )}
-          {product.isNew && (
-            <span className="rounded-full bg-mint px-2.5 py-1 text-[11px] font-bold text-pine">
-              {t.new}
-            </span>
-          )}
-          {!purchasable && (
-            <span className="rounded-full bg-ink px-2.5 py-1 text-[11px] font-bold text-white">
-              Out of stock
-            </span>
-          )}
-          {lowStock && (
-            <span className="rounded-full bg-[#fff3d8] px-2.5 py-1 text-[11px] font-bold text-[#9a6410]">
-              {product.stock} left
-            </span>
-          )}
-        </div>
-
-        {/* favorite */}
+        </Link>
         <button
           type="button"
-          aria-label={liked ? "Remove from favorites" : "Add to favorites"}
+          aria-label={`${liked ? t.unsave : t.save}: ${product.name}`}
           aria-pressed={liked}
           onClick={() => toggleFavorite(product)}
-          className="absolute right-2.5 top-2.5 z-20 grid size-9 place-items-center rounded-full bg-card/90 shadow-soft backdrop-blur transition hover:scale-110 active:scale-90"
+          className="flower-card-save"
         >
-          <HeartIcon
-            filled={liked}
-            className={`size-4.5 transition ${liked ? "animate-pop text-berry" : "text-stone"}`}
-          />
-        </button>
-
-        {/* quick add */}
-        <button
-          type="button"
-          aria-label={`Add ${product.name} to cart`}
-          disabled={!purchasable}
-          onClick={() => {
-            addToCart(product);
-            showToast(
-              purchasable ? `${product.name} added to cart` : `${product.name} is out of stock`,
-            );
-          }}
-          className="absolute bottom-2.5 right-2.5 z-20 grid size-10 place-items-center rounded-full bg-card text-blossomdeep shadow-soft transition hover:bg-blossomdeep hover:text-white hover:shadow-lift active:scale-90 disabled:cursor-not-allowed disabled:text-stone disabled:opacity-60"
-        >
-          <PlusIcon className="size-5" />
+          <HeartIcon filled={liked} />
         </button>
       </div>
-
-      {/* info — price first, marketplace style */}
-      <div className="flex flex-1 flex-col gap-0.5 px-2 pb-2 pt-2.5">
-        <p className="flex items-baseline gap-2">
-          <span className="text-lg font-extrabold tracking-tight">
-            {formatPrice(product.price, currency)}
-          </span>
-          {product.oldPrice && (
-            <span className="text-xs font-semibold text-stone line-through">
-              {formatPrice(product.oldPrice, currency)}
-            </span>
-          )}
-        </p>
-
-        <h3 className="line-clamp-2 text-sm font-medium leading-snug text-ink/90">
-          {product.name}
+      <div className="flower-card-title-row">
+        <h3>
+          <Link href={`/product/${product.slug ?? product.id}`}>{product.name}</Link>
         </h3>
-
-        <div className="mt-1.5 flex items-center gap-1 text-xs text-stone">
-          {product.rating !== null ? (
-            <>
-              <StarIcon className="size-3.5 text-blossom" />
-              <span className="font-bold text-ink/80">{product.rating.toFixed(1)}</span>
-              <span>({product.reviews})</span>
-              <span className="mx-0.5">/</span>
-            </>
-          ) : (
-            <span className="font-semibold">No reviews yet /</span>
-          )}
-          {product.deliveryToday && product.deliveryMins !== null ? (
-            <span className="flex items-center gap-0.5 font-semibold text-leaf">
-              <BoltIcon className="size-3" />
-              {product.deliveryMins} min
-            </span>
-          ) : product.deliveryToday === false ? (
-            <span className="font-semibold">{t.tomorrow}</span>
-          ) : (
-            <span className="font-semibold">Delivery at checkout</span>
-          )}
+        <div className="flower-card-price">
+          <span>{formatPrice(product.price, currency)}</span>
+          {product.oldPrice && <del>{formatPrice(product.oldPrice, currency)}</del>}
         </div>
       </div>
-
-      {/* stretched link below the action buttons */}
-      <Link
-        href={`/product/${product.slug ?? product.id}`}
-        aria-label={`View ${product.name}`}
-        className="absolute inset-0 z-10 rounded-3xl"
-      />
+      <p className="flower-card-meta">{product.shop}</p>
+      <p className={`flower-card-meta ${!purchasable ? "flower-stock-unavailable" : ""}`}>
+        {!purchasable ? t.unavailable : lowStock ? `${product.stock} ${t.left}` : t.delivery}
+      </p>
+      <button
+        type="button"
+        disabled={!purchasable}
+        onClick={() => {
+          addToCart(product);
+          showToast(`${product.name} ${t.added}`);
+        }}
+        className="ui-button-secondary flower-card-add"
+      >
+        {purchasable ? t.add : t.unavailable}
+      </button>
     </article>
   );
 }

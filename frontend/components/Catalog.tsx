@@ -1,24 +1,61 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { fetchCities, type ApiCity } from "@/lib/api";
 import {
   fallbackCatalogCategories,
   fallbackCatalogProducts,
   loadCatalogCategories,
   loadCatalogProducts,
 } from "@/lib/catalog";
-import { categoryName, copy } from "@/lib/i18n";
+import { copy } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import type { Category, Product } from "@/lib/types";
 import ProductCard from "./ProductCard";
-import { BoltIcon, CloseIcon } from "./icons";
+import { CloseIcon, SearchIcon } from "./icons";
+import "./catalog-product.css";
 
 type SortKey = "popular" | "price-asc" | "price-desc" | "new" | "rated";
-
 const sortOptions: SortKey[] = ["popular", "price-asc", "price-desc", "new", "rated"];
-
-/** Cards shown before "Show more" — two rows on the widest (4-col) grid. */
 const PAGE_SIZE = 8;
+const labels = {
+  EN: {
+    title: "Find your bouquet",
+    search: "Search flowers",
+    city: "Delivery city",
+    sort: "Sort",
+    more: "Load more flowers",
+    offline:
+      "The shop is temporarily unreachable. Showing the demo catalog; live availability and checkout require a connection.",
+    loading: "Loading flowers",
+    found: "flowers found",
+    clear: "Clear search",
+  },
+  RU: {
+    title: "Найдите свой букет",
+    search: "Поиск цветов",
+    city: "Город доставки",
+    sort: "Сортировка",
+    more: "Показать ещё цветы",
+    offline:
+      "Магазин временно недоступен. Показан демонстрационный каталог; для проверки наличия и оформления нужно подключение.",
+    loading: "Загрузка цветов",
+    found: "букетов найдено",
+    clear: "Очистить поиск",
+  },
+  UZ: {
+    title: "Guldastangizni toping",
+    search: "Gullarni qidirish",
+    city: "Yetkazish shahri",
+    sort: "Saralash",
+    more: "Yana gullarni ko‘rish",
+    offline:
+      "Do‘kon bilan aloqa vaqtincha yo‘q. Namoyish katalogi ko‘rsatilmoqda; mavjudlik va buyurtma uchun ulanish kerak.",
+    loading: "Gullar yuklanmoqda",
+    found: "guldasta topildi",
+    clear: "Qidiruvni tozalash",
+  },
+};
 
 function cityToSlug(city: string) {
   return city
@@ -29,13 +66,14 @@ function cityToSlug(city: string) {
 }
 
 export default function Catalog() {
-  const { query, setQuery, category, setCategory, language, city } = useStore();
+  const { query, setQuery, category, setCategory, language, city, setCity } = useStore();
   const t = copy[language].catalog;
+  const text = labels[language];
   const [allProducts, setAllProducts] = useState<Product[]>(fallbackCatalogProducts);
   const [allCategories, setAllCategories] = useState<Category[]>(fallbackCatalogCategories);
+  const [cities, setCities] = useState<ApiCity[]>([]);
   const [loading, setLoading] = useState(true);
   const [usingFallback, setUsingFallback] = useState(false);
-  const [catalogError, setCatalogError] = useState("");
   const [sort, setSort] = useState<SortKey>("popular");
   const [todayOnly, setTodayOnly] = useState(false);
   const [saleOnly, setSaleOnly] = useState(false);
@@ -43,30 +81,42 @@ export default function Catalog() {
 
   useEffect(() => {
     let cancelled = false;
+    void fetchCities().then(
+      (items) => {
+        if (!cancelled) setCities(items);
+      },
+      () => {
+        if (!cancelled) setCities([]);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
     async function load() {
+      setLoading(true);
       try {
         const [products, categories] = await Promise.all([
           loadCatalogProducts(cityToSlug(city)),
           loadCatalogCategories(),
         ]);
         if (cancelled) return;
-        // A successful empty API response is an empty shop, not permission to
-        // present demo inventory as purchasable live products.
+        // A live empty response must stay empty, never become demo inventory.
         setAllProducts(products);
         setAllCategories(categories);
         setUsingFallback(false);
-        setCatalogError("");
       } catch {
         if (cancelled) return;
         setAllProducts(fallbackCatalogProducts);
         setAllCategories(fallbackCatalogCategories);
         setUsingFallback(true);
-        setCatalogError("Live backend is offline or unreachable. Showing bundled demo flowers.");
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-
     void load();
     return () => {
       cancelled = true;
@@ -79,8 +129,7 @@ export default function Catalog() {
       if (todayOnly && !p.deliveryToday) return false;
       if (saleOnly && !p.oldPrice) return false;
       if (category && p.category !== category) return false;
-      if (q && !`${p.name} ${p.shop} ${p.category}`.toLowerCase().includes(q)) return false;
-      return true;
+      return !q || `${p.name} ${p.shop} ${p.category}`.toLowerCase().includes(q);
     });
     switch (sort) {
       case "price-asc":
@@ -96,153 +145,145 @@ export default function Catalog() {
     }
   }, [allProducts, query, category, sort, todayOnly, saleOnly]);
 
-  // A fresh filter/search/sort starts the list back at two rows.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setShown(PAGE_SIZE);
-  }, [query, category, sort, todayOnly, saleOnly]);
+  }, [query, category, sort, todayOnly, saleOnly, city]);
 
+  const activeCategory = allCategories.find((item) => item.id === category);
+  const activeCategoryName = activeCategory
+    ? ((copy[language].categories as Record<string, string>)[activeCategory.id] ??
+      activeCategory.name)
+    : null;
+  const cityNames = [...new Set([city, ...cities.map((item) => item.name)])];
   const shownProducts = visible.slice(0, shown);
   const remaining = visible.length - shownProducts.length;
-
-  const activeCategory = allCategories.find((c) => c.id === category);
-  const activeCategoryName = activeCategory ? categoryName(language, activeCategory.id) : null;
+  const hasTodayFilter = allProducts.some((product) => product.deliveryToday === true);
+  const hasSaleFilter = allProducts.some((product) => product.oldPrice !== undefined);
 
   return (
-    <section id="catalog" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-12">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="font-display text-3xl font-semibold sm:text-4xl">
-            {activeCategoryName ?? t.title}
-          </h2>
-          <p className="mt-1.5 text-sm text-stone">
-            {loading ? "..." : visible.length} {t.count}
-            {usingFallback && (
-              <span className="ml-2 font-semibold text-raspberry">Demo catalog</span>
-            )}
-          </p>
-        </div>
-
-        {/* sort dropdown */}
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-stone">{t.sort}</span>
+    <section id="catalog" className="site-container flower-catalog" aria-labelledby="catalog-title">
+      <div className="flower-catalog-toolbar">
+        <h2 id="catalog-title" className="flower-section-heading">
+          {text.title}
+        </h2>
+        <div className="flower-catalog-controls">
+          <label className="flower-search">
+            <span className="sr-only">{text.search}</span>
+            <SearchIcon />
+            <input
+              id="catalog-search"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={text.search}
+              className="ui-field"
+            />
+          </label>
           <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-            className="cursor-pointer rounded-full border border-line bg-card px-4 py-2.5 font-semibold shadow-soft outline-none transition focus:border-blossom"
+            aria-label={text.city}
+            value={city}
+            onChange={(event) => setCity(event.target.value)}
+            className="ui-field flower-select"
           >
-            {sortOptions.map((opt) => (
-              <option key={opt} value={opt}>
-                {t.sortOptions[opt]}
+            {cityNames.map((name) => (
+              <option key={name} value={name}>
+                {text.city}: {name}
               </option>
             ))}
           </select>
-        </label>
+          <select
+            aria-label={text.sort}
+            value={sort}
+            onChange={(event) => setSort(event.target.value as SortKey)}
+            className="ui-field flower-select"
+          >
+            {sortOptions.map((option) => (
+              <option key={option} value={option}>
+                {text.sort}: {t.sortOptions[option]}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {(usingFallback || catalogError) && (
-        <div className="mt-5 rounded-3xl border border-[#f5d79c] bg-[#fff8e7] px-4 py-3 text-sm font-semibold text-[#8a5a0a] shadow-soft">
-          {catalogError || "Showing demo catalog data."} Checkout and account features need the
-          Django API.
+      <p role="status" className="sr-only">
+        {loading ? text.loading : `${visible.length} ${text.found}`}
+      </p>
+      {usingFallback && <p className="flower-notice">{text.offline}</p>}
+
+      {(hasTodayFilter || hasSaleFilter || activeCategory || query.trim()) && (
+        <div className="flower-catalog-filters">
+          {hasTodayFilter && (
+            <button
+              type="button"
+              onClick={() => setTodayOnly(!todayOnly)}
+              aria-pressed={todayOnly}
+              className="flower-filter"
+            >
+              {t.today}
+            </button>
+          )}
+          {hasSaleFilter && (
+            <button
+              type="button"
+              onClick={() => setSaleOnly(!saleOnly)}
+              aria-pressed={saleOnly}
+              className="flower-filter"
+            >
+              {t.sale}
+            </button>
+          )}
+          {activeCategory && (
+            <button type="button" onClick={() => setCategory(null)} className="flower-filter">
+              {activeCategoryName}
+              <CloseIcon />
+            </button>
+          )}
+          {query.trim() && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label={text.clear}
+              className="flower-filter"
+            >
+              “{query.trim()}”<CloseIcon />
+            </button>
+          )}
         </div>
       )}
 
-      {/* filter chips */}
-      <div className="mt-5 flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
-        {(usingFallback || allProducts.some((product) => product.deliveryToday === true)) && (
-          <button
-            type="button"
-            onClick={() => setTodayOnly(!todayOnly)}
-            aria-pressed={todayOnly}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition active:scale-95 ${
-              todayOnly
-                ? "border-leaf bg-leaf text-white"
-                : "border-line bg-card hover:border-leaf hover:text-leaf"
-            }`}
-          >
-            <BoltIcon className="size-3.5" />
-            {t.today}
-          </button>
-        )}
-        {(usingFallback || allProducts.some((product) => product.oldPrice !== undefined)) && (
-          <button
-            type="button"
-            onClick={() => setSaleOnly(!saleOnly)}
-            aria-pressed={saleOnly}
-            className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition active:scale-95 ${
-              saleOnly
-                ? "border-berry bg-berry text-white"
-                : "border-line bg-card hover:border-berry hover:text-berry"
-            }`}
-          >
-            {t.sale}
-          </button>
-        )}
-
-        {/* active filters echoed as removable chips */}
-        {activeCategory && (
-          <button
-            type="button"
-            onClick={() => setCategory(null)}
-            className="flex shrink-0 items-center gap-1.5 rounded-full bg-blush px-4 py-2 text-sm font-semibold text-raspberry transition hover:bg-blushdeep active:scale-95"
-          >
-            {activeCategoryName}
-            <CloseIcon className="size-3.5" />
-          </button>
-        )}
-        {query.trim() && (
-          <button
-            type="button"
-            onClick={() => setQuery("")}
-            className="flex shrink-0 items-center gap-1.5 rounded-full bg-blush px-4 py-2 text-sm font-semibold text-raspberry transition hover:bg-blushdeep active:scale-95"
-          >
-            “{query.trim()}”
-            <CloseIcon className="size-3.5" />
-          </button>
-        )}
-      </div>
-
-      {/* grid */}
       {loading ? (
-        <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div
-              key={index}
-              className="min-h-[22rem] animate-pulse rounded-3xl bg-card p-2 shadow-soft"
-            >
-              <div className="aspect-[4/5] rounded-2xl bg-blush" />
-              <div className="mx-2 mt-3 h-4 rounded-full bg-line" />
-              <div className="mx-2 mt-2 h-4 w-2/3 rounded-full bg-line" />
+        <div className="flower-grid" aria-hidden="true">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index}>
+              <div className="flower-skeleton-photo" />
+              <div className="flower-skeleton-line" />
+              <div className="flower-skeleton-line" />
             </div>
           ))}
         </div>
       ) : visible.length > 0 ? (
         <>
-          <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+          <div className="flower-grid">
             {shownProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
-
           {remaining > 0 && (
-            <div className="mt-8 flex justify-center">
-              <button
-                type="button"
-                onClick={() => setShown((s) => s + PAGE_SIZE)}
-                className="rounded-full border border-line bg-card px-7 py-3 text-sm font-bold shadow-soft transition hover:border-blossom hover:text-raspberry active:scale-95"
-              >
-                {t.showMore} ({remaining})
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShown((current) => current + PAGE_SIZE)}
+              className="flower-load-more"
+            >
+              {text.more} ({remaining})
+            </button>
           )}
         </>
       ) : (
-        <div className="mt-12 rounded-3xl border border-line bg-card px-5 py-16 text-center shadow-soft">
-          <p className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush text-2xl font-extrabold text-blossomdeep">
-            0
-          </p>
-          <p className="mt-3 font-display text-xl font-semibold">{t.emptyTitle}</p>
-          <p className="mt-1 text-sm text-stone">{t.emptyText}</p>
+        <div className="flower-empty">
+          <h3>{t.emptyTitle}</h3>
+          <p>{t.emptyText}</p>
           <button
             type="button"
             onClick={() => {
@@ -251,7 +292,7 @@ export default function Catalog() {
               setTodayOnly(false);
               setSaleOnly(false);
             }}
-            className="mt-5 rounded-full bg-blossomdeep px-6 py-2.5 text-sm font-bold text-white transition hover:bg-raspberry active:scale-95"
+            className="ui-button-secondary"
           >
             {t.clear}
           </button>
