@@ -43,6 +43,9 @@ import ProductCard from "./ProductCard";
 import { ArrowRightIcon, BoltIcon, CartIcon, HeartIcon, PinIcon, UserIcon } from "./icons";
 
 const cities = ["Tashkent", "Samarkand", "Bukhara", "Namangan", "Andijan"];
+const fallbackProductById = new Map(
+  fallbackCatalogProducts.map((product) => [product.id, product]),
+);
 
 const socialProviderLabels: Record<OAuthProvider, string> = {
   google: "Google",
@@ -1959,6 +1962,7 @@ export default function ProfileSettings({ initialMode = "register" }: { initialM
     language,
     setLanguage,
     favorites,
+    favoriteProducts: savedFavoriteProducts,
     showToast,
   } = useStore();
   const [profileSaving, setProfileSaving] = useState(false);
@@ -1969,7 +1973,10 @@ export default function ProfileSettings({ initialMode = "register" }: { initialM
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
 
-  const favoriteProducts = fallbackCatalogProducts.filter((p) => favorites.includes(p.id));
+  const favoriteProducts = favorites.flatMap((id) => {
+    const product = savedFavoriteProducts[id] ?? fallbackProductById.get(id);
+    return product ? [product] : [];
+  });
   const samplePrice = 49;
 
   if (!user) return <AuthCard key={initialMode} initialMode={initialMode} />;
