@@ -78,3 +78,35 @@ Public demo OAuth startup rejects partial credentials, insecure/incorrect
 callbacks, and callback hosts absent from `ALLOWED_HOSTS`. The default remains
 off and test payments remain enforced. For a real shop, follow the production
 guide instead. See [Google's web-server OAuth documentation](https://developers.google.com/identity/protocols/oauth2/web-server).
+
+## Enable GitHub login and registration
+
+Register a dedicated GitHub OAuth App with homepage
+`https://flower-store-theta.vercel.app` and this exact redirect URI:
+
+```text
+https://flower-shop-api-demo.onrender.com/api/auth/oauth/github/callback/
+```
+
+Leave wildcard matching and device flow disabled. Keep expiring access tokens
+enabled: the backend uses GitHub's token only to verify identity during the
+callback, then issues its own application session. Do not reuse another app's
+client secret.
+
+Add these settings only to the Render backend, leaving the Google settings intact:
+
+```env
+GITHUB_OAUTH_CLIENT_ID=<github-client-id>
+GITHUB_OAUTH_CLIENT_SECRET=<backend-only-client-secret>
+GITHUB_OAUTH_REDIRECT_URI=https://flower-shop-api-demo.onrender.com/api/auth/oauth/github/callback/
+```
+
+Keep `DEMO_OAUTH_ENABLED=true` and the shared frontend/callback origins above.
+Redeploy and confirm GitHub is enabled in `/api/auth/oauth/providers/`. The app
+requests `read:user user:email`, never repository or write scopes.
+
+"Continue with GitHub" handles both login and first-time registration when the
+provider supplies a verified email. An existing email/Google account must sign in
+first and use **Profile → Connect GitHub**; matching email never auto-links
+accounts. After connection, GitHub signs in to that same account. Check login,
+session refresh, and preserved cart/favourites without placing a real payment.
