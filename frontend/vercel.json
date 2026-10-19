@@ -5,6 +5,6 @@
   "buildCommand": "npm run build",
   "env": {
     "NEXT_PUBLIC_API_URL": "https://flower-shop-api-demo.onrender.com",
-    "NEXT_PUBLIC_SITE_URL": "https://flower-shop-demo.vercel.app"
+    "NEXT_PUBLIC_SITE_URL": "https://flower-store-theta.vercel.app"
   }
 }

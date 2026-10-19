@@ -21,14 +21,17 @@ This topology is for a portfolio demo, not a client production shop:
    Supabase connection string for `DATABASE_URL` when prompted.
 3. Wait until `https://flower-shop-api-demo.onrender.com/api/products/` returns
    HTTP 200. Migrations and the idempotent `seed_demo` command run on startup.
-4. Import the repository into Vercel with `frontend` as the Root Directory and
-   deploy it as `flower-shop-demo`.
+4. Use the existing Vercel project `flower-store` in the `bol-fs-projects` scope,
+   linked to `Bol-F/flower-shop`, with `frontend` as the Root Directory. Deploy
+   the storefront at `https://flower-store-theta.vercel.app`.
 5. Verify catalog browsing **including product images**, email login, cart,
    checkout, the test-payment action, and the paid order in history. The test
    provider never charges money.
 
-If either generated hostname differs, update the matching values in
-`render.yaml` and `frontend/vercel.json` before deploying. Render Free can sleep
+If either hostname changes, update the matching values in `render.yaml`,
+`frontend/vercel.json`, and the hosting environment settings before deploying.
+`FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `OAUTH_FRONTEND_CALLBACK_URL`, and
+`PAYMENT_FRONTEND_RETURN_URL` must use the same frontend origin. Render Free can sleep
 after inactivity, so the first API request may take longer. Supabase Free can
 pause inactive projects. Do not replace `config.settings.demo` with production
 settings until real payment, OAuth, Redis, media storage, notification, and
@@ -47,7 +50,7 @@ testing, add the Google accounts that will test it. Register the exact Django
 callback, not the Vercel frontend callback:
 
 ```text
-https://<actual-backend-host>/api/auth/oauth/google/callback/
+https://flower-shop-api-demo.onrender.com/api/auth/oauth/google/callback/
 ```
 
 In the backend hosting environment (Render, not Vercel), configure:
@@ -56,11 +59,12 @@ In the backend hosting environment (Render, not Vercel), configure:
 DEMO_OAUTH_ENABLED=true
 GOOGLE_OAUTH_CLIENT_ID=<web-client-id>
 GOOGLE_OAUTH_CLIENT_SECRET=<backend-only-client-secret>
-GOOGLE_OAUTH_REDIRECT_URI=https://<actual-backend-host>/api/auth/oauth/google/callback/
-FRONTEND_URL=https://<actual-frontend-host>
-OAUTH_FRONTEND_CALLBACK_URL=https://<actual-frontend-host>/auth/callback
-CORS_ALLOWED_ORIGINS=https://<actual-frontend-host>
-ALLOWED_HOSTS=<actual-backend-host>
+GOOGLE_OAUTH_REDIRECT_URI=https://flower-shop-api-demo.onrender.com/api/auth/oauth/google/callback/
+FRONTEND_URL=https://flower-store-theta.vercel.app
+OAUTH_FRONTEND_CALLBACK_URL=https://flower-store-theta.vercel.app/auth/callback
+CORS_ALLOWED_ORIGINS=https://flower-store-theta.vercel.app
+PAYMENT_FRONTEND_RETURN_URL=https://flower-store-theta.vercel.app/payment/return
+ALLOWED_HOSTS=flower-shop-api-demo.onrender.com
 ```
 
 Redeploy the backend, then check `/api/auth/oauth/providers/`: Google should be
