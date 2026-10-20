@@ -447,14 +447,14 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
             </div>
 
             {(createdPayment?.provider_reference || createdOrder.payment_reference) && (
-              <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-bold text-stone">
+              <p className="mt-3 rounded-xl bg-card px-3 py-2 text-xs font-bold text-stone">
                 Payment ref {createdPayment?.provider_reference || createdOrder.payment_reference}
               </p>
             )}
 
             {createdOrder.payment_method === "cash" ? (
               <div className="mt-3 flex gap-3 rounded-2xl border border-[#bfe6cc] bg-mint p-3 text-leaf">
-                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-card">
                   <CashIcon className="size-5" />
                 </span>
                 <div>
@@ -465,7 +465,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
             ) : createdPayment?.provider === "test" ? (
-              <div className="mt-3 rounded-2xl border border-line bg-white p-3">
+              <div className="mt-3 rounded-2xl border border-line bg-card p-3">
                 <p className="text-sm font-bold text-ink">
                   This is a test payment. No real money will be charged.
                 </p>
@@ -492,7 +492,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                 )}
               </div>
             ) : createdPayment?.checkout_url ? (
-              <div className="mt-3 rounded-2xl border border-line bg-white p-3">
+              <div className="mt-3 rounded-2xl border border-line bg-card p-3">
                 <p className="text-sm font-bold text-ink">
                   Continue to <span className="capitalize">{createdPayment.provider}</span> to pay
                   securely.
@@ -687,7 +687,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                       className="flex items-center gap-2 text-xs font-extrabold"
                       aria-label="Checkout steps"
                     >
-                      <li className="rounded-full bg-white px-3 py-1 text-ink">1 · Delivery</li>
+                      <li className="rounded-full bg-card px-3 py-1 text-ink">1 · Delivery</li>
                       <li className="rounded-full border border-white/25 px-3 py-1 text-white/80">
                         2 · Payment
                       </li>
@@ -872,7 +872,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                           value={recipientName}
                           onChange={(event) => setRecipientName(event.target.value)}
                           placeholder="Recipient name"
-                          className="w-full rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                          className="w-full rounded-2xl border border-line bg-card px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
                         />
                         <input
                           aria-label="Recipient phone"
@@ -881,7 +881,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                           value={recipientPhone}
                           onChange={(event) => setRecipientPhone(event.target.value)}
                           placeholder="Recipient phone"
-                          className="w-full rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                          className="w-full rounded-2xl border border-line bg-card px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
                         />
                         <textarea
                           aria-label="Gift note"
@@ -889,7 +889,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                           onChange={(event) => setGiftNote(event.target.value)}
                           rows={2}
                           placeholder="Gift note"
-                          className="w-full resize-none rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                          className="w-full resize-none rounded-2xl border border-line bg-card px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
                         />
                         <label className="flex items-center gap-2 px-1 text-sm font-bold text-ink">
                           <input
@@ -908,7 +908,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                     <button
                       type="button"
                       onClick={() => setShowExtraDetails((open) => !open)}
-                      className="rounded-2xl border border-line bg-white px-3.5 py-2.5 text-left text-sm font-extrabold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
+                      className="rounded-2xl border border-line bg-card px-3.5 py-2.5 text-left text-sm font-extrabold text-stone transition hover:border-blossomdeep hover:text-blossomdeep"
                     >
                       {showExtraDetails ? "Hide courier note" : "Add courier note"}
                     </button>
@@ -919,7 +919,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                         onChange={(event) => setNotes(event.target.value)}
                         rows={2}
                         placeholder="Entrance, floor, landmark..."
-                        className="w-full resize-none rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                        className="w-full resize-none rounded-2xl border border-line bg-card px-3.5 py-2.5 text-sm outline-none transition placeholder:text-stone focus:border-blossomdeep"
                       />
                     )}
                   </div>
@@ -943,8 +943,8 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                             onClick={() => setSelectedPaymentOptionId(method.id)}
                             className={`min-h-28 rounded-xl border px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
                               active
-                                ? "border-blossomdeep bg-white text-ink shadow-glow"
-                                : "border-line bg-white text-stone hover:border-blossomdeep hover:text-ink"
+                                ? "border-blossomdeep bg-card text-ink shadow-glow"
+                                : "border-line bg-card text-stone hover:border-blossomdeep hover:text-ink"
                             }`}
                           >
                             <span
@@ -959,9 +959,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                               <span
                                 aria-hidden="true"
                                 className={`size-4 rounded-full border-2 ${
-                                  active
-                                    ? "border-[5px] border-blossomdeep"
-                                    : "border-line bg-white"
+                                  active ? "border-[5px] border-blossomdeep" : "border-line bg-card"
                                 }`}
                               />
                             </span>
@@ -992,7 +990,7 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                         setPromoDiscount(0);
                       }}
                       placeholder="Promo code"
-                      className="min-w-0 flex-1 rounded-xl border border-line bg-white px-3 py-2 text-sm font-bold uppercase outline-none transition placeholder:normal-case placeholder:text-stone focus:border-blossomdeep"
+                      className="min-w-0 flex-1 rounded-xl border border-line bg-card px-3 py-2 text-sm font-bold uppercase outline-none transition placeholder:normal-case placeholder:text-stone focus:border-blossomdeep"
                     />
                     <button
                       type="button"
@@ -1135,7 +1133,7 @@ function CitySwitch({ className = "" }: { className?: string }) {
 
   return (
     <div
-      className={`relative inline-flex items-center rounded-full border border-line bg-white text-sm font-bold text-ink/75 transition focus-within:border-blossomdeep focus-within:ring-2 focus-within:ring-blossomdeep/20 hover:border-blossomdeep/50 ${className}`}
+      className={`relative inline-flex items-center rounded-full border border-line bg-card text-sm font-bold text-ink/75 transition focus-within:border-blossomdeep focus-within:ring-2 focus-within:ring-blossomdeep/20 hover:border-blossomdeep/50 ${className}`}
     >
       <PinIcon className="pointer-events-none absolute left-3 size-4 text-blossomdeep" />
       <select
@@ -1211,7 +1209,7 @@ function AccountMenu({ displayName, isStaff, unreadCount, onSignOut }: AccountMe
         <div
           role="menu"
           aria-label="Account"
-          className="absolute right-0 top-[calc(100%+10px)] z-50 w-56 overflow-hidden rounded-2xl border border-line bg-white p-2 text-sm font-bold text-ink shadow-soft"
+          className="absolute right-0 top-[calc(100%+10px)] z-50 w-56 overflow-hidden rounded-2xl border border-line bg-card p-2 text-sm font-bold text-ink shadow-soft"
         >
           <Link
             href="/profile"
@@ -1321,7 +1319,7 @@ export default function Header() {
 
   return (
     <header
-      className={`sticky top-0 bg-white shadow-[0_1px_0_rgb(247_220_232)] ${
+      className={`sticky top-0 bg-card shadow-[0_1px_0_rgb(220_207_210)] ${
         cartOpen ? "z-[70]" : "z-40"
       }`}
     >
@@ -1403,7 +1401,7 @@ export default function Header() {
       </div>
 
       {menuOpen && (
-        <div className="border-t border-line bg-white px-5 py-4 shadow-soft lg:hidden">
+        <div className="border-t border-line bg-card px-5 py-4 shadow-soft lg:hidden">
           <nav className="mx-auto flex max-w-[1480px] flex-col gap-3 text-base font-bold">
             {!isStaff && (
               <Link

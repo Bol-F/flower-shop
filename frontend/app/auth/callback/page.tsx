@@ -9,7 +9,7 @@ function first(value: string | string[] | undefined) {
 export default async function OAuthCallbackPage({ searchParams }: { searchParams: SearchParams }) {
   const query = await searchParams;
   return (
-    <main className="grid min-h-[calc(100vh-66px)] place-items-center bg-gradient-to-br from-[#ffe8f3] via-[#fff3f8] to-white px-5 py-10">
+    <main className="grid min-h-[calc(100vh-66px)] place-items-center bg-gradient-to-br from-herowash via-rosewash to-paper px-5 py-10">
       <OAuthCallbackClient
         error={first(query.error)}
         flow={first(query.flow)}

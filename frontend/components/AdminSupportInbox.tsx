@@ -96,8 +96,8 @@ function AdminLogin() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-66px)] bg-[#f7f0f4] px-5 py-10">
-      <section className="mx-auto max-w-md rounded-[2rem] bg-white p-8 shadow-lift">
+    <main className="min-h-[calc(100vh-66px)] bg-paper px-5 py-10">
+      <section className="mx-auto max-w-md rounded-[2rem] bg-card p-8 shadow-lift">
         <p className="text-sm font-extrabold uppercase tracking-[0.18em] text-blossomdeep">Admin</p>
         <h1 className="mt-2 font-display text-4xl font-extrabold text-ink">Support inbox</h1>
         <p className="mt-2 text-sm leading-relaxed text-stone">
@@ -112,7 +112,7 @@ function AdminLogin() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 outline-none transition focus:border-blossomdeep"
+              className="mt-2 w-full rounded-2xl border border-line bg-card px-4 py-3 outline-none transition focus:border-blossomdeep"
             />
           </label>
           <label className="block">
@@ -122,7 +122,7 @@ function AdminLogin() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 outline-none transition focus:border-blossomdeep"
+              className="mt-2 w-full rounded-2xl border border-line bg-card px-4 py-3 outline-none transition focus:border-blossomdeep"
             />
           </label>
           {error && (
@@ -234,7 +234,7 @@ export default function AdminSupportInbox() {
 
   if (!hydrated) {
     return (
-      <main className="grid min-h-[calc(100vh-66px)] place-items-center bg-[#f7f0f4]">
+      <main className="grid min-h-[calc(100vh-66px)] place-items-center bg-paper">
         <p className="text-sm font-bold text-stone">Loading...</p>
       </main>
     );
@@ -244,8 +244,8 @@ export default function AdminSupportInbox() {
 
   if (!user.is_staff) {
     return (
-      <main className="grid min-h-[calc(100vh-66px)] place-items-center bg-[#f7f0f4] px-5 text-center">
-        <section className="max-w-md rounded-[2rem] bg-white p-8 shadow-lift">
+      <main className="grid min-h-[calc(100vh-66px)] place-items-center bg-paper px-5 text-center">
+        <section className="max-w-md rounded-[2rem] bg-card p-8 shadow-lift">
           <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush text-2xl font-extrabold text-blossomdeep">
             !
           </div>
@@ -259,9 +259,9 @@ export default function AdminSupportInbox() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-66px)] bg-[#f7f0f4] px-4 py-5">
-      <section className="mx-auto grid h-[calc(100vh-7.5rem)] max-w-7xl overflow-hidden rounded-[2rem] bg-white shadow-lift lg:grid-cols-[23rem_1fr]">
-        <aside className="border-b border-line bg-[#fff8fb] lg:border-b-0 lg:border-r">
+    <main className="min-h-[calc(100vh-66px)] bg-paper px-4 py-5">
+      <section className="mx-auto grid h-[calc(100vh-7.5rem)] max-w-7xl overflow-hidden rounded-[2rem] bg-card shadow-lift lg:grid-cols-[23rem_1fr]">
+        <aside className="border-b border-line bg-paper lg:border-b-0 lg:border-r">
           <div className="border-b border-line px-5 py-4">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -292,7 +292,7 @@ export default function AdminSupportInbox() {
             {loading && conversations.length === 0 && (
               <div className="grid gap-3 p-5">
                 {[0, 1, 2].map((item) => (
-                  <div key={item} className="animate-pulse rounded-2xl bg-white p-3">
+                  <div key={item} className="animate-pulse rounded-2xl bg-card p-3">
                     <div className="h-4 w-32 rounded-full bg-line" />
                     <div className="mt-2 h-3 rounded-full bg-line" />
                   </div>
@@ -318,7 +318,7 @@ export default function AdminSupportInbox() {
                   type="button"
                   onClick={() => selectConversation(conversation)}
                   className={`flex w-full items-center gap-3 border-b border-line px-4 py-3 text-left transition ${
-                    active ? "bg-white" : "hover:bg-white/70"
+                    active ? "bg-card" : "hover:bg-card/70"
                   }`}
                 >
                   <span className="grid size-12 shrink-0 place-items-center rounded-full bg-blossomdeep text-sm font-extrabold text-white">
@@ -357,7 +357,7 @@ export default function AdminSupportInbox() {
         <section className="flex min-h-0 flex-col">
           {selectedConversation ? (
             <>
-              <header className="flex items-center gap-3 border-b border-line bg-white px-5 py-4">
+              <header className="flex items-center gap-3 border-b border-line bg-card px-5 py-4">
                 <span className="grid size-11 place-items-center rounded-full bg-blossomdeep text-sm font-extrabold text-white">
                   {initials(selectedConversation.name, selectedConversation.email)}
                 </span>
@@ -371,7 +371,7 @@ export default function AdminSupportInbox() {
                 </div>
               </header>
 
-              <div className="flex-1 space-y-4 overflow-y-auto bg-[#f9eef4] px-5 py-5">
+              <div className="flex-1 space-y-4 overflow-y-auto bg-blush px-5 py-5">
                 {selectedConversation.messages.map((message) => (
                   <div key={message.id} className="space-y-2">
                     {message.is_from_admin ? (
@@ -385,7 +385,7 @@ export default function AdminSupportInbox() {
                       </div>
                     ) : (
                       <>
-                        <div className="max-w-[78%] rounded-[1.15rem] rounded-bl-md bg-white px-4 py-3 shadow-soft">
+                        <div className="max-w-[78%] rounded-[1.15rem] rounded-bl-md bg-card px-4 py-3 shadow-soft">
                           <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">
                             {message.body}
                           </p>
@@ -409,7 +409,7 @@ export default function AdminSupportInbox() {
                 ))}
               </div>
 
-              <form onSubmit={onReply} className="border-t border-line bg-white p-4">
+              <form onSubmit={onReply} className="border-t border-line bg-card p-4">
                 <div className="flex items-end gap-3">
                   <textarea
                     ref={replyInputRef}
@@ -418,7 +418,7 @@ export default function AdminSupportInbox() {
                     onKeyDown={onReplyKeyDown}
                     rows={1}
                     placeholder={`Message ${selectedConversation.name}`}
-                    className="max-h-32 min-h-12 flex-1 resize-none overflow-y-auto rounded-[1.35rem] border border-line bg-blush px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-stone focus:border-blossomdeep focus:bg-white"
+                    className="max-h-32 min-h-12 flex-1 resize-none overflow-y-auto rounded-[1.35rem] border border-line bg-blush px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-stone focus:border-blossomdeep focus:bg-card"
                   />
                   <button
                     type="submit"
@@ -431,9 +431,9 @@ export default function AdminSupportInbox() {
               </form>
             </>
           ) : (
-            <div className="grid flex-1 place-items-center bg-[#f9eef4] text-center">
+            <div className="grid flex-1 place-items-center bg-blush text-center">
               <div>
-                <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-white text-2xl font-extrabold text-blossomdeep shadow-soft">
+                <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-card text-2xl font-extrabold text-blossomdeep shadow-soft">
                   B
                 </div>
                 <p className="mt-3 text-sm font-bold text-stone">

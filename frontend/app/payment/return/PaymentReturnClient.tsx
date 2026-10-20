@@ -72,7 +72,7 @@ export default function PaymentReturnClient({
   const displayFailure = failure?.message || (!validLink ? "This return link is incomplete." : "");
   return (
     <section
-      className="mx-auto max-w-xl rounded-[2rem] border border-line bg-white p-7 text-center shadow-lift sm:p-10"
+      className="mx-auto max-w-xl rounded-[2rem] border border-line bg-card p-7 text-center shadow-lift sm:p-10"
       aria-live="polite"
     >
       <div

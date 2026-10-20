@@ -100,7 +100,7 @@ export default function SocialLoginButtons({
               setLeavingFor(provider.id);
               onNavigate(provider.id);
             }}
-            className="flex min-h-12 items-center justify-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm font-extrabold text-ink transition hover:border-blossomdeep hover:bg-paper disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex min-h-12 items-center justify-center gap-3 rounded-2xl border border-line bg-card px-4 py-3 text-sm font-extrabold text-ink transition hover:border-blossomdeep hover:bg-paper disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ProviderIcon provider={provider.id} />
             <span>{loading ? "Opening provider…" : provider.label}</span>
@@ -127,7 +127,7 @@ export default function SocialLoginButtons({
               setDiscovery({ status: "loading", enabled: new Set() });
               setDiscoveryAttempt((attempt) => attempt + 1);
             }}
-            className="shrink-0 rounded-full border border-line bg-white px-3 py-1.5 font-extrabold text-ink transition hover:border-blossomdeep hover:text-blossomdeep"
+            className="shrink-0 rounded-full border border-line bg-card px-3 py-1.5 font-extrabold text-ink transition hover:border-blossomdeep hover:text-blossomdeep"
           >
             Retry
           </button>

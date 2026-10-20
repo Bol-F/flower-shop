@@ -26,7 +26,7 @@ export default function Hero() {
           ];
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-[#ffeaf4] via-[#fff2f8] to-white">
+    <section className="relative overflow-hidden bg-gradient-to-br from-herowash via-rosewash to-paper">
       <div className="mx-auto flex max-w-[1180px] flex-col items-center justify-center px-5 py-10 text-center sm:py-12">
         <p className="w-full max-w-[330px] text-[11px] font-extrabold uppercase leading-6 tracking-[0.2em] text-blossomdeep sm:max-w-none sm:text-base sm:tracking-[0.34em]">
           {t.eyebrow}
@@ -43,9 +43,9 @@ export default function Hero() {
           {t.text}
         </p>
 
-        <div className="mt-6 grid w-full max-w-3xl grid-cols-3 gap-2 rounded-[1.75rem] border border-line bg-white/65 p-2 text-left shadow-soft backdrop-blur">
+        <div className="mt-6 grid w-full max-w-3xl grid-cols-3 gap-2 rounded-[1.75rem] border border-line bg-card/65 p-2 text-left shadow-soft backdrop-blur">
           {proofPoints.map(([value, label]) => (
-            <div key={value} className="rounded-[1.25rem] bg-white px-2 py-3 sm:px-4">
+            <div key={value} className="rounded-[1.25rem] bg-card px-2 py-3 sm:px-4">
               <p className="text-center text-xs font-extrabold text-ink sm:text-left sm:font-display sm:text-lg">
                 {value}
               </p>
@@ -59,13 +59,13 @@ export default function Hero() {
         <div className="mt-6 flex w-full max-w-[560px] flex-wrap justify-center gap-3">
           <a
             href="#catalog"
-            className="rounded-full bg-raspberry px-6 py-3.5 text-sm font-extrabold text-white shadow-glow transition hover:-translate-y-1 hover:bg-[#b51060] active:translate-y-0 sm:px-8 sm:text-base"
+            className="rounded-full bg-raspberry px-6 py-3.5 text-sm font-extrabold text-white shadow-glow transition hover:-translate-y-1 hover:bg-berrydeep active:translate-y-0 sm:px-8 sm:text-base"
           >
             {t.primary}
           </a>
           <a
             href="#collections"
-            className="rounded-full border-2 border-blossomdeep bg-white/70 px-6 py-3.5 text-sm font-extrabold text-blossomdeep transition hover:-translate-y-1 hover:bg-white hover:shadow-soft active:translate-y-0 sm:px-8 sm:text-base"
+            className="rounded-full border-2 border-blossomdeep bg-card/70 px-6 py-3.5 text-sm font-extrabold text-blossomdeep transition hover:-translate-y-1 hover:bg-card hover:shadow-soft active:translate-y-0 sm:px-8 sm:text-base"
           >
             {t.secondary}
           </a>

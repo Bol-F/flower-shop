@@ -201,11 +201,11 @@ export default function SupportChat() {
   return (
     <div className="fixed bottom-4 right-4 z-50 sm:bottom-5 sm:right-6">
       {open && (
-        <section className="mb-4 ml-auto flex h-[min(34rem,calc(100vh-7rem))] w-[min(26.5rem,calc(100vw-2.5rem))] animate-fade-up flex-col overflow-hidden rounded-[1.75rem] bg-[#fff8fb] shadow-[0_26px_80px_-34px_rgba(48,43,45,0.45)]">
+        <section className="mb-4 ml-auto flex h-[min(34rem,calc(100vh-7rem))] w-[min(26.5rem,calc(100vw-2.5rem))] animate-fade-up flex-col overflow-hidden rounded-[1.75rem] bg-paper shadow-[0_26px_80px_-34px_rgba(48,43,45,0.45)]">
           <header className="flex items-start justify-between bg-blossomdeep px-5 py-4 text-white">
             <div>
               <h2 className="text-xl font-extrabold leading-tight">
-                <span className="mr-2 rounded-full bg-white/15 px-2 py-0.5 text-xs uppercase tracking-wider">
+                <span className="mr-2 rounded-full bg-card/15 px-2 py-0.5 text-xs uppercase tracking-wider">
                   Help
                 </span>
                 {t.title}
@@ -216,7 +216,7 @@ export default function SupportChat() {
               type="button"
               aria-label="Close support chat"
               onClick={() => setOpen(false)}
-              className="grid size-9 shrink-0 place-items-center rounded-full text-3xl leading-none transition hover:bg-white/15"
+              className="grid size-9 shrink-0 place-items-center rounded-full text-3xl leading-none transition hover:bg-card/15"
             >
               ×
             </button>
@@ -289,7 +289,7 @@ export default function SupportChat() {
                 {orderedMessages.map((message) => (
                   <div key={message.id} className="space-y-2">
                     {message.is_from_admin ? (
-                      <div className="max-w-[82%] rounded-[1.15rem] rounded-bl-md bg-white px-4 py-3 text-ink shadow-soft">
+                      <div className="max-w-[82%] rounded-[1.15rem] rounded-bl-md bg-card px-4 py-3 text-ink shadow-soft">
                         <p className="whitespace-pre-wrap text-sm leading-relaxed">
                           {message.body}
                         </p>
@@ -308,7 +308,7 @@ export default function SupportChat() {
                           </p>
                         </div>
                         {message.admin_reply && (
-                          <div className="max-w-[82%] rounded-[1.15rem] rounded-bl-md bg-white px-4 py-3 text-ink shadow-soft">
+                          <div className="max-w-[82%] rounded-[1.15rem] rounded-bl-md bg-card px-4 py-3 text-ink shadow-soft">
                             <p className="whitespace-pre-wrap text-sm leading-relaxed">
                               {message.admin_reply}
                             </p>
@@ -334,7 +334,7 @@ export default function SupportChat() {
                 </p>
               )}
 
-              <form onSubmit={onSubmit} className="border-t border-line bg-white p-3">
+              <form onSubmit={onSubmit} className="border-t border-line bg-card p-3">
                 <div className="flex items-end gap-2">
                   <textarea
                     ref={bodyInputRef}
@@ -343,7 +343,7 @@ export default function SupportChat() {
                     onKeyDown={onBodyKeyDown}
                     rows={1}
                     placeholder={t.placeholder}
-                    className="max-h-28 min-h-11 flex-1 resize-none overflow-y-auto rounded-[1.35rem] border border-line bg-blush px-4 py-3 text-sm leading-5 outline-none transition placeholder:text-stone focus:border-blossomdeep focus:bg-white"
+                    className="max-h-28 min-h-11 flex-1 resize-none overflow-y-auto rounded-[1.35rem] border border-line bg-blush px-4 py-3 text-sm leading-5 outline-none transition placeholder:text-stone focus:border-blossomdeep focus:bg-card"
                   />
                   <button
                     type="submit"
@@ -364,7 +364,7 @@ export default function SupportChat() {
         aria-label={open ? "Close support chat" : "Open support chat"}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="ml-auto grid size-14 place-items-center rounded-full border-2 border-ink bg-raspberry text-xs font-extrabold uppercase tracking-wider text-white shadow-[0_16px_44px_-16px_rgba(236,22,130,0.85)] transition hover:-translate-y-1 hover:bg-[#b51060] active:translate-y-0 sm:size-[68px]"
+        className="ml-auto grid size-14 place-items-center rounded-full border-2 border-ink bg-raspberry text-xs font-extrabold uppercase tracking-wider text-white shadow-[0_16px_44px_-16px_rgba(169,62,100,0.45)] transition hover:-translate-y-1 hover:bg-berrydeep active:translate-y-0 sm:size-[68px]"
       >
         {open ? "Close" : "Help"}
       </button>

@@ -76,7 +76,7 @@ export default function DeliveryMapPicker({ value, onChange }: DeliveryMapPicker
 
       const markerIcon = L.divIcon({
         className: "",
-        html: '<span style="display:block;width:22px;height:22px;border-radius:9999px;background:#ec1682;border:4px solid white;box-shadow:0 8px 20px rgba(48,43,45,.32)"></span>',
+        html: '<span style="display:block;width:22px;height:22px;border-radius:9999px;background:var(--color-blossomdeep);border:4px solid var(--color-card);box-shadow:0 8px 20px rgba(48,42,44,.32)"></span>',
         iconSize: [22, 22],
         iconAnchor: [11, 11],
       });

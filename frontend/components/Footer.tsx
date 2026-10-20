@@ -15,13 +15,13 @@ export default function Footer() {
   if (pathname?.startsWith("/admin")) return null;
 
   return (
-    <footer className="mt-10 border-t border-line bg-gradient-to-br from-[#fff2f8] via-[#fde7f1] to-[#fbdaeb]">
+    <footer className="mt-10 border-t border-line bg-gradient-to-br from-rosewash via-blush to-footerwash">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:grid-cols-2 lg:grid-cols-5">
         {/* brand */}
         <div className="lg:col-span-2">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="text-3xl leading-none">🌸</span>
-            <span className="font-display text-2xl font-bold text-blossomdeep">
+            <span className="font-display text-2xl font-bold text-berrydeep">
               Bloom &amp; Petal
             </span>
           </Link>
@@ -29,7 +29,7 @@ export default function Footer() {
           <p className="mt-4 text-sm font-semibold">
             {t.hours}
             <br />
-            <a href="tel:+998711234567" className="text-blossomdeep hover:underline">
+            <a href="tel:+998711234567" className="text-berrydeep hover:underline">
               +998 71 123-45-67
             </a>
           </p>
@@ -43,7 +43,7 @@ export default function Footer() {
                 <li key={link}>
                   <a
                     href="#catalog"
-                    className="text-sm text-ink/75 transition hover:text-blossomdeep"
+                    className="text-sm text-ink/75 transition hover:text-berrydeep"
                   >
                     {link}
                   </a>
@@ -59,7 +59,7 @@ export default function Footer() {
           <p>{t.copyright}</p>
           <p>
             {t.currencyPre}
-            <Link href="/profile" className="font-semibold text-blossomdeep hover:underline">
+            <Link href="/profile" className="font-semibold text-berrydeep hover:underline">
               {t.currencyLink}
             </Link>
             {t.currencyPost}

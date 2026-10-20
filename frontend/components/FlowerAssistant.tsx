@@ -165,7 +165,7 @@ export default function FlowerAssistant() {
       ) : (
         <form
           onSubmit={submit}
-          className="mt-8 space-y-4 rounded-3xl border border-line bg-white p-5 sm:p-8"
+          className="mt-8 space-y-4 rounded-3xl border border-line bg-card p-5 sm:p-8"
         >
           <label htmlFor="flower-question" className="block font-bold">
             {t.question}

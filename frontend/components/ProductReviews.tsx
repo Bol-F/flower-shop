@@ -172,7 +172,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
                 onChange={(e) => setBody(e.target.value)}
                 rows={3}
                 placeholder={t.placeholder}
-                className="mt-4 w-full resize-none rounded-2xl border border-line bg-blush px-4 py-3 text-sm leading-relaxed outline-none transition placeholder:text-stone focus:border-blossomdeep focus:bg-white"
+                className="mt-4 w-full resize-none rounded-2xl border border-line bg-blush px-4 py-3 text-sm leading-relaxed outline-none transition placeholder:text-stone focus:border-blossomdeep focus:bg-card"
               />
 
               <div className="mt-3 flex items-center gap-3">

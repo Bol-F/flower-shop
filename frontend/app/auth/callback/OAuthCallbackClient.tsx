@@ -172,7 +172,7 @@ export default function OAuthCallbackClient({
 
   if (failure) {
     return (
-      <section className="mx-auto max-w-lg rounded-[2rem] border border-line bg-white p-7 text-center shadow-lift">
+      <section className="mx-auto max-w-lg rounded-[2rem] border border-line bg-card p-7 text-center shadow-lift">
         <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-berrysoft text-2xl">
           ×
         </div>
@@ -196,7 +196,7 @@ export default function OAuthCallbackClient({
         )}
         <Link
           href={failure.isLink ? "/profile" : "/profile?mode=login"}
-          className="mt-6 inline-flex rounded-full border border-line bg-white px-6 py-3 text-sm font-extrabold text-ink"
+          className="mt-6 inline-flex rounded-full border border-line bg-card px-6 py-3 text-sm font-extrabold text-ink"
         >
           {failure.isLink ? "Return to profile" : "Return to sign in"}
         </Link>
@@ -206,7 +206,7 @@ export default function OAuthCallbackClient({
 
   return (
     <section
-      className="mx-auto max-w-lg rounded-[2rem] border border-line bg-white p-7 text-center shadow-lift"
+      className="mx-auto max-w-lg rounded-[2rem] border border-line bg-card p-7 text-center shadow-lift"
       aria-live="polite"
     >
       <div className="mx-auto size-12 animate-spin rounded-full border-4 border-blush border-t-blossomdeep" />

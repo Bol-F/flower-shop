@@ -139,7 +139,7 @@ function OrderStatusTimeline({ steps }: { steps: ApiOrderStatusStep[] }) {
               ? "border-blossomdeep bg-blossomdeep text-white shadow-glow"
               : step.completed
                 ? "border-[#bfe6cc] bg-mint text-leaf"
-                : "border-line bg-white text-stone"
+                : "border-line bg-card text-stone"
           }`}
         >
           {step.label}
@@ -510,9 +510,9 @@ function AdminWorkspace() {
   const deliveryQueue = dashboard?.delivery_queue ?? [];
 
   return (
-    <main className="min-h-[calc(100vh-66px)] bg-[#f6f7fb] px-4 py-8">
+    <main className="min-h-[calc(100vh-66px)] bg-paper px-4 py-8">
       <section className="mx-auto max-w-7xl">
-        <div className="flex flex-wrap items-center gap-4 rounded-[1.75rem] border border-line bg-white px-5 py-5 shadow-soft">
+        <div className="flex flex-wrap items-center gap-4 rounded-[1.75rem] border border-line bg-card px-5 py-5 shadow-soft">
           <span className="grid size-14 place-items-center rounded-2xl bg-ink text-base font-extrabold text-white shadow-soft">
             {staffInitials(displayName, user.email)}
           </span>
@@ -551,7 +551,7 @@ function AdminWorkspace() {
           {statCards.map((card) => (
             <section
               key={card.label}
-              className="rounded-[1.35rem] border border-line bg-white p-5 shadow-soft"
+              className="rounded-[1.35rem] border border-line bg-card p-5 shadow-soft"
             >
               <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-stone">
                 {card.label}
@@ -562,7 +562,7 @@ function AdminWorkspace() {
           ))}
         </div>
 
-        <section className="mt-5 rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+        <section className="mt-5 rounded-[1.75rem] border border-line bg-card p-5 shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-2xl font-extrabold text-ink">Delivery queue</h2>
@@ -609,7 +609,7 @@ function AdminWorkspace() {
           )}
         </section>
 
-        <section className="mt-5 rounded-[1.75rem] border border-line bg-white shadow-soft">
+        <section className="mt-5 rounded-[1.75rem] border border-line bg-card shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
             <div>
               <h2 className="font-display text-2xl font-extrabold text-ink">Delivery orders</h2>
@@ -773,7 +773,7 @@ function AdminWorkspace() {
                       <span className={`${badgeBase} ${orderStatusBadgeClass(order.status)}`}>
                         {order.status_display}
                       </span>
-                      <span className={`${badgeBase} bg-white text-stone ring-1 ring-line`}>
+                      <span className={`${badgeBase} bg-card text-stone ring-1 ring-line`}>
                         {order.payment_method_display}
                       </span>
                       <span
@@ -912,7 +912,7 @@ function AdminWorkspace() {
         </section>
 
         <div className="mt-5 grid gap-5 lg:grid-cols-3">
-          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+          <section className="rounded-[1.75rem] border border-line bg-card p-5 shadow-soft">
             <h2 className="font-display text-2xl font-extrabold text-ink">Low stock</h2>
             <div className="mt-4 grid gap-2">
               {(dashboard?.low_stock_products ?? []).slice(0, 5).map((product) => (
@@ -935,7 +935,7 @@ function AdminWorkspace() {
             </div>
           </section>
 
-          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+          <section className="rounded-[1.75rem] border border-line bg-card p-5 shadow-soft">
             <h2 className="font-display text-2xl font-extrabold text-ink">Out of stock</h2>
             <div className="mt-4 grid gap-2">
               {(dashboard?.out_of_stock_products ?? []).slice(0, 5).map((product) => (
@@ -956,7 +956,7 @@ function AdminWorkspace() {
             </div>
           </section>
 
-          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+          <section className="rounded-[1.75rem] border border-line bg-card p-5 shadow-soft">
             <h2 className="font-display text-2xl font-extrabold text-ink">Best sellers</h2>
             <div className="mt-4 grid gap-2">
               {(dashboard?.best_selling_products ?? []).slice(0, 5).map((product) => (
@@ -980,7 +980,7 @@ function AdminWorkspace() {
         </div>
 
         <div className="mt-5 grid gap-5 lg:grid-cols-4">
-          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+          <section className="rounded-[1.75rem] border border-line bg-card p-5 shadow-soft">
             <h2 className="font-display text-xl font-extrabold text-ink">Revenue by day</h2>
             <div className="mt-4 grid gap-2">
               {(dashboard?.revenue_by_day ?? []).slice(0, 5).map((item) => (
@@ -997,7 +997,7 @@ function AdminWorkspace() {
             </div>
           </section>
 
-          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+          <section className="rounded-[1.75rem] border border-line bg-card p-5 shadow-soft">
             <h2 className="font-display text-xl font-extrabold text-ink">Payment status</h2>
             <div className="mt-4 grid gap-2">
               {(dashboard?.payment_status_summary ?? []).map((item) => (
@@ -1009,7 +1009,7 @@ function AdminWorkspace() {
             </div>
           </section>
 
-          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+          <section className="rounded-[1.75rem] border border-line bg-card p-5 shadow-soft">
             <h2 className="font-display text-xl font-extrabold text-ink">Cities</h2>
             <div className="mt-4 grid gap-2">
               {(dashboard?.city_order_summary ?? []).map((item) => (
@@ -1021,7 +1021,7 @@ function AdminWorkspace() {
             </div>
           </section>
 
-          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+          <section className="rounded-[1.75rem] border border-line bg-card p-5 shadow-soft">
             <h2 className="font-display text-xl font-extrabold text-ink">Top customers</h2>
             <div className="mt-4 grid gap-2">
               {(dashboard?.top_customers ?? []).slice(0, 5).map((item) => (
@@ -1038,7 +1038,7 @@ function AdminWorkspace() {
         </div>
 
         <div className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-          <section className="rounded-[1.75rem] border border-line bg-white shadow-soft">
+          <section className="rounded-[1.75rem] border border-line bg-card shadow-soft">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
               <div>
                 <h2 className="font-display text-2xl font-extrabold text-ink">Support queue</h2>
@@ -1068,7 +1068,7 @@ function AdminWorkspace() {
                 <Link
                   key={conversation.key}
                   href="/admin"
-                  className="flex items-center gap-3 px-5 py-4 transition hover:bg-[#fff8fb]"
+                  className="flex items-center gap-3 px-5 py-4 transition hover:bg-paper"
                 >
                   <span className="grid size-11 shrink-0 place-items-center rounded-full bg-blush text-sm font-extrabold text-blossomdeep">
                     {staffInitials(conversation.name, conversation.email)}
@@ -1105,7 +1105,7 @@ function AdminWorkspace() {
           </section>
 
           <aside className="grid gap-5">
-            <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+            <section className="rounded-[1.75rem] border border-line bg-card p-5 shadow-soft">
               <h2 className="font-display text-2xl font-extrabold text-ink">Tools</h2>
               <div className="mt-4 grid gap-3">
                 <Link
@@ -1157,7 +1157,7 @@ function AdminWorkspace() {
         </div>
 
         <div className="mt-5 grid gap-5 lg:grid-cols-2">
-          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+          <section className="rounded-[1.75rem] border border-line bg-card p-5 shadow-soft">
             <h2 className="font-display text-2xl font-extrabold text-ink">Team account</h2>
             <form onSubmit={onAdminProfileSubmit} className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="block">
@@ -1187,7 +1187,7 @@ function AdminWorkspace() {
                 <input
                   value={user.email}
                   readOnly
-                  className="mt-2 w-full rounded-2xl border border-line bg-[#f2f3f7] px-4 py-3 text-sm font-medium text-stone outline-none"
+                  className="mt-2 w-full rounded-2xl border border-line bg-field px-4 py-3 text-sm font-medium text-stone outline-none"
                 />
               </label>
 
@@ -1225,7 +1225,7 @@ function AdminWorkspace() {
             </form>
           </section>
 
-          <section className="rounded-[1.75rem] border border-line bg-white p-5 shadow-soft">
+          <section className="rounded-[1.75rem] border border-line bg-card p-5 shadow-soft">
             <h2 className="font-display text-2xl font-extrabold text-ink">Security</h2>
             <form onSubmit={onAdminPasswordSubmit} className="mt-5 grid gap-4">
               <label className="block">
@@ -1338,8 +1338,8 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
   }
 
   return (
-    <main className="min-h-[calc(100vh-66px)] bg-gradient-to-br from-[#ffe8f3] via-[#fff3f8] to-white px-5 py-6">
-      <section className="mx-auto max-w-[520px] rounded-[28px] border border-line bg-white px-6 py-7 shadow-[0_24px_80px_-45px_rgba(236,22,130,0.7)] sm:px-10 sm:py-8">
+    <main className="min-h-[calc(100vh-66px)] bg-gradient-to-br from-herowash via-rosewash to-paper px-5 py-6">
+      <section className="mx-auto max-w-[520px] rounded-[28px] border border-line bg-card px-6 py-7 shadow-[0_24px_80px_-45px_rgba(169,62,100,0.3)] sm:px-10 sm:py-8">
         <div className="text-center">
           <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-blush font-display text-2xl font-extrabold text-blossomdeep">
             B
@@ -1371,7 +1371,7 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 placeholder={t.usernamePlaceholder}
-                className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                className="mt-2 w-full rounded-2xl border border-line bg-card px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
               />
             </label>
           )}
@@ -1384,7 +1384,7 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder={t.emailPlaceholder}
-              className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
+              className="mt-2 w-full rounded-2xl border border-line bg-card px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
             />
           </label>
 
@@ -1397,7 +1397,7 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder={t.passwordPlaceholder}
-              className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
+              className="mt-2 w-full rounded-2xl border border-line bg-card px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
             />
           </label>
 
@@ -1412,7 +1412,7 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
                   value={passwordConfirm}
                   onChange={(event) => setPasswordConfirm(event.target.value)}
                   placeholder={t.confirmPlaceholder}
-                  className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                  className="mt-2 w-full rounded-2xl border border-line bg-card px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
                 />
               </label>
 
@@ -1425,7 +1425,7 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
                   placeholder={t.phonePlaceholder}
-                  className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
+                  className="mt-2 w-full rounded-2xl border border-line bg-card px-4 py-3 text-base outline-none transition placeholder:text-stone focus:border-blossomdeep"
                 />
               </label>
             </>
@@ -1566,7 +1566,7 @@ function ConnectedAccounts({ user }: { user: AuthUser }) {
                   type="button"
                   disabled={!enabled || linking !== null}
                   onClick={() => void link(provider)}
-                  className="mt-3 rounded-full border border-line bg-white px-4 py-2 text-xs font-extrabold text-ink transition hover:border-blossomdeep hover:text-blossomdeep disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-3 rounded-full border border-line bg-card px-4 py-2 text-xs font-extrabold text-ink transition hover:border-blossomdeep hover:text-blossomdeep disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {linking === provider
                     ? "Opening provider…"
@@ -1752,7 +1752,7 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                       <span className={`${badgeBase} ${orderStatusBadgeClass(order.status)}`}>
                         {order.status_display}
                       </span>
-                      <span className={`${badgeBase} bg-white text-stone ring-1 ring-line`}>
+                      <span className={`${badgeBase} bg-card text-stone ring-1 ring-line`}>
                         {order.payment_method_display}
                       </span>
                       <span
@@ -1782,7 +1782,7 @@ function CustomerOrderHistory({ currency }: { currency: Currency }) {
                   ))}
                 </ul>
 
-                <div className="mt-4 grid gap-3 rounded-2xl bg-white p-4 text-sm md:grid-cols-4">
+                <div className="mt-4 grid gap-3 rounded-2xl bg-card p-4 text-sm md:grid-cols-4">
                   <div>
                     <p className="text-xs font-extrabold uppercase tracking-wider text-stone">
                       Delivery
