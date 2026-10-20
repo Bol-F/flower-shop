@@ -2,27 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { fallbackCatalogCategories, loadCatalogCategories } from "@/lib/catalog";
-import { copy } from "@/lib/i18n";
+import { categoryName } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import type { Category } from "@/lib/types";
-import "./catalog-product.css";
+import { CATEGORY_ICONS, RoseIcon } from "./icons";
 
-const labels = {
-  EN: { title: "Made for every occasion", all: "All flowers", nav: "Flower categories" },
-  RU: { title: "Для каждого повода", all: "Все цветы", nav: "Категории цветов" },
-  UZ: { title: "Har bir lahza uchun", all: "Barcha gullar", nav: "Gul toifalari" },
-};
-
+/** Horizontally scrollable category circles, Flowwow-style but ours */
 export default function CategoryRail() {
   const { category, setCategory, language } = useStore();
   const [categories, setCategories] = useState<Category[]>(fallbackCatalogCategories);
-  const t = labels[language];
 
   useEffect(() => {
     let cancelled = false;
     loadCatalogCategories()
       .then((items) => {
-        if (!cancelled) setCategories(items);
+        if (!cancelled && items.length > 0) setCategories(items);
       })
       .catch(() => {
         if (!cancelled) setCategories(fallbackCatalogCategories);
@@ -32,35 +26,53 @@ export default function CategoryRail() {
     };
   }, []);
 
-  function chooseCategory(id: string | null) {
-    setCategory(id);
-    document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
-  }
-
   return (
-    <section id="collections" className="site-container occasion-section">
-      <h2 className="occasion-heading">{t.title}</h2>
-      <nav aria-label={t.nav} className="occasion-navigation">
-        <button
-          type="button"
-          aria-pressed={category === null}
-          onClick={() => chooseCategory(null)}
-          className="occasion-link"
-        >
-          {t.all}
-        </button>
-        {categories.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            aria-pressed={category === item.id}
-            onClick={() => chooseCategory(category === item.id ? null : item.id)}
-            className="occasion-link"
-          >
-            {(copy[language].categories as Record<string, string>)[item.id] ?? item.name}
-          </button>
-        ))}
-      </nav>
-    </section>
+    <nav
+      id="collections"
+      aria-label="Categories"
+      className="mx-auto max-w-7xl scroll-mt-20 px-4 pt-8"
+    >
+      <ul className="flex min-h-[7rem] gap-4 overflow-x-auto no-scrollbar px-1 pb-3 sm:gap-5 sm:justify-between">
+        {categories.map((cat) => {
+          const Icon = CATEGORY_ICONS[cat.id] ?? RoseIcon;
+          const active = category === cat.id;
+          return (
+            <li key={cat.id} className="shrink-0 basis-[5.75rem] sm:basis-0 sm:flex-1">
+              <button
+                type="button"
+                aria-pressed={active}
+                aria-label={categoryName(language, cat.id)}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  setCategory(active ? null : cat.id);
+                  document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="group flex w-full flex-col items-center gap-1.5 rounded-2xl outline-none transition active:scale-[0.98]"
+              >
+                <span className="grid size-16 place-items-center rounded-full transition group-focus-visible:ring-2 group-focus-visible:ring-blossomdeep group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-paper">
+                  <span
+                    className={`grid size-14 place-items-center rounded-full transition duration-300 group-hover:-translate-y-1 group-hover:shadow-soft group-active:scale-95 ${
+                      active ? "ring-2 ring-blossomdeep ring-offset-2 ring-offset-paper" : "ring-0"
+                    }`}
+                    style={{ background: cat.tint }}
+                  >
+                    <span className="transition duration-300 group-hover:scale-110 group-hover:rotate-6">
+                      <Icon />
+                    </span>
+                  </span>
+                </span>
+                <span
+                  className={`flex min-h-[2.25rem] max-w-[5.75rem] items-start justify-center text-center text-xs font-semibold leading-tight transition-colors ${
+                    active ? "text-blossomdeep" : "text-ink/80"
+                  }`}
+                >
+                  {categoryName(language, cat.id)}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
   );
 }
