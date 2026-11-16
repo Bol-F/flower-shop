@@ -1,0 +1,111 @@
+name: Deploy demo backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact main commit whose CI passed
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: deploy-demo-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy tested main to Render
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify the exact commit passed CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.commit_sha }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import urllib.request
+
+          sha = os.environ['EXPECTED_SHA']
+          if not re.fullmatch(r'[0-9a-f]{40}', sha) or sha != os.environ['GITHUB_SHA']:
+              raise SystemExit('Run this workflow on main with its exact current commit SHA.')
+          repo = os.environ['GITHUB_REPOSITORY']
+          def github_json(path):
+              request = urllib.request.Request(
+                  f'https://api.github.com/repos/{repo}/{path}',
+                  headers={'Authorization': f'Bearer {os.environ["GH_TOKEN"]}', 'Accept': 'application/vnd.github+json'},
+              )
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+
+          if github_json('git/ref/heads/main')['object']['sha'] != sha:
+              raise SystemExit('The requested commit is no longer the current main commit.')
+          runs = github_json(f'actions/workflows/ci.yml/runs?head_sha={sha}&event=push&per_page=30')['workflow_runs']
+          ci = next((run for run in runs if run['head_branch'] == 'main' and run['head_sha'] == sha), None)
+          if not ci or ci['status'] != 'completed' or ci['conclusion'] != 'success':
+              raise SystemExit('The current main commit must pass CI before deployment.')
+          print(f'CI passed for {sha}.')
+          PY
+
+      - name: Trigger the existing Render deploy hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          EXPECTED_SHA: ${{ inputs.commit_sha }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          # Keep the hook secret in the runner; never print it or pass it as a process argument.
+          try:
+              parts = urllib.parse.urlsplit(os.environ.get('RENDER_DEPLOY_HOOK_URL', ''))
+              port = parts.port
+          except ValueError:
+              raise SystemExit('The existing Render deploy hook URL is malformed.') from None
+          if (parts.scheme != 'https' or parts.hostname != 'api.render.com'
+              or parts.username or parts.password or port not in (None, 443)
+              or parts.fragment or not re.fullmatch(r'/deploy/srv-[a-z0-9]+', parts.path)):
+              raise SystemExit('Configure a valid Render API deploy hook in the existing repository secret.')
+          query = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+          if not any(key == 'key' and value for key, value in query):
+              raise SystemExit('The existing Render deploy hook is missing its key.')
+          query = [(key, value) for key, value in query if key != 'ref']
+          query.append(('ref', os.environ['EXPECTED_SHA']))
+          url = urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query)))
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          request = urllib.request.Request(url, data=b'', method='POST')
+          try:
+              with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
+                  status = response.status
+                  payload = response.read(65536)
+          except urllib.error.HTTPError as error:
+              raise SystemExit(f'Render rejected the deploy hook (HTTP {error.code}); no secret was logged.') from None
+          except Exception as error:
+              raise SystemExit(f'Render request failed ({type(error).__name__}); no secret was logged.') from None
+          if status not in (200, 202):
+              raise SystemExit(f'Unexpected Render response: HTTP {status}.')
+          try:
+              deployment_id = json.loads(payload).get('deploy', {}).get('id', '')
+          except (ValueError, AttributeError):
+              deployment_id = ''
+          print(f'Render accepted the exact-commit deployment (HTTP {status}).')
+          if isinstance(deployment_id, str) and re.fullmatch(r'dep-[A-Za-z0-9]+', deployment_id):
+              print(f'Deployment: {deployment_id}')
+          print('Verify API health and database migrations before reporting this deployment live.')
+          PY

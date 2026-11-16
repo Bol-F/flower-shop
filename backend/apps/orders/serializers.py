@@ -1,6 +1,6 @@
-from django.utils import timezone
 from rest_framework import serializers
 
+from .delivery_schedule import available_delivery_slots, default_delivery_selection, delivery_now
 from .models import DeliveryZone, NotificationLog, Order, OrderItem, PaymentAttempt
 
 
@@ -254,7 +254,6 @@ class CreateOrderSerializer(serializers.Serializer):
     delivery_time_slot = serializers.ChoiceField(
         choices=Order.DeliveryTimeSlot.choices,
         required=False,
-        default=Order.DeliveryTimeSlot.MIDDAY,
     )
     delivery_zone_id = serializers.PrimaryKeyRelatedField(
         source='delivery_zone',
@@ -273,10 +272,12 @@ class CreateOrderSerializer(serializers.Serializer):
     def validate(self, attrs):
         request = self.context.get('request')
         user = getattr(request, 'user', None)
-        today = timezone.localdate()
+        now = delivery_now()
+        today = now.date()
         delivery_address = attrs.get('delivery_address') or attrs.get('shipping_address')
         phone = attrs.get('phone') or attrs.get('recipient_phone')
-        delivery_date = attrs.get('delivery_date') or today
+        default_date, default_slot = default_delivery_selection(now=now)
+        delivery_date = attrs.get('delivery_date') or default_date
 
         if not delivery_address:
             raise serializers.ValidationError({'delivery_address': 'Delivery address is required.'})
@@ -285,6 +286,23 @@ class CreateOrderSerializer(serializers.Serializer):
         if delivery_date < today:
             raise serializers.ValidationError(
                 {'delivery_date': 'Delivery date cannot be in the past.'}
+            )
+        available_slots = available_delivery_slots(delivery_date, now=now)
+        delivery_time_slot = attrs.get('delivery_time_slot')
+        if not delivery_time_slot:
+            delivery_time_slot = (
+                Order.DeliveryTimeSlot.MIDDAY
+                if Order.DeliveryTimeSlot.MIDDAY in available_slots
+                else (available_slots[0] if available_slots else default_slot)
+            )
+        if delivery_time_slot not in available_slots:
+            raise serializers.ValidationError(
+                {
+                    'delivery_time_slot': (
+                        'This delivery window has ended. Choose another time or date '
+                        '(Tashkent time).'
+                    )
+                }
             )
 
         default_recipient_name = 'Recipient'
@@ -301,9 +319,7 @@ class CreateOrderSerializer(serializers.Serializer):
         attrs['shipping_address'] = attrs.get('shipping_address') or delivery_address
         attrs['phone'] = phone
         attrs['delivery_date'] = delivery_date
-        attrs['delivery_time_slot'] = (
-            attrs.get('delivery_time_slot') or Order.DeliveryTimeSlot.MIDDAY
-        )
+        attrs['delivery_time_slot'] = delivery_time_slot
         attrs['recipient_name'] = attrs.get('recipient_name') or default_recipient_name
         attrs['recipient_phone'] = attrs.get('recipient_phone') or phone
         return attrs

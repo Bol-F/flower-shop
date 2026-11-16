@@ -5,11 +5,16 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   calculateDeliveryFee,
-  deliveryTimeSlots,
   fallbackDeliveryZones,
   type DeliveryZoneOption,
   type DeliveryTimeSlot,
 } from "@/lib/delivery";
+import {
+  availableDeliverySlots,
+  defaultDeliverySelection,
+  deliveryDateFromNow,
+  preferredDeliverySlot,
+} from "@/lib/delivery-slots";
 import { copy, languages } from "@/lib/i18n";
 import {
   ApiError,
@@ -48,19 +53,8 @@ import {
 
 type DeliveryDayMode = "today" | "tomorrow" | "custom";
 
-function formatDateInput(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function relativeDeliveryDate(mode: Exclude<DeliveryDayMode, "custom">): string {
-  const date = new Date();
-  if (mode === "tomorrow") {
-    date.setDate(date.getDate() + 1);
-  }
-  return formatDateInput(date);
+function relativeDeliveryDate(mode: Exclude<DeliveryDayMode, "custom">, now = new Date()): string {
+  return deliveryDateFromNow(mode === "tomorrow" ? 1 : 0, now);
 }
 
 function cityToSlug(city: string) {
@@ -130,9 +124,11 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
   const [promoLoading, setPromoLoading] = useState(false);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZoneOption[]>(fallbackDeliveryZones);
   const [selectedDeliveryZoneId, setSelectedDeliveryZoneId] = useState(fallbackDeliveryZones[0].id);
-  const [deliveryDayMode, setDeliveryDayMode] = useState<DeliveryDayMode>("today");
-  const [customDeliveryDate, setCustomDeliveryDate] = useState(relativeDeliveryDate("today"));
-  const [deliveryTimeSlot, setDeliveryTimeSlot] = useState<DeliveryTimeSlot>(deliveryTimeSlots[1]);
+  const [initialDelivery] = useState(defaultDeliverySelection);
+  const [deliveryNow, setDeliveryNow] = useState(() => new Date());
+  const [deliveryDayMode, setDeliveryDayMode] = useState<DeliveryDayMode>(initialDelivery.day);
+  const [selectedDeliveryDate, setSelectedDeliveryDate] = useState(initialDelivery.date);
+  const [deliveryTimeSlot, setDeliveryTimeSlot] = useState<DeliveryTimeSlot>(initialDelivery.slot);
   const [recipientName, setRecipientName] = useState(user?.username ?? "");
   const [recipientPhone, setRecipientPhone] = useState(user?.phone ?? "");
   const [giftNote, setGiftNote] = useState("");
@@ -157,9 +153,22 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
     deliveryZones.find((zone) => zone.id === selectedDeliveryZoneId) ?? deliveryZones[0] ?? null;
   const deliveryFee = calculateDeliveryFee(total, selectedDeliveryZone);
   const finalTotal = Math.max(total + deliveryFee - promoDiscount, 0);
-  const selectedDeliveryDate =
-    deliveryDayMode === "custom" ? customDeliveryDate : relativeDeliveryDate(deliveryDayMode);
-  const minDeliveryDate = relativeDeliveryDate("today");
+  const minDeliveryDate = defaultDeliverySelection(deliveryNow).date;
+  const availableTimeSlots = availableDeliverySlots(selectedDeliveryDate, deliveryNow);
+  const hasSelectedTimeSlot = availableTimeSlots.includes(deliveryTimeSlot);
+  const todayDeliveryAvailable =
+    availableDeliverySlots(relativeDeliveryDate("today", deliveryNow), deliveryNow).length > 0;
+
+  useEffect(() => {
+    if (!checkoutOpen) return;
+    const refreshClock = () => setDeliveryNow(new Date());
+    const timer = window.setInterval(refreshClock, 30_000);
+    window.addEventListener("focus", refreshClock);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshClock);
+    };
+  }, [checkoutOpen]);
 
   useEffect(() => {
     const isMobile = window.matchMedia("(max-width: 639px)").matches;
@@ -239,9 +248,33 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
 
   function openCheckout() {
     if (cartLoading || cartSyncBlocked) return;
+    const now = new Date();
+    const date = selectedDeliveryDate;
+    const slots = availableDeliverySlots(date, now);
+    if (slots.length === 0) {
+      const next = defaultDeliverySelection(now);
+      setDeliveryDayMode(next.day);
+      setSelectedDeliveryDate(next.date);
+      setDeliveryTimeSlot(next.slot);
+    } else if (!slots.includes(deliveryTimeSlot)) {
+      setDeliveryTimeSlot(preferredDeliverySlot(date, now)!);
+    }
+    setDeliveryNow(now);
     setPaymentMethodsLoading(true);
     setPaymentMethodsError("");
     setCheckoutOpen(true);
+  }
+
+  function changeDeliveryDate(mode: DeliveryDayMode, customDate = selectedDeliveryDate) {
+    const now = new Date();
+    const date = mode === "custom" ? customDate : relativeDeliveryDate(mode, now);
+    const slots = availableDeliverySlots(date, now);
+    setDeliveryNow(now);
+    setDeliveryDayMode(mode);
+    setSelectedDeliveryDate(date);
+    if (!slots.includes(deliveryTimeSlot) && slots.length > 0) {
+      setDeliveryTimeSlot(preferredDeliverySlot(date, now)!);
+    }
   }
 
   async function preparePayment(order: ApiOrder) {
@@ -315,6 +348,12 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
       return;
     }
     if (!selectedDeliveryDate || !deliveryTimeSlot) {
+      setError("Choose a delivery date and time slot.");
+      return;
+    }
+    const now = new Date();
+    if (!availableDeliverySlots(selectedDeliveryDate, now).includes(deliveryTimeSlot)) {
+      setDeliveryNow(now);
       setError("Choose a delivery date and time slot.");
       return;
     }
@@ -779,11 +818,13 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                           aria-label="Delivery day"
                           value={deliveryDayMode}
                           onChange={(event) =>
-                            setDeliveryDayMode(event.target.value as DeliveryDayMode)
+                            changeDeliveryDate(event.target.value as DeliveryDayMode)
                           }
                           className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm font-bold outline-none transition focus:border-blossomdeep"
                         >
-                          <option value="today">Today</option>
+                          <option value="today" disabled={!todayDeliveryAvailable}>
+                            Today
+                          </option>
                           <option value="tomorrow">Tomorrow</option>
                           <option value="custom">Choose date</option>
                         </select>
@@ -809,17 +850,22 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                       </label>
                       <label className="block">
                         <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-stone">
-                          Time
+                          Time (Tashkent)
                         </span>
                         <select
                           aria-label="Delivery time"
-                          value={deliveryTimeSlot}
+                          value={hasSelectedTimeSlot ? deliveryTimeSlot : ""}
                           onChange={(event) =>
                             setDeliveryTimeSlot(event.target.value as DeliveryTimeSlot)
                           }
                           className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm font-bold outline-none transition focus:border-blossomdeep"
                         >
-                          {deliveryTimeSlots.map((slot) => (
+                          {!hasSelectedTimeSlot && (
+                            <option value="" disabled>
+                              Choose a delivery date and time slot.
+                            </option>
+                          )}
+                          {availableTimeSlots.map((slot) => (
                             <option key={slot} value={slot}>
                               {slot}
                             </option>
@@ -837,8 +883,8 @@ function CartDropdown({ onClose }: { onClose: () => void }) {
                           required
                           type="date"
                           min={minDeliveryDate}
-                          value={customDeliveryDate}
-                          onChange={(event) => setCustomDeliveryDate(event.target.value)}
+                          value={selectedDeliveryDate}
+                          onChange={(event) => changeDeliveryDate("custom", event.target.value)}
                           className="w-full rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none transition focus:border-blossomdeep sm:col-span-2"
                         />
                       )}

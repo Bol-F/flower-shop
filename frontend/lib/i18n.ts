@@ -136,7 +136,8 @@ export const copy = {
     footer: {
       tagline:
         "Gentle delivery of bouquets and gifts in Tashkent. Fresh flowers, careful assembly, and a photo before we send.",
-      hours: "Every day 8:00 – 22:00",
+      supportNote: "Questions about your order or delivery?",
+      support: "Contact support on Telegram",
       columns: {
         catalog: {
           title: "Catalog",
@@ -305,7 +306,8 @@ export const copy = {
     footer: {
       tagline:
         "Нежная доставка букетов и подарков в Ташкенте. Свежие цветы, аккуратная сборка и фото перед отправкой.",
-      hours: "Каждый день 8:00 – 22:00",
+      supportNote: "Есть вопросы о заказе или доставке?",
+      support: "Написать в поддержку в Telegram",
       columns: {
         catalog: {
           title: "Каталог",
@@ -481,7 +483,8 @@ export const copy = {
     footer: {
       tagline:
         "Toshkentda guldasta va sovg'alarni mehr bilan yetkazamiz. Yangi gullar, ozoda yig'ish va jo'natishdan oldin foto.",
-      hours: "Har kuni 8:00 – 22:00",
+      supportNote: "Buyurtma yoki yetkazib berish haqida savolingiz bormi?",
+      support: "Telegram orqali yordam xizmatiga yozish",
       columns: {
         catalog: {
           title: "Katalog",

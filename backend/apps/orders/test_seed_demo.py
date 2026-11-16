@@ -87,54 +87,19 @@ def test_seed_demo_runs_idempotently(tmp_path):
         }
 
     assert first_counts == {
-        'users': 2,
+        'users': 0,
         'products': 8,
-        'orders': 6,
-        'reviews': 3,
-        'messages': 2,
+        'orders': 0,
+        'reviews': 0,
+        'messages': 0,
         'promos': 2,
     }
     assert second_counts == first_counts
     assert second_image_names == first_image_names
-    assert User.objects.get(email='customer@example.com').check_password('demo12345')
-    staff = User.objects.get(email='staff@example.com')
-    assert staff.check_password('demo12345')
-    assert staff.is_staff is True
-    assert staff.is_superuser is False
-    assert staff.has_perm('orders.view_order')
-    assert staff.has_perm('orders.change_order')
-    assert staff.has_perm('products.view_product')
-    assert staff.has_perm('contact.view_usermessage')
-    assert list(staff.groups.values_list('name', flat=True)) == ['Demo flower shop operations']
-    assert not staff.user_permissions.exists()
-    assert staff.get_all_permissions() == {
-        'orders.view_order',
-        'orders.change_order',
-        'orders.view_orderitem',
-        'orders.view_deliveryzone',
-        'orders.view_paymentattempt',
-        'orders.view_paymentevent',
-        'orders.view_notificationlog',
-        'products.view_product',
-        'products.add_product',
-        'products.change_product',
-        'products.delete_product',
-        'categories.view_category',
-        'categories.add_category',
-        'categories.change_category',
-        'categories.delete_category',
-        'marketplace.view_courier',
-        'marketplace.view_city',
-        'marketplace.view_vendor',
-        'contact.view_usermessage',
-        'contact.change_usermessage',
-    }
-    assert not staff.has_perm('users.change_user')
-    assert not staff.has_perm('orders.delete_order')
-    assert Group.objects.filter(name='Demo flower shop operations').count() == 1
+    assert not Group.objects.filter(name='Demo flower shop operations').exists()
     assert Product.objects.get(slug='romantic-pink-roses').stock_status == 'low_stock'
     assert Product.objects.get(slug='wedding-bouquet').stock_status == 'out_of_stock'
-    assert Order.objects.filter(notes__startswith='Demo seed:').count() == 6
+    assert Order.objects.filter(notes__startswith='Demo seed:').count() == 0
 
 
 @pytest.mark.django_db

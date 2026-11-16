@@ -1354,14 +1354,6 @@ function AuthCard({ initialMode }: { initialMode: AuthMode }) {
 
         <SocialLoginButtons />
 
-        <div className="mt-4 rounded-2xl bg-paper px-4 py-3 text-sm">
-          <p className="font-extrabold text-ink">Demo accounts</p>
-          <p className="mt-1 font-semibold text-stone">
-            Customer: customer@example.com / demo12345
-          </p>
-          <p className="font-semibold text-stone">Staff: staff@example.com / demo12345</p>
-        </div>
-
         <form onSubmit={onSubmit} className="mt-6 grid gap-4 min-[520px]:grid-cols-2">
           {isRegister && (
             <label className="block">

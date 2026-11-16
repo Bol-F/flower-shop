@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { copy } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
+import { SUPPORT_TELEGRAM_URL } from "@/lib/support";
 
 export default function Footer() {
   const pathname = usePathname();
@@ -27,10 +28,15 @@ export default function Footer() {
           </Link>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-stone">{t.tagline}</p>
           <p className="mt-4 text-sm font-semibold">
-            {t.hours}
+            {t.supportNote}
             <br />
-            <a href="tel:+998711234567" className="text-berrydeep hover:underline">
-              +998 71 123-45-67
+            <a
+              href={SUPPORT_TELEGRAM_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-berrydeep hover:underline"
+            >
+              {t.support}
             </a>
           </p>
         </div>

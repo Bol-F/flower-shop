@@ -103,6 +103,18 @@ Create `flower_shop_db` first or point the `DB_*` variables in `backend/.env`
 to an existing PostgreSQL database. The API runs at `http://localhost:8000/api/`
 and Django admin at `http://localhost:8000/admin/`.
 
+`seed_demo` installs the sample catalog, images, delivery zones, and promotions.
+It does not create login accounts, orders, reviews, or support conversations.
+Register your own customer account through the storefront. For local admin
+access, run `python manage.py createsuperuser` against the intended development
+database and choose private credentials. Use Django admin to provision ordinary
+staff accounts with only the permissions their work requires.
+
+The account-retirement migration disables the formerly published customer and
+staff demo logins, revokes their sessions/tokens, and preserves their history.
+Startup seeding cannot restore those shared passwords. Keep operator credentials
+out of Git, screenshots, and public storefront copy.
+
 ### Background tasks and support notifications
 
 Normal development uses Redis for Channels and Celery. Starting Django alone

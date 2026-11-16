@@ -5,6 +5,10 @@ catalog uses demo products and the paid order uses the **test** provider; no
 real card or customer data appears in these images. Captures were taken at
 1440 × 900 (desktop) and 390 × 844 (mobile).
 
+The gallery includes legacy sample-account and order data. Those shared logins
+are now retired; current startup seeding installs only catalog data, images,
+delivery zones, and promotions.
+
 ![Bloom & Petal storefront](screenshots/homepage.png)
 
 ## Customer journey
@@ -41,9 +45,14 @@ real card or customer data appears in these images. Captures were taken at
 
 Start Django and Next.js using the [local setup](../README.md#local-setup),
 run `python manage.py seed_demo` **only against a development database**, and
-use the demo customer or staff account printed by that command. Enable the
-development test provider for the paid-order screen. Do not capture or commit
-real customer information, access tokens, or provider credentials.
+register a private local customer account. Create a private local operator with
+`python manage.py createsuperuser`, then provision any ordinary staff account
+with the required permissions in Django admin. The seed command does not print
+or create login credentials. Create synthetic orders, reviews, and support
+messages through the local workflows when reproducing account-specific screens.
+Enable the development test provider for the paid-order screen. Do not capture
+or commit private login credentials, real customer information, access tokens,
+or provider credentials.
 
 The former checklist also named empty search, a dedicated timeline, individual
 staff order/stock pages, and Django admin screenshots. Those files were never

@@ -20,13 +20,14 @@ This topology is for a portfolio demo, not a client production shop:
 2. Create a Render Blueprint from the repository-root `render.yaml`. Enter the
    Supabase connection string for `DATABASE_URL` when prompted.
 3. Wait until `https://flower-shop-api-demo.onrender.com/api/products/` returns
-   HTTP 200. Migrations and the idempotent `seed_demo` command run on startup.
+   HTTP 200. Migrations and the idempotent, catalog-only `seed_demo` command run
+   on startup. Seeding creates no login accounts or personal sample records.
 4. Use the existing Vercel project `flower-store` in the `bol-fs-projects` scope,
    linked to `Bol-F/flower-shop`, with `frontend` as the Root Directory. Deploy
    the storefront at `https://flower-store-theta.vercel.app`.
-5. Verify catalog browsing **including product images**, email login, cart,
-   checkout, the test-payment action, and the paid order in history. The test
-   provider never charges money.
+5. Register a private test customer and verify catalog browsing **including
+   product images**, email login, cart, checkout, the test-payment action, and
+   the paid order in history. The test provider never charges money.
 
 If either hostname changes, update the matching values in `render.yaml`,
 `frontend/vercel.json`, and the hosting environment settings before deploying.
@@ -37,10 +38,27 @@ pause inactive projects. Do not replace `config.settings.demo` with production
 settings until real payment, OAuth, Redis, media storage, notification, and
 operational requirements are ready.
 
-Demo accounts and seeded orders are public sample data. Do not put real
-customer records, private provider credentials, or production API keys in the
-demo database. See the [screenshot gallery](SCREENSHOTS.md) for the expected
-customer and staff views.
+The formerly published customer and staff demo logins are retired by a data
+migration. Their user rows and order/support history remain, but their passwords,
+sessions, refresh tokens, and staff access are revoked. Startup seeding must not
+recreate shared logins.
+
+For subsequent backend releases, the **Deploy demo backend** GitHub Actions
+workflow uses the existing `RENDER_DEPLOY_HOOK_URL` repository secret. Run it
+manually on `main` with the exact current commit SHA after that commit's CI
+succeeds. It deploys that same SHA; it never prints or copies the hook secret.
+Confirm API health and the applied Django migration before treating the release
+as live. This workflow does not enable automatic Render deployment.
+
+Provision a private operator through `python manage.py createsuperuser` in the
+intended backend environment, entering credentials privately. Use Django admin
+to grant ordinary staff only the model permissions their duties require; never
+publish operator credentials in the storefront or documentation. Customer
+registration and configured OAuth sign-in remain available.
+
+Keep real customer records out of this portfolio demo and store provider/API
+secrets only in the backend hosting environment. See the
+[screenshot gallery](SCREENSHOTS.md) for the customer and staff views.
 
 ## Enable real Google sign-in on the demo
 

@@ -12,13 +12,12 @@ import {
   type SupportMessage,
 } from "@/lib/api";
 import { useStore } from "@/lib/store";
-
-const TELEGRAM_URL = "https://t.me/Bol_F";
+import { SUPPORT_TELEGRAM_URL } from "@/lib/support";
 
 const text = {
   EN: {
     title: "Support service",
-    subtitle: "We usually answer within a few hours",
+    subtitle: "Questions about your order or delivery?",
     loginText: "Sign in to write to support.",
     login: "Sign in",
     telegram: "or message us on Telegram: @Bol_F",
@@ -33,7 +32,7 @@ const text = {
   },
   RU: {
     title: "Служба поддержки",
-    subtitle: "Обычно отвечаем в течение нескольких часов",
+    subtitle: "Есть вопросы о заказе или доставке?",
     loginText: "Войдите, чтобы написать в поддержку.",
     login: "Войти",
     telegram: "или напишите нам в Telegram: @Bol_F",
@@ -48,7 +47,7 @@ const text = {
   },
   UZ: {
     title: "Yordam xizmati",
-    subtitle: "Odatda bir necha soat ichida javob beramiz",
+    subtitle: "Buyurtma yoki yetkazib berish haqida savolingiz bormi?",
     loginText: "Yordam xizmatiga yozish uchun tizimga kiring.",
     login: "Kirish",
     telegram: "yoki bizga Telegram orqali yozing: @Bol_F",
@@ -252,7 +251,7 @@ export default function SupportChat() {
                   {t.login}
                 </Link>
                 <a
-                  href={TELEGRAM_URL}
+                  href={SUPPORT_TELEGRAM_URL}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-5 block text-base font-extrabold text-[#1d9bf0]"

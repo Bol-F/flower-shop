@@ -1,6 +1,8 @@
 import pytest
+from datetime import datetime, timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
+from zoneinfo import ZoneInfo
 from django.contrib.auth.models import Permission
 from django.test import override_settings
 from django.utils import timezone
@@ -87,7 +89,9 @@ def order_payload(**overrides):
         'delivery_address': '123 Flower Street, Garden City',
         'delivery_lat': '41.311081',
         'delivery_lng': '69.240562',
-        'delivery_date': timezone.localdate().isoformat(),
+        'delivery_date': (
+            timezone.localdate(timezone=ZoneInfo('Asia/Tashkent')) + timedelta(days=1)
+        ).isoformat(),
         'delivery_time_slot': Order.DeliveryTimeSlot.MIDDAY,
         'recipient_name': 'Jane Recipient',
         'recipient_phone': '+998901234567',
@@ -460,15 +464,19 @@ class TestOrderCreation:
         self, api_client, user, cart_with_item
     ):
         api_client.force_authenticate(user=user)
-        response = api_client.post(
-            reverse('order-create'),
-            {'shipping_address': '123 Street', 'phone': '+1234567890'},
-            format='json',
-        )
+        with patch(
+            'apps.orders.delivery_schedule.timezone.now',
+            return_value=datetime(2026, 11, 16, 9, tzinfo=ZoneInfo('Asia/Tashkent')),
+        ):
+            response = api_client.post(
+                reverse('order-create'),
+                {'shipping_address': '123 Street', 'phone': '+1234567890'},
+                format='json',
+            )
 
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['delivery_address'] == '123 Street'
-        assert response.data['delivery_date'] == timezone.localdate().isoformat()
+        assert response.data['delivery_date'] == '2026-11-16'
         assert response.data['delivery_time_slot'] == Order.DeliveryTimeSlot.MIDDAY
         assert response.data['recipient_name'] == user.username
         assert response.data['recipient_phone'] == '+1234567890'
