@@ -43,12 +43,11 @@ migration. Their user rows and order/support history remain, but their passwords
 sessions, refresh tokens, and staff access are revoked. Startup seeding must not
 recreate shared logins.
 
-For subsequent backend releases, the **Deploy demo backend** GitHub Actions
-workflow uses the existing `RENDER_DEPLOY_HOOK_URL` repository secret. Run it
-manually on `main` with the exact current commit SHA after that commit's CI
-succeeds. It deploys that same SHA; it never prints or copies the hook secret.
-Confirm API health and the applied Django migration before treating the release
-as live. This workflow does not enable automatic Render deployment.
+For subsequent backend releases, use **Manual Deploy → Deploy a specific
+commit** on the existing `flower-shop-api-demo` Render service after that commit
+passes CI. Confirm the selected commit SHA, API health, and applied Django
+migration before treating the release as live. Automatic Render deployment
+remains disabled.
 
 Provision a private operator through `python manage.py createsuperuser` in the
 intended backend environment, entering credentials privately. Use Django admin
