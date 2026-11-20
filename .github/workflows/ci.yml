@@ -61,7 +61,9 @@ jobs:
             backend/requirements-dev.txt
 
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: |
+          python -m pip install --upgrade 'pip>=26.2'
+          python -m pip install -r requirements-dev.txt
 
       - name: Lint and format check
         run: |
@@ -74,8 +76,10 @@ jobs:
       - name: Run tests
         run: pytest
 
-      - name: OAuth regression tests on PostgreSQL
-        run: pytest apps/users/test_oauth.py
+      - name: Backend regression tests on PostgreSQL
+        # SQLite does not enforce row locks. Exercise checkout, refresh-token,
+        # payment callback, loyalty, and database-role isolation on PostgreSQL.
+        run: pytest
         env:
           DJANGO_SETTINGS_MODULE: config.settings.test_postgres
           TEST_POSTGRES_DB: flower_shop_db

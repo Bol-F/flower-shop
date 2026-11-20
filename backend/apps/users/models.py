@@ -1,5 +1,7 @@
 from django.contrib.auth.models import AbstractUser
-from django.db import models
+from django.db import models, router, transaction
+from django.db.models.functions import Lower
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
@@ -47,9 +49,68 @@ class User(AbstractUser):
     class Meta:
         verbose_name = _('User')
         verbose_name_plural = _('Users')
+        constraints = [
+            models.UniqueConstraint(Lower('email'), name='users_email_ci_unique'),
+        ]
 
     def __str__(self):
         return self.email
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get('update_fields')
+        if self._state.adding or (update_fields is not None and 'password' not in update_fields):
+            return super().save(*args, **kwargs)
+        database = kwargs.get('using') or router.db_for_write(type(self), instance=self)
+        with transaction.atomic(using=database):
+            previous_password = (
+                type(self)
+                .objects.using(database)
+                .select_for_update()
+                .filter(pk=self.pk)
+                .values_list('password', flat=True)
+                .first()
+            )
+            result = super().save(*args, **kwargs)
+            if previous_password is not None and previous_password != self.password:
+                self._revoke_password_credentials(database)
+            return result
+
+    def _revoke_password_credentials(self, database):
+        # Django admin and API password changes must have the same effect.
+        # Keep account -> credential lock order consistent with OAuth and JWT
+        # exchange. No providers or external services are contacted here.
+        from rest_framework_simplejwt.token_blacklist.models import (
+            BlacklistedToken,
+            OutstandingToken,
+        )
+
+        now = timezone.now()
+        outstanding = OutstandingToken.objects.using(database).filter(
+            user=self,
+            expires_at__gt=now,
+            blacklistedtoken__isnull=True,
+        )
+        BlacklistedToken.objects.using(database).bulk_create(
+            [
+                BlacklistedToken(token_id=token_id)
+                for token_id in outstanding.values_list('pk', flat=True)
+            ],
+            ignore_conflicts=True,
+            batch_size=1000,
+        )
+        OAuthExchangeCode.objects.using(database).filter(user=self, expires_at__gt=now).update(
+            expires_at=now,
+        )
+        OAuthLinkExchangeCode.objects.using(database).filter(
+            linking_user=self,
+            expires_at__gt=now,
+        ).update(expires_at=now)
+        # Include callbacks that consumed their state before the provider HTTP
+        # request started, so they cannot create a fresh linking credential.
+        OAuthLoginAttempt.objects.using(database).filter(
+            linking_user=self,
+            expires_at__gt=now,
+        ).update(expires_at=now)
 
 
 class SocialIdentity(models.Model):

@@ -7,9 +7,9 @@ from .models import Review
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
     list_display = ('id', 'product', 'user_email', 'rating', 'created_at')
-    list_select_related = ('user', 'product')
+    list_select_related = ('user',)
     list_filter = ('rating', 'created_at')
-    search_fields = ('product__name', 'user__email', 'user__username', 'body')
+    search_fields = ('product', 'user__email', 'user__username', 'body')
     readonly_fields = ('user', 'product', 'rating', 'body', 'created_at', 'updated_at')
     ordering = ('-created_at',)
     date_hierarchy = 'created_at'

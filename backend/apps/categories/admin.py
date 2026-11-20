@@ -2,11 +2,14 @@ from django.contrib import admin
 from django.db.models import Count
 from django.utils.translation import gettext_lazy as _
 
+from apps.common.admin_forms import AutoSlugAdminForm
+
 from .models import Category
 
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
+    form = AutoSlugAdminForm
     list_display = ('name', 'slug', 'product_count', 'created_at')
     search_fields = ('name', 'slug')
     prepopulated_fields = {'slug': ('name',)}

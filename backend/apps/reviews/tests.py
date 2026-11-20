@@ -4,9 +4,17 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.users.models import User
+from apps.products.models import Product
 from apps.reviews.models import Review
 
 PRODUCT = 'pink-rose-harmony'
+
+
+@pytest.fixture(autouse=True)
+def catalog_product(db):
+    return Product.objects.create(
+        name='Pink Rose Harmony', slug=PRODUCT, description='Fresh flowers', price='25.00'
+    )
 
 
 @pytest.fixture

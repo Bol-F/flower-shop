@@ -1,10 +1,18 @@
 from rest_framework import serializers
 
+from apps.common.serializers import AutoSlugModelSerializer
+
 from .models import Category
 
 
-class CategorySerializer(serializers.ModelSerializer):
-    product_count = serializers.IntegerField(source='products.count', read_only=True)
+class CategorySerializer(AutoSlugModelSerializer):
+    product_count = serializers.SerializerMethodField()
+
+    def get_product_count(self, obj):
+        count = getattr(obj, '_product_count', None)
+        if count is not None:
+            return count
+        return obj.products.storefront().count()
 
     class Meta:
         model = Category

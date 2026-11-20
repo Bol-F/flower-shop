@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.core.cache import cache
 from rest_framework.test import APIClient
 
+from apps.marketplace.models import City, Vendor
 from apps.products.models import Product
 from apps.users.models import User
 
@@ -57,6 +58,14 @@ def test_catalog_advice_sends_only_public_available_catalog(assistant_client):
     Product.objects.create(name='Rose bouquet', price='30', stock=2, description='Fresh roses')
     Product.objects.create(name='Sold out', price='40', stock=0)
     Product.objects.create(name='Hidden bouquet', price='50', stock=3, is_available=False)
+    city = City.objects.create(name='Closed city', is_active=False)
+    vendor = Vendor.objects.create(name='Closed florist', is_active=False)
+    vendor_in_closed_city = Vendor.objects.create(name='Closed city florist', city=city)
+    Product.objects.create(name='Hidden city bouquet', price='30', stock=2, city=city)
+    Product.objects.create(name='Hidden florist bouquet', price='30', stock=2, vendor=vendor)
+    Product.objects.create(
+        name='Hidden florist city bouquet', price='30', stock=2, vendor=vendor_in_closed_city
+    )
     with patch('apps.contact.assistant.requests.post', return_value=gemini_response()) as post:
         response = assistant_client.post(
             reverse('flower-advice'),

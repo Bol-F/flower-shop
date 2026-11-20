@@ -1,10 +1,13 @@
 from typing import ClassVar
 
+from django import forms
 from django.contrib import admin
 from django.db.models import F, Q
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
+
+from apps.common.admin_forms import AutoSlugAdminForm
 
 from .models import City, Courier, PromoCode, Vendor, WishlistItem
 
@@ -43,6 +46,7 @@ class PromoAvailabilityFilter(admin.SimpleListFilter):
 
 @admin.register(City)
 class CityAdmin(admin.ModelAdmin):
+    form = AutoSlugAdminForm
     list_display = (
         'name',
         'country',
@@ -60,6 +64,7 @@ class CityAdmin(admin.ModelAdmin):
 
 @admin.register(Vendor)
 class VendorAdmin(admin.ModelAdmin):
+    form = AutoSlugAdminForm
     list_display = ('name', 'city', 'phone', 'commission_percent', 'is_active', 'created_at')
     list_filter = ('city', 'is_active')
     search_fields = ('name', 'slug', 'phone', 'address')
@@ -81,8 +86,15 @@ class CourierAdmin(admin.ModelAdmin):
     list_per_page = 25
 
 
+class PromoCodeAdminForm(forms.ModelForm):
+    def clean_code(self):
+        # Match Model.save() normalization before the uniqueness check.
+        return self.fields['code'].clean(self.cleaned_data['code'].strip().upper())
+
+
 @admin.register(PromoCode)
 class PromoCodeAdmin(admin.ModelAdmin):
+    form = PromoCodeAdminForm
     list_display = (
         'code',
         'discount_type',

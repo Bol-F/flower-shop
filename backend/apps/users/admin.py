@@ -1,7 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserCreationForm
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
 from .models import SocialIdentity, User
@@ -75,7 +76,42 @@ class UserAdmin(BaseUserAdmin):
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
-        return queryset if request.user.is_superuser else queryset.filter(is_staff=False)
+        return (
+            queryset
+            if request.user.is_superuser
+            else queryset.filter(is_staff=False, is_superuser=False)
+        )
+
+    @transaction.atomic
+    def save_model(self, request, obj, form, change):
+        if not change:
+            return super().save_model(request, obj, form, change)
+        current = User.objects.select_for_update().get(pk=obj.pk)
+        if not self.has_change_permission(request, current):
+            raise PermissionDenied
+        editable_fields = {
+            field.name
+            for field in obj._meta.concrete_fields
+            if field.editable and not field.primary_key and field.name != 'password'
+        }
+        changed_fields = editable_fields.intersection(form.changed_data)
+        # Admin password reset has its own form/view. A normal account edit
+        # must not restore an old password or unrelated permission fields.
+        if changed_fields:
+            obj.save(update_fields=changed_fields)
+
+    def save_related(self, request, form, formsets, change):
+        unchanged_relations = {}
+        if change:
+            for field in ('groups', 'user_permissions'):
+                if field not in form.changed_data and field in form.cleaned_data:
+                    unchanged_relations[field] = form.cleaned_data.pop(field)
+        try:
+            # ModelForm otherwise writes even unchanged many-to-many fields
+            # and can undo permissions granted after this form was loaded.
+            return super().save_related(request, form, formsets, change)
+        finally:
+            form.cleaned_data.update(unchanged_relations)
 
     def get_readonly_fields(self, request, obj=None):
         fields = super().get_readonly_fields(request, obj)
@@ -84,12 +120,12 @@ class UserAdmin(BaseUserAdmin):
         return (*fields, 'loyalty_points', 'is_staff', 'is_superuser', 'groups', 'user_permissions')
 
     def has_change_permission(self, request, obj=None):
-        if obj is not None and obj.is_staff and not request.user.is_superuser:
+        if obj is not None and (obj.is_staff or obj.is_superuser) and not request.user.is_superuser:
             return False
         return super().has_change_permission(request, obj)
 
     def has_delete_permission(self, request, obj=None):
-        if obj is not None and obj.is_staff and not request.user.is_superuser:
+        if obj is not None and (obj.is_staff or obj.is_superuser) and not request.user.is_superuser:
             return False
         return super().has_delete_permission(request, obj)
 

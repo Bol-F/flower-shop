@@ -58,11 +58,28 @@ unless you have tested its session and migration behavior. If SSL is required,
 keep `sslmode=require` in the URL.
 
 This app uses Supabase as a private PostgreSQL host, not as a browser Data API.
-Review the project's Data API exposed schemas and table grants before launch:
-keep Django application tables in a non-exposed schema or revoke public API
-access; if tables must be exposed, enable RLS and narrowly scoped policies.
+Migration `users.0012_private_database_tables` revokes Supabase API-role grants
+on Django application tables and their sequences, enables RLS without forcing
+it on the backend table owner, and makes future tables/sequences created by the
+migration role private by default (removing global and public-schema API-role
+default grants). It leaves existing objects in Supabase-managed schemas and
+unrelated public tables unchanged. The backend runtime role must remain the
+table owner (the current deployment uses `postgres`); a separate runtime role
+requires explicit backend grants and policies before switching roles.
+
+Disable the unused Data API in Supabase's Data API integration settings as an
+additional boundary. If a future feature needs that API, expose a dedicated
+schema with explicit grants and RLS policies rather than opening Django tables.
+See [Supabase's API security guide](https://supabase.com/docs/guides/api/securing-your-api).
 Never put a database password or Supabase secret/service-role key in
 `NEXT_PUBLIC_*` variables.
+
+The password-revocation hardening release binds JWTs to the account's current
+password hash. Existing tokens issued before that release require a fresh
+sign-in. Password changes also invalidate pending OAuth exchange/link codes.
+Migration `users.0011_case_insensitive_email` rejects existing case-insensitive
+duplicate email identities without modifying accounts; resolve any reported
+duplicates explicitly before retrying the migration.
 
 ## 3. Render Backend
 

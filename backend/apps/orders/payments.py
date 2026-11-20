@@ -254,19 +254,35 @@ def payment_summary(payment: PaymentAttempt) -> dict:
     }
 
 
-def _order_status_for_payment(payment_status: str, current_order_status: str) -> str:
+def _order_status_for_payment(payment_status: str) -> str:
     if payment_status == PaymentAttempt.Status.PAID:
         return Order.PaymentStatus.PAID
     if payment_status == PaymentAttempt.Status.REFUNDED:
         return Order.PaymentStatus.REFUNDED
-    if (
-        payment_status in {PaymentAttempt.Status.FAILED, PaymentAttempt.Status.CANCELLED}
-        and current_order_status != Order.PaymentStatus.PAID
-    ):
+    if payment_status in {PaymentAttempt.Status.FAILED, PaymentAttempt.Status.CANCELLED}:
         return Order.PaymentStatus.FAILED
     return Order.PaymentStatus.PENDING
 
 
+def lock_payment_for_update(queryset) -> PaymentAttempt | None:
+    """Lock order before payment, as checkout, cancellation and cash actions do.
+
+    Locking a payment joined to its order in one SQL statement lets PostgreSQL
+    acquire the payment first, which can deadlock an order-first writer.
+    """
+    identity = queryset.values('pk', 'order_id').first()
+    if identity is None:
+        return None
+    if not Order.objects.select_for_update().filter(pk=identity['order_id']).first():
+        return None
+    return (
+        PaymentAttempt.objects.select_for_update(of=('self',))
+        .select_related('order')
+        .get(pk=identity['pk'])
+    )
+
+
+@transaction.atomic
 def transition_payment(
     payment: PaymentAttempt,
     next_status: str,
@@ -282,6 +298,8 @@ def transition_payment(
     provider_time: int | None = None,
     cancellation_reason: int | None = None,
 ) -> PaymentAttempt:
+    order = Order.objects.select_for_update().get(pk=payment.order_id)
+    payment = PaymentAttempt.objects.select_for_update().get(pk=payment.pk)
     current = payment.status
     if next_status != current and next_status not in PAYMENT_TRANSITIONS.get(current, set()):
         raise ValidationError(
@@ -297,7 +315,6 @@ def transition_payment(
     ):
         return payment
 
-    order = Order.objects.select_for_update().get(pk=payment.order_id)
     if next_status == PaymentAttempt.Status.PAID:
         if order.status == Order.Status.CANCELLED or order.inventory_released_at is not None:
             raise ValidationError({'order': 'A cancelled or expired order cannot be paid.'})
@@ -326,14 +343,20 @@ def transition_payment(
         fields.extend(('provider_cancel_time', 'cancellation_reason'))
     payment.save(update_fields=fields)
 
-    order.payment_provider = payment.provider
+    # A verified successful charge wins over a different attempt's late event.
+    # Otherwise the newest checkout is authoritative, including after refunds.
+    attempts = order.payments.order_by('-created_at', '-pk')
+    authoritative = attempts.filter(status=PaymentAttempt.Status.PAID).first() or attempts.first()
+    order.payment_provider = authoritative.provider
     order.payment_reference = (
-        payment.external_payment_id or payment.provider_reference or str(payment.public_id)
+        authoritative.external_payment_id
+        or authoritative.provider_reference
+        or str(authoritative.public_id)
     )
-    order.payment_status = _order_status_for_payment(next_status, order.payment_status)
+    order.payment_status = _order_status_for_payment(authoritative.status)
     order_fields = ['payment_provider', 'payment_reference', 'payment_status', 'updated_at']
-    if next_status == PaymentAttempt.Status.PAID and order.paid_at is None:
-        order.paid_at = payment.paid_at
+    if authoritative.status == PaymentAttempt.Status.PAID and order.paid_at is None:
+        order.paid_at = authoritative.paid_at
         order_fields.append('paid_at')
     order.save(update_fields=order_fields)
 
@@ -360,13 +383,14 @@ def transition_payment(
     return payment
 
 
+@transaction.atomic
 def release_inventory_for_cancelled_order(order: Order) -> None:
     order = Order.objects.select_for_update().get(pk=order.pk)
     if order.inventory_released_at is not None or order.payment_status == Order.PaymentStatus.PAID:
         return
     items = list(order.items.all())
     product_ids = [item.product_id for item in items if item.product_id]
-    products = Product.objects.select_for_update().in_bulk(product_ids)
+    products = Product.objects.select_for_update().order_by('pk').in_bulk(product_ids)
     for item in items:
         product = products.get(item.product_id)
         if product:

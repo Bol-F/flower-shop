@@ -91,7 +91,8 @@ def flower_advice(*, message, language='EN', use_web_search=False):
         raise ValidationError({'use_web_search': 'Web search is currently unavailable.'})
 
     products = list(
-        Product.objects.filter(is_available=True, stock__gt=0)
+        Product.objects.storefront()
+        .filter(stock__gt=0)
         .order_by('name')
         .values(
             'name',

@@ -2,6 +2,7 @@ from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin import helpers
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Count
 from django.template.response import TemplateResponse
 from django.urls import path
@@ -364,6 +365,33 @@ class OrderAdmin(admin.ModelAdmin):
             .select_related('city', 'vendor', 'assigned_courier', 'delivery_zone')
             .annotate(_item_count=Count('items'))
         )
+
+    @transaction.atomic
+    def get_object(self, request, object_id, from_field=None):
+        obj = super().get_object(request, object_id, from_field)
+        if obj is not None and request.method == 'POST':
+            # The surrounding Django change-form transaction retains this lock.
+            # Re-read without the list query's aggregate before deriving fields.
+            return Order.objects.using(obj._state.db).select_for_update().filter(pk=obj.pk).first()
+        return obj
+
+    @transaction.atomic
+    def save_model(self, request, obj, form, change):
+        if not change:
+            raise PermissionDenied
+        current = Order.objects.select_for_update().get(pk=obj.pk)
+        editable = set(form.fields) - set(self.get_readonly_fields(request, current))
+        concrete_fields = {
+            field.name for field in Order._meta.concrete_fields if not field.primary_key
+        }
+        changed_fields = set(form.changed_data) & editable & concrete_fields
+        if changed_fields:
+            for field in changed_fields:
+                setattr(current, field, getattr(obj, field))
+            # A full model save also writes readonly columns from its old
+            # snapshot, potentially undoing payment or fulfillment updates.
+            current.save(update_fields=changed_fields | {'updated_at'})
+        obj.refresh_from_db()
 
     def has_delete_permission(self, request, obj=None):
         """Keep order and payment audit history intact."""

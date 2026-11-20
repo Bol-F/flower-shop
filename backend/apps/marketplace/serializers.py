@@ -37,7 +37,6 @@ class VendorSerializer(serializers.ModelSerializer):
             'address',
             'city',
             'is_active',
-            'commission_percent',
             'created_at',
         )
 
@@ -77,7 +76,7 @@ class WishlistItemSerializer(serializers.ModelSerializer):
     product = ProductListSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(
         source='product',
-        queryset=Product.objects.filter(is_available=True),
+        queryset=Product.objects.storefront(),
         write_only=True,
     )
 

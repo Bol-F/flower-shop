@@ -13,7 +13,7 @@ from apps.marketplace.services import (
 from apps.products.models import Product
 
 from . import notifications
-from .models import Order, OrderItem
+from .models import DeliveryZone, Order, OrderItem
 from .payments import (
     initial_payment_provider,
     initial_payment_reference,
@@ -50,7 +50,13 @@ def create_order_from_cart(
         raise ValidationError('Your cart is empty.')
 
     product_ids = [item.product_id for item in cart_items]
-    products = Product.objects.select_for_update().order_by('pk').in_bulk(product_ids)
+    products = (
+        Product.objects.storefront()
+        .select_related('vendor')
+        .select_for_update(of=('self',))
+        .order_by('pk')
+        .in_bulk(product_ids)
+    )
 
     for item in cart_items:
         product = products.get(item.product_id)
@@ -58,6 +64,8 @@ def create_order_from_cart(
             raise ValidationError(f'"{item.product.name}" is no longer available.')
         if product.price <= 0:
             raise ValidationError(f'"{product.name}" has invalid pricing and cannot be ordered.')
+        if item.quantity <= 0:
+            raise ValidationError({'quantity': 'Every cart item must have a positive quantity.'})
         if item.quantity > product.stock:
             raise ValidationError(f'Only {product.stock} item(s) available for "{product.name}".')
 
@@ -66,12 +74,36 @@ def create_order_from_cart(
     # values if staff edited a product while checkout was starting.
     subtotal = sum(products[item.product_id].price * item.quantity for item in cart_items)
     city = resolve_city(city_slug, user)
+    if delivery_zone is not None:
+        # Serializer instances can be stale by the time checkout acquires its
+        # locks. The current zone determines eligibility, fee and confirmation.
+        delivery_zone = (
+            DeliveryZone.objects.select_for_update(of=('self',))
+            .select_related('city')
+            .filter(pk=delivery_zone.pk, is_active=True)
+            .first()
+        )
+        if delivery_zone is None or (delivery_zone.city_id and not delivery_zone.city.is_active):
+            raise ValidationError({'delivery_zone_id': 'Selected delivery zone is not available.'})
     if delivery_zone and delivery_zone.city_id and city and delivery_zone.city_id != city.id:
         raise ValidationError(
             {'delivery_zone_id': 'Delivery zone does not belong to selected city.'}
         )
     if delivery_zone and delivery_zone.city_id:
         city = delivery_zone.city
+
+    for product in products.values():
+        assigned_cities = {
+            assigned
+            for assigned in (product.city_id, product.vendor.city_id if product.vendor_id else None)
+            if assigned is not None
+        }
+        if assigned_cities and (city is None or assigned_cities != {city.pk}):
+            raise ValidationError(
+                {
+                    'city_slug': f'"{product.name}" is not available for delivery in the selected city.'
+                }
+            )
 
     vendor_ids = {
         products[item.product_id].vendor_id

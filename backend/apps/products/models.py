@@ -3,14 +3,43 @@ from typing import ClassVar
 
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.db.models import Q
+from django.db.models import Avg, Count, FloatField, IntegerField, OuterRef, Q, Subquery, Value
+from django.db.models.functions import Coalesce
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
 from apps.categories.models import Category
 
 
+class ProductQuerySet(models.QuerySet):
+    def storefront(self):
+        """Publicly offered products, including unassigned local catalog rows."""
+        return self.filter(is_available=True).filter(
+            Q(city__isnull=True) | Q(city__is_active=True),
+            Q(vendor__isnull=True) | Q(vendor__is_active=True),
+            Q(vendor__city__isnull=True) | Q(vendor__city__is_active=True),
+        )
+
+    def with_review_stats(self):
+        from apps.reviews.models import Review
+
+        review_stats = (
+            Review.objects.filter(product=OuterRef('slug'))
+            .order_by()
+            .values('product')
+            .annotate(average=Avg('rating'), count=Count('id'))
+        )
+        return self.annotate(
+            rating_average=Subquery(review_stats.values('average')[:1], output_field=FloatField()),
+            rating_count=Coalesce(
+                Subquery(review_stats.values('count')[:1], output_field=IntegerField()), Value(0)
+            ),
+        )
+
+
 class Product(models.Model):
+    objects = ProductQuerySet.as_manager()
+
     name = models.CharField(_('name'), max_length=200)
     slug = models.SlugField(_('slug'), unique=True, blank=True)
     description = models.TextField(_('description'))

@@ -274,6 +274,9 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
+    # Bind access tokens to the current password, including passwords changed
+    # by staff in Django admin. Refresh validation enforces the same binding.
+    'CHECK_REVOKE_TOKEN': True,
 }
 
 CORS_ALLOWED_ORIGINS = env('CORS_ALLOWED_ORIGINS')

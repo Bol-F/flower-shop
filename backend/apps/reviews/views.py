@@ -1,8 +1,12 @@
 from django.db.models import Avg, Count
+from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+
+from apps.common.permissions import staff_has_model_permissions
+from apps.products.models import Product
 
 from .models import Review
 from .serializers import ReviewSerializer, ReviewWriteSerializer
@@ -30,6 +34,13 @@ def product_summary(product_id, request):
     }
 
 
+def require_catalog_product(product_id, request):
+    products = Product.objects.all()
+    if not staff_has_model_permissions(request.user, 'products.view_product'):
+        products = products.storefront()
+    return get_object_or_404(products, slug=product_id)
+
+
 class ProductSocialView(APIView):
     """GET the public summary of ratings + comments for a product.
     Readable by anyone; write actions live on the sibling endpoint."""
@@ -37,6 +48,7 @@ class ProductSocialView(APIView):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get(self, request, product_id):
+        require_catalog_product(product_id, request)
         return Response(product_summary(product_id, request))
 
 
@@ -48,6 +60,7 @@ class ReviewView(APIView):
     throttle_scope = 'review_write'
 
     def post(self, request, product_id):
+        require_catalog_product(product_id, request)
         serializer = ReviewWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         Review.objects.update_or_create(
@@ -58,5 +71,6 @@ class ReviewView(APIView):
         return Response(product_summary(product_id, request), status=status.HTTP_201_CREATED)
 
     def delete(self, request, product_id):
+        require_catalog_product(product_id, request)
         Review.objects.filter(user=request.user, product=product_id).delete()
         return Response(product_summary(product_id, request))

@@ -42,6 +42,14 @@ class UserMessageAdminSerializer(serializers.ModelSerializer):
     user_email = serializers.EmailField(source='user.email', read_only=True)
     user_username = serializers.CharField(source='user.username', read_only=True)
 
+    def validate(self, attrs):
+        if self.instance and self.instance.is_from_admin:
+            if 'admin_reply' in attrs or 'is_read' in attrs:
+                raise serializers.ValidationError(
+                    'Outgoing support messages cannot be changed. Send a new reply instead.'
+                )
+        return attrs
+
     class Meta:
         model = UserMessage
         fields = [

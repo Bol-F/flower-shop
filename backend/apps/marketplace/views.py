@@ -1,9 +1,11 @@
+from django.db.models import Prefetch, Q
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.common.permissions import HasStaffModelPermissions
+from apps.products.models import Product
 
 from .models import City, Courier, Vendor, WishlistItem
 from .serializers import (
@@ -24,7 +26,11 @@ class CityListView(generics.ListAPIView):
 class VendorListView(generics.ListAPIView):
     serializer_class = VendorSerializer
     permission_classes = [permissions.AllowAny]
-    queryset = Vendor.objects.filter(is_active=True).select_related('city')
+    queryset = (
+        Vendor.objects.filter(is_active=True)
+        .filter(Q(city__isnull=True) | Q(city__is_active=True))
+        .select_related('city')
+    )
 
 
 class CourierListView(generics.ListAPIView):
@@ -58,9 +64,15 @@ class WishlistView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return WishlistItem.objects.filter(user=self.request.user).select_related(
-            'product',
-            'product__category',
+        products = (
+            Product.objects.storefront()
+            .select_related('category', 'city', 'vendor')
+            .with_review_stats()
+        )
+        return WishlistItem.objects.filter(
+            user=self.request.user, product__in=Product.objects.storefront()
+        ).prefetch_related(
+            Prefetch('product', queryset=products),
         )
 
     def get_serializer_context(self):

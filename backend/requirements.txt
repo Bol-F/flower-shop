@@ -1,23 +1,26 @@
-# setuptools <81 still ships pkg_resources (removed in newer releases)
-setuptools>=69,<81
+setuptools==84.2.1
 Django==5.2.17
 whitenoise==6.6.0
-djangorestframework==3.15.2
+djangorestframework==3.18.3
 djangorestframework-simplejwt==5.5.1
 django-cors-headers==4.3.1
 django-extensions==4.1
 django-filter==24.3
 psycopg2-binary==2.9.12
 django-environ==0.11.2
-Pillow==12.2.0
+Pillow==13.0.0
 # Async / real-time
 channels==4.0.0
 channels-redis==4.1.0
 daphne==4.2.2
+Twisted[tls]==26.10.0
+autobahn==26.10.1
 
 # HTTP client (used by download_flower_images command)
 requests==2.33.0
-joserfc==1.7.5
+# Drop compromised emSign roots while retaining unaffected certificate roots.
+certifi>=2026.10.19
+joserfc==1.7.7
 
 # Task queue
 celery==5.3.6

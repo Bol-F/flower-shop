@@ -9,7 +9,11 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 
 from .models import Order, PaymentAttempt, PaymentEvent
-from .payments import release_inventory_for_cancelled_order, transition_payment
+from .payments import (
+    lock_payment_for_update,
+    release_inventory_for_cancelled_order,
+    transition_payment,
+)
 
 
 PAYME_TIMEOUT_MS = 43_200_000
@@ -46,9 +50,11 @@ def payme_authenticated(authorization: str) -> bool:
         login, password = decoded.split(':', 1)
     except (ValueError, UnicodeDecodeError):
         return False
-    return hmac.compare_digest(login, settings.PAYME_LOGIN) and hmac.compare_digest(
-        password,
-        settings.PAYME_SECRET_KEY,
+    return hmac.compare_digest(
+        login.encode('utf-8'), settings.PAYME_LOGIN.encode('utf-8')
+    ) and hmac.compare_digest(
+        password.encode('utf-8'),
+        settings.PAYME_SECRET_KEY.encode('utf-8'),
     )
 
 
@@ -58,10 +64,9 @@ def _payment_from_account(params: dict, *, lock: bool = False) -> PaymentAttempt
         raise PaymeProtocolError(-31050, 'Payment account was not found.', 'payment_id')
     public_id = account.get('payment_id')
     queryset = PaymentAttempt.objects.select_related('order')
-    if lock:
-        queryset = queryset.select_for_update()
     try:
-        payment = queryset.filter(public_id=public_id, provider='payme').first()
+        queryset = queryset.filter(public_id=public_id, provider='payme')
+        payment = lock_payment_for_update(queryset) if lock else queryset.first()
     except (DjangoValidationError, ValueError):
         payment = None
     if payment is None:
@@ -71,9 +76,8 @@ def _payment_from_account(params: dict, *, lock: bool = False) -> PaymentAttempt
 
 def _payment_from_transaction(transaction_id: str, *, lock: bool = False) -> PaymentAttempt:
     queryset = PaymentAttempt.objects.select_related('order')
-    if lock:
-        queryset = queryset.select_for_update()
-    payment = queryset.filter(provider='payme', external_payment_id=transaction_id).first()
+    queryset = queryset.filter(provider='payme', external_payment_id=transaction_id)
+    payment = lock_payment_for_update(queryset) if lock else queryset.first()
     if payment is None:
         raise PaymeProtocolError(-31003, 'Transaction was not found.', 'id')
     return payment
@@ -164,13 +168,11 @@ def _payme_create(params: dict) -> dict:
     transaction_id = str(params.get('id') or '')
     if len(transaction_id) != 24:
         raise PaymeProtocolError(-31003, 'Transaction identifier is invalid.', 'id')
-    existing = (
-        PaymentAttempt.objects.select_for_update()
-        .filter(
+    existing = lock_payment_for_update(
+        PaymentAttempt.objects.filter(
             provider='payme',
             external_payment_id=transaction_id,
         )
-        .first()
     )
     if existing:
         _validate_payme_amount(existing, params.get('amount'))
@@ -205,7 +207,7 @@ def _payme_create(params: dict) -> dict:
     payment.external_payment_id = transaction_id
     payment.provider_create_time = provider_time
     payment.save(update_fields=('external_payment_id', 'provider_create_time', 'updated_at'))
-    transition_payment(
+    payment = transition_payment(
         payment,
         PaymentAttempt.Status.PROCESSING,
         source=PaymentEvent.Source.PROVIDER,
@@ -240,7 +242,7 @@ def _payme_perform(params: dict) -> dict:
         raise PaymeProtocolError(-31008, 'Order reservation has expired.', 'id')
     now_ms = int(time.time() * 1000)
     if payment.provider_create_time and now_ms - payment.provider_create_time >= PAYME_TIMEOUT_MS:
-        transition_payment(
+        payment = transition_payment(
             payment,
             PaymentAttempt.Status.CANCELLED,
             source=PaymentEvent.Source.PROVIDER,
@@ -251,7 +253,7 @@ def _payme_perform(params: dict) -> dict:
         )
         release_inventory_for_cancelled_order(payment.order)
         raise PaymeProtocolError(-31008, 'Transaction timed out.', 'id')
-    transition_payment(
+    payment = transition_payment(
         payment,
         PaymentAttempt.Status.PAID,
         source=PaymentEvent.Source.PROVIDER,
@@ -287,7 +289,7 @@ def _payme_cancel(params: dict) -> dict:
         if payment.status == PaymentAttempt.Status.PAID
         else PaymentAttempt.Status.CANCELLED
     )
-    transition_payment(
+    payment = transition_payment(
         payment,
         next_status,
         source=PaymentEvent.Source.PROVIDER,
@@ -363,7 +365,9 @@ def click_signature_valid(data: dict) -> bool:
         pieces.append(str(data.get('merchant_prepare_id') or ''))
     pieces.extend((str(data.get('amount') or ''), action, str(data.get('sign_time') or '')))
     expected = hashlib.md5(''.join(pieces).encode('utf-8')).hexdigest()
-    return hmac.compare_digest(expected, str(data.get('sign_string') or '').lower())
+    return hmac.compare_digest(
+        expected.encode('ascii'), str(data.get('sign_string') or '').lower().encode('utf-8')
+    )
 
 
 def _click_common_checks(data: dict, expected_action: str):
@@ -374,14 +378,11 @@ def _click_common_checks(data: dict, expected_action: str):
     if str(data.get('action') or '') != expected_action:
         return None, click_response(-3)
     try:
-        payment = (
-            PaymentAttempt.objects.select_for_update()
-            .select_related('order')
-            .filter(
+        payment = lock_payment_for_update(
+            PaymentAttempt.objects.filter(
                 public_id=data.get('merchant_trans_id'),
                 provider='click',
             )
-            .first()
         )
     except (DjangoValidationError, ValueError):
         payment = None

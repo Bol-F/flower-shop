@@ -65,7 +65,8 @@ def update_cart_item(user, product_id: int, quantity: int) -> CartItem:
     except CartItem.DoesNotExist:
         raise ValidationError('Item not found in cart.')
 
-    _ensure_stock(cart_item.product, quantity)
+    product = _get_available_product(product_id)
+    _ensure_stock(product, quantity)
     cart_item.quantity = quantity
     cart_item.save()
     return cart_item
@@ -104,7 +105,9 @@ def merge_guest_selections(*, user, merge_id, items, wishlist):
             )
         return receipt.adjustments
 
-    products = {p.slug: p for p in Product.objects.filter(slug__in=set(quantities) | wishes)}
+    products = {
+        p.slug: p for p in Product.objects.storefront().filter(slug__in=set(quantities) | wishes)
+    }
     current = {item.product_id: item for item in cart.items.all()}
     adjusted, unavailable = [], []
     for slug, quantity in quantities.items():
@@ -141,7 +144,7 @@ def merge_guest_selections(*, user, merge_id, items, wishlist):
 
 def _get_available_product(product_id: int) -> Product:
     try:
-        product = Product.objects.get(id=product_id, is_available=True)
+        product = Product.objects.storefront().get(id=product_id)
     except Product.DoesNotExist:
         raise ValidationError('Product not found or unavailable.')
 
@@ -152,5 +155,7 @@ def _get_available_product(product_id: int) -> Product:
 
 
 def _ensure_stock(product: Product, quantity: int) -> None:
+    if quantity <= 0:
+        raise ValidationError('Quantity must be greater than 0.')
     if quantity > product.stock:
         raise ValidationError(f'Only {product.stock} item(s) available for "{product.name}".')

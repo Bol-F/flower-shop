@@ -1,13 +1,15 @@
 from decimal import ROUND_HALF_UP, Decimal
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.cart.serializers import CartSerializer
-from apps.cart.services import add_item_to_cart, get_cart_for_response
+from apps.cart.services import add_item_to_cart, get_cart_for_response, get_cart_for_update
 from apps.orders.models import Order
+from apps.products.models import Product
 
 from .models import City, PromoCode
 
@@ -98,20 +100,32 @@ def mark_promo_used(promo: PromoCode | None) -> None:
         raise ValidationError({'promo_code': 'Promo code usage limit reached.'})
 
 
+@transaction.atomic
 def award_loyalty_points_if_eligible(order: Order) -> Order:
+    # Fulfillment and admin callers may hold stale instances. Lock the durable
+    # award marker so retries cannot credit the same delivery twice.
+    persisted = Order.objects.select_for_update().get(pk=order.pk)
+    order.loyalty_points_earned = persisted.loyalty_points_earned
+    order.updated_at = persisted.updated_at
+    user_field = Order._meta.get_field('user')
+    if user_field.is_cached(order):
+        user_field.delete_cached_value(order)
     if (
-        order.status != Order.Status.DELIVERED
-        or order.payment_status not in [Order.PaymentStatus.PAID, Order.PaymentStatus.UNPAID]
-        or order.loyalty_points_earned
+        persisted.status != Order.Status.DELIVERED
+        or persisted.payment_status not in [Order.PaymentStatus.PAID, Order.PaymentStatus.UNPAID]
+        or persisted.loyalty_points_earned
     ):
         return order
 
-    points = max(int(order.total_price), 1)
-    user = order.user
-    user.loyalty_points += points
-    user.save(update_fields=['loyalty_points'])
+    points = max(int(persisted.total_price), 1)
+    # Independent delivered orders must not overwrite the same user's balance.
+    get_user_model().objects.filter(pk=persisted.user_id).update(
+        loyalty_points=F('loyalty_points') + points
+    )
+    persisted.loyalty_points_earned = points
+    persisted.save(update_fields=['loyalty_points_earned', 'updated_at'])
     order.loyalty_points_earned = points
-    order.save(update_fields=['loyalty_points_earned', 'updated_at'])
+    order.updated_at = persisted.updated_at
     return order
 
 
@@ -120,15 +134,27 @@ def repeat_order_to_cart(order: Order, user) -> dict:
     if order.user_id != user.id and not user.is_staff:
         raise ValidationError('You cannot repeat this order.')
 
+    cart = get_cart_for_update(user)
+    quantities = dict(cart.items.values_list('product_id', 'quantity'))
+    items = list(order.items.all())
+    product_ids = {item.product_id for item in items if item.product_id}
+    products = (
+        Product.objects.select_for_update().filter(pk__in=product_ids).order_by('pk').in_bulk()
+    )
+    available_ids = set(
+        Product.objects.storefront().filter(pk__in=product_ids).values_list('pk', flat=True)
+    )
     added = []
     skipped = []
-    for item in order.items.select_related('product'):
-        product = item.product
-        if not product or not product.is_available or product.stock <= 0:
+    for item in items:
+        product = products.get(item.product_id)
+        remaining = max(product.stock - quantities.get(product.pk, 0), 0) if product else 0
+        if not product or product.pk not in available_ids or not remaining:
             skipped.append(item.product_name)
             continue
-        quantity = min(item.quantity, product.stock)
+        quantity = min(item.quantity, remaining)
         add_item_to_cart(user, product.id, quantity)
+        quantities[product.pk] = quantities.get(product.pk, 0) + quantity
         added.append({'product': product.name, 'quantity': quantity})
 
     return {

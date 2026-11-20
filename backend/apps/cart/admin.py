@@ -1,6 +1,9 @@
 from decimal import Decimal
 
+from django import forms
 from django.contrib import admin
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import DecimalField, F, IntegerField, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils.translation import gettext_lazy as _
@@ -8,8 +11,21 @@ from django.utils.translation import gettext_lazy as _
 from .models import Cart, CartItem
 
 
+class CartItemAdminForm(forms.ModelForm):
+    class Meta:
+        model = CartItem
+        fields = '__all__'
+
+    def clean_quantity(self):
+        quantity = self.cleaned_data['quantity']
+        if quantity <= 0:
+            raise ValidationError(_('Quantity must be greater than 0.'))
+        return quantity
+
+
 class CartItemInline(admin.TabularInline):
     model = CartItem
+    form = CartItemAdminForm
     extra = 0
     readonly_fields = ('subtotal',)
     autocomplete_fields = ('product',)
@@ -32,6 +48,14 @@ class CartAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+    @transaction.atomic
+    def get_object(self, request, object_id, from_field=None):
+        obj = super().get_object(request, object_id, from_field)
+        if obj is not None and request.method == 'POST':
+            # Serialize inline edits with customer cart changes and checkout.
+            return Cart.objects.using(obj._state.db).select_for_update().filter(pk=obj.pk).first()
+        return obj
 
     def get_queryset(self, request):
         price_field = DecimalField(max_digits=18, decimal_places=2)

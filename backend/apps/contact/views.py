@@ -101,6 +101,10 @@ class AdminMessageListView(generics.ListAPIView):
     permission_classes = [HasStaffModelPermissions]
     staff_permissions = ('contact.view_usermessage',)
     queryset = UserMessage.objects.select_related('user').all()
+    search_fields = ('user__email', 'user__username', 'subject', 'body')
+    filterset_fields = {'user__email': ['exact'], 'is_read': ['exact']}
+    ordering_fields = ('created_at', 'id')
+    ordering = ('-created_at', '-id')
 
 
 class AdminMessageDetailView(generics.RetrieveUpdateAPIView):
@@ -123,13 +127,16 @@ class AdminMessageDetailView(generics.RetrieveUpdateAPIView):
         ):
             instance.is_read = True
             instance.save(update_fields=['is_read'])
-        return super().retrieve(request, *args, **kwargs)
+        return Response(self.get_serializer(instance).data)
 
     def perform_update(self, serializer):
         extra = {}
-        if serializer.validated_data.get('admin_reply'):
-            extra['replied_at'] = timezone.now()
-            extra['is_read'] = True
+        if 'admin_reply' in serializer.validated_data:
+            if serializer.validated_data['admin_reply']:
+                extra['replied_at'] = timezone.now()
+                extra['is_read'] = True
+            else:
+                extra['replied_at'] = None
         serializer.save(**extra)
 
 

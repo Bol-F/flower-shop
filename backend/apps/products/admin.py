@@ -7,6 +7,8 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
 
+from apps.common.admin_forms import AutoSlugAdminForm
+
 from .models import Product
 
 
@@ -33,6 +35,7 @@ class StockLevelFilter(admin.SimpleListFilter):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
+    form = AutoSlugAdminForm
     list_display = (
         'thumbnail',
         'name',

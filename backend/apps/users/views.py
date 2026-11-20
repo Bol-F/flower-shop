@@ -15,7 +15,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .models import OAuthExchangeCode, OAuthLinkExchangeCode
+from .models import OAuthExchangeCode, OAuthLinkExchangeCode, OAuthLoginAttempt, User
 from .oauth import (
     OAuthError,
     ProviderIdentity,
@@ -28,6 +28,7 @@ from .oauth import (
 from .serializers import (
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
+    CustomTokenRefreshSerializer,
     OAuthExchangeSerializer,
     RegisterSerializer,
     UserProfileSerializer,
@@ -59,7 +60,7 @@ class OAuthBrowserRedirectMixin(OAuthNoStoreMixin):
         return super().handle_exception(exc)
 
 
-class RegisterView(generics.CreateAPIView):
+class RegisterView(OAuthNoStoreMixin, generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
@@ -82,11 +83,12 @@ class CustomTokenObtainPairView(OAuthNoStoreMixin, TokenObtainPairView):
 
 
 class CustomTokenRefreshView(OAuthNoStoreMixin, TokenRefreshView):
+    serializer_class = CustomTokenRefreshSerializer
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth_refresh'
 
 
-class ProfileView(generics.RetrieveUpdateAPIView):
+class ProfileView(OAuthNoStoreMixin, generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -94,7 +96,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
-class ChangePasswordView(generics.GenericAPIView):
+class ChangePasswordView(OAuthNoStoreMixin, generics.GenericAPIView):
     serializer_class = ChangePasswordSerializer
     permission_classes = [permissions.IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
@@ -268,17 +270,24 @@ class OAuthCallbackView(OAuthBrowserRedirectMixin, generics.GenericAPIView):
                 _clear_attempt_secrets(attempt)
             if attempt.linking_user_id:
                 raw_link_code = secrets.token_urlsafe(48)
-                OAuthLinkExchangeCode.objects.create(
-                    linking_user=attempt.linking_user,
-                    provider=provider,
-                    issuer=identity.issuer,
-                    subject=identity.subject,
-                    email=identity.email,
-                    email_verified=identity.email_verified,
-                    token_digest=_state_digest(raw_link_code),
-                    expires_at=timezone.now()
-                    + timedelta(seconds=settings.OAUTH_EXCHANGE_TTL_SECONDS),
-                )
+                with transaction.atomic():
+                    linking_user = User.objects.select_for_update().get(pk=attempt.linking_user_id)
+                    current_attempt = OAuthLoginAttempt.objects.select_for_update().get(
+                        pk=attempt.pk
+                    )
+                    if not linking_user.is_active or current_attempt.expires_at <= timezone.now():
+                        raise OAuthError('expired', 'This account-link request has expired.')
+                    OAuthLinkExchangeCode.objects.create(
+                        linking_user=linking_user,
+                        provider=provider,
+                        issuer=identity.issuer,
+                        subject=identity.subject,
+                        email=identity.email,
+                        email_verified=identity.email_verified,
+                        token_digest=_state_digest(raw_link_code),
+                        expires_at=timezone.now()
+                        + timedelta(seconds=settings.OAUTH_EXCHANGE_TTL_SECONDS),
+                    )
                 return redirect(
                     _frontend_callback_fragment(
                         link_code=raw_link_code,
@@ -288,11 +297,18 @@ class OAuthCallbackView(OAuthBrowserRedirectMixin, generics.GenericAPIView):
                 )
             user = resolve_social_user(provider, identity)
             raw_code = secrets.token_urlsafe(48)
-            OAuthExchangeCode.objects.create(
-                user=user,
-                token_digest=_state_digest(raw_code),
-                expires_at=timezone.now() + timedelta(seconds=settings.OAUTH_EXCHANGE_TTL_SECONDS),
-            )
+            with transaction.atomic():
+                current_user = User.objects.select_for_update().get(pk=user.pk)
+                if not current_user.is_active or current_user.password != user.password:
+                    raise OAuthError(
+                        'expired', 'This sign-in request has expired. Please try again.'
+                    )
+                OAuthExchangeCode.objects.create(
+                    user=current_user,
+                    token_digest=_state_digest(raw_code),
+                    expires_at=timezone.now()
+                    + timedelta(seconds=settings.OAUTH_EXCHANGE_TTL_SECONDS),
+                )
             return redirect(_frontend_callback_fragment(code=raw_code, next=attempt.next_path))
         except OAuthError as exc:
             return redirect(_oauth_error_url(exc, attempt))
@@ -320,6 +336,18 @@ class OAuthExchangeView(OAuthNoStoreMixin, generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         raw_code = serializer.validated_data['code']
         digest = _state_digest(raw_code)
+        # Keep the account -> credential lock order consistent with password
+        # changes. Locking a joined credential first can deadlock revocation.
+        user_id = (
+            OAuthExchangeCode.objects.filter(token_digest=digest)
+            .values_list(
+                'user_id',
+                flat=True,
+            )
+            .first()
+        )
+        if user_id is not None:
+            User.objects.select_for_update().filter(pk=user_id).first()
         exchange = (
             OAuthExchangeCode.objects.select_for_update()
             .select_related('user')
@@ -363,6 +391,19 @@ class OAuthLinkExchangeView(OAuthNoStoreMixin, generics.GenericAPIView):
         serializer = OAuthExchangeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         raw_code = serializer.validated_data['code']
+        current_user = User.objects.select_for_update().filter(pk=request.user.pk).first()
+        if (
+            current_user is None
+            or not current_user.is_active
+            or current_user.password != request.user.password
+        ):
+            return Response(
+                {
+                    'code': 'session_expired',
+                    'detail': 'Please sign in again before linking an account.',
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
         exchange = (
             OAuthLinkExchangeCode.objects.select_for_update()
             .select_related('linking_user')
@@ -407,7 +448,7 @@ class OAuthLinkExchangeView(OAuthNoStoreMixin, generics.GenericAPIView):
             user = resolve_social_user(
                 exchange.provider,
                 identity,
-                linking_user=request.user,
+                linking_user=current_user,
             )
         except OAuthError as exc:
             return Response(

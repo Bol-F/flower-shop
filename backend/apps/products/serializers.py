@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from apps.categories.models import Category
 from apps.categories.serializers import CategorySerializer
+from apps.common.serializers import AutoSlugModelSerializer
 
 from .models import Product
 
@@ -41,7 +42,7 @@ class ProductListSerializer(serializers.ModelSerializer):
         )
 
 
-class ProductDetailSerializer(serializers.ModelSerializer):
+class ProductDetailSerializer(AutoSlugModelSerializer):
     category = CategorySerializer(read_only=True)
     stock_quantity = serializers.IntegerField(source='stock', read_only=True)
     city_name = serializers.CharField(source='city.name', read_only=True)

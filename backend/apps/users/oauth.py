@@ -155,8 +155,14 @@ def safe_next_path(value: str | None, default: str = '/profile') -> str:
     return value
 
 
+@transaction.atomic
 def create_login_attempt(provider: str, *, next_path: str = '', linking_user=None):
     config = provider_config(provider)
+    if linking_user is not None:
+        current_user = User.objects.select_for_update().get(pk=linking_user.pk)
+        if not current_user.is_active or current_user.password != linking_user.password:
+            raise OAuthError('session_expired', 'Please sign in again before linking an account.')
+        linking_user = current_user
     state = secrets.token_urlsafe(32)
     verifier = secrets.token_urlsafe(64)
     nonce = secrets.token_urlsafe(32)
