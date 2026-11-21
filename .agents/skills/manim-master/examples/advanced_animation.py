@@ -25,16 +25,8 @@ from manim import (
     smooth,
 )
 
+from perimeter_palette import CLAY, CORAL, GOLD, HONEY, INK, JADE, OCEAN, PAPER, QUIET
 
-PAPER = '#10252B'
-INK = '#F5F1E5'
-QUIET = '#B9CECA'
-JADE = '#72D6C2'
-OCEAN = '#255F62'
-GOLD = '#F5C574'
-HONEY = '#8C642E'
-CORAL = '#FFA38D'
-CLAY = '#79443D'
 M = 4.0
 UNIT = 0.92
 PANEL_X = 1.25

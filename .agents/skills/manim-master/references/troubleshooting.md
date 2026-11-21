@@ -32,6 +32,8 @@ Render mode runs the named scene as Python code using the current interpreter's 
 | Delivery pass | `python -m manim render -qh --fps 30 lesson.py MyScene` | 1920×1080 at the requested 30 fps. Choose a delivery rate suitable for the work. |
 | Native-size detail | `ffmpeg -ss 14.5 -i movie.mp4 -frames:v 1 turn.png` | Check the pivot, stroke separation and text during motion. |
 
+Lock the delivery frame rate before aligning narration or slides. CE samples each beat on a frame boundary. The same rectangle scene lasts 37.73 seconds at 15 fps and 37.40 seconds at 30 fps. Read the duration from the encoded master when building a timed companion.
+
 ## Follow the symptom
 
 - **Import or unknown-method error.** Print `python -c "import manim; print(manim.__version__, manim.__file__)"` from the rendering interpreter. Check for a local `manim.py` shadowing the package. Compare the exact release source when a keyword differs across editions or releases.

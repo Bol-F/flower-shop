@@ -1,9 +1,11 @@
 ---
 name: manim-master
-description: Design, code, render, and critique educational math or algorithm animations in Python with Manim. Use for a visual proof, an animated explainer, scene debugging, or a narrated multi-scene lesson.
+description: Design, code, render, and critique educational math or algorithm animations with Manim. Use for visual proofs, narrated lessons, scene debugging, and editable slide companions to an animation.
 ---
 
 # Manim Master
+
+Invoke `$manim-master` with a concept, audience and target length, or describe a visual proof, mathematical animation or lesson to trigger the skill. [Codex skill discovery](https://developers.openai.com/codex/skills/)
 
 Start with the question a viewer should be able to answer by the final frame. Choose one diagram whose movement can reveal the answer.
 
@@ -15,6 +17,8 @@ Start with the question a viewer should be able to answer by the final frame. Ch
 4. **Choose a visual grammar.** Assign a color and a second cue to each quantity. Block out the diagram, equation and captions in a 16:9 frame. Preview the longest expression and the extreme positions first. Give a title its place alongside the first piece of mathematical evidence. [Composition and palettes](references/visual-design.md)
 5. **Animate the reasoning.** Use one mathematical state to drive geometry, numbers and labels. Use a rigid motion for a dissection, a tracker for a changing parameter, and token matching for a rearranged equation. Hold reference axes or a witness point steady. Reserve fades for entrances, exits and changes of context. [Motion choices and working patterns](references/animation-patterns.md)
 6. **Control render cost.** Build static objects once. Update existing points or positions for frequent changes. Rebuild only small derived shapes, precompute layouts and samples, and retire updaters at the end of the beat. Preview the most expensive shot before producing a full lesson.
+
+For work that spans video, slides or print, choose tools by what the audience needs to view and what the recipient needs to edit. Verify access and export one representative object with the chosen toolchain. Preserve source data, editable slide objects and asset credits through handoff. [Professional tools, slide production and worked example](references/professional-workflow.md)
 
 ## Render and inspect
 
