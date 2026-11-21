@@ -1,0 +1,6 @@
+manim==0.22.1
+numpy==2.5.5
+av==19.0.2
+pillow==13.0.0
+soundfile==0.14.0
+kokoro-onnx==0.6.1

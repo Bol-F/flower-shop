@@ -1,0 +1,941 @@
+1
+00:00:00,230 --> 00:00:03,771
+Imagine that the only thing
+crossing a wire is the word hello.
+
+2
+00:00:04,416 --> 00:00:05,995
+You can read it in an instant.
+
+3
+00:00:06,640 --> 00:00:08,560
+So can someone listening to the wire.
+
+4
+00:00:09,729 --> 00:00:13,420
+Inside the computer, each letter
+is already a pattern of eight bits.
+
+5
+00:00:14,065 --> 00:00:15,494
+Here is H in binary.
+
+6
+00:00:16,139 --> 00:00:19,680
+We have changed the alphabet, but
+the message is still plain to see.
+
+7
+00:00:20,849 --> 00:00:22,663
+It gives us no secrecy at all.
+
+8
+00:00:23,308 --> 00:00:26,870
+To hide the message, we need something
+the listener cannot reproduce.
+
+9
+00:00:27,515 --> 00:00:30,438
+Watch what happens when a
+second stream meets the first.
+
+10
+00:00:31,083 --> 00:00:34,347
+Five readable letters turn into
+five quite different bytes.
+
+11
+00:00:35,516 --> 00:00:37,372
+Where does that second stream come from?
+
+12
+00:00:38,017 --> 00:00:40,193
+Follow one of its bits back along the wire.
+
+13
+00:00:40,838 --> 00:00:43,489
+Inside the generator are
+three rows of memory,
+
+14
+00:00:43,489 --> 00:00:45,809
+a handful of connections, and a clock.
+
+15
+00:00:46,978 --> 00:00:48,045
+This is Trivium.
+
+16
+00:00:48,690 --> 00:00:51,396
+We'll trace one bit from its
+birth inside the machine,
+
+17
+00:00:51,396 --> 00:00:53,831
+all the way to the person
+reading the message.
+
+18
+00:00:55,230 --> 00:00:58,921
+Think of each bit of the secret
+stream as an instruction for a switch.
+
+19
+00:00:59,489 --> 00:01:01,964
+A zero says, leave the message bit alone.
+
+20
+00:01:02,532 --> 00:01:04,175
+A one says, turn it over.
+
+21
+00:01:05,206 --> 00:01:07,104
+The switch is called exclusive or.
+
+22
+00:01:07,673 --> 00:01:08,782
+We'll write XOR.
+
+23
+00:01:09,351 --> 00:01:11,057
+Zero with zero gives zero.
+
+24
+00:01:11,626 --> 00:01:13,845
+With one input on, the result is one.
+
+25
+00:01:14,413 --> 00:01:17,528
+With both inputs on, the
+result drops back to zero.
+
+26
+00:01:18,558 --> 00:01:22,078
+Now read a pair of streams from
+left to right, one clock at a time.
+
+27
+00:01:22,647 --> 00:01:26,188
+The third position is the first
+place where our keystream says flip.
+
+28
+00:01:26,757 --> 00:01:29,104
+Watch the output separate
+from the message there.
+
+29
+00:01:30,134 --> 00:01:32,331
+Send the result through
+the same switch again.
+
+30
+00:01:32,900 --> 00:01:34,692
+A bit that flipped once flips back.
+
+31
+00:01:35,261 --> 00:01:37,053
+A bit that stayed still stays still.
+
+32
+00:01:37,621 --> 00:01:40,352
+The receiver can now read
+the original eight bits.
+
+33
+00:01:41,382 --> 00:01:45,670
+Getting that identical sequence of
+switches at both ends is the real trick.
+
+34
+00:01:46,239 --> 00:01:48,970
+Let's open the generator
+and see what it remembers.
+
+35
+00:01:50,230 --> 00:01:53,750
+A register is a row of places
+where the machine can hold bits.
+
+36
+00:01:54,270 --> 00:01:56,702
+Here are the three rows
+drawn to the same scale.
+
+37
+00:01:57,223 --> 00:02:00,145
+The blue row has ninety-three
+places, the teal row
+
+38
+00:02:00,145 --> 00:02:03,068
+eighty-four, and the orange
+row one hundred and eleven.
+
+39
+00:02:04,011 --> 00:02:06,528
+Together they hold two
+hundred and eighty-eight bits.
+
+40
+00:02:07,049 --> 00:02:09,267
+Number the cells straight
+through all three rows.
+
+41
+00:02:09,788 --> 00:02:11,366
+Teal begins at ninety-four.
+
+42
+00:02:11,887 --> 00:02:14,490
+Orange begins at one
+hundred and seventy-eight.
+
+43
+00:02:15,433 --> 00:02:16,670
+Look through this window.
+
+44
+00:02:17,190 --> 00:02:19,921
+Filled cells hold one,
+open cells hold zero.
+
+45
+00:02:20,441 --> 00:02:23,663
+Enlarging a cell leaves its
+address exactly where it was.
+
+46
+00:02:24,606 --> 00:02:28,296
+When the clock ticks, a stored bit
+moves one place along its own row.
+
+47
+00:02:28,817 --> 00:02:30,374
+The bit at the far end leaves.
+
+48
+00:02:30,894 --> 00:02:34,030
+That makes room at the entrance
+for a freshly calculated bit.
+
+49
+00:02:34,974 --> 00:02:36,211
+Trace the connections.
+
+50
+00:02:36,731 --> 00:02:40,955
+Blue helps feed teal, teal helps feed
+orange, and orange helps feed blue.
+
+51
+00:02:41,476 --> 00:02:44,057
+To start this circuit we
+need an initial pattern.
+
+52
+00:02:45,230 --> 00:02:47,918
+Here is a public practice
+key in hexadecimal.
+
+53
+00:02:48,108 --> 00:02:51,222
+A real secret key stays with
+the sender and receiver.
+
+54
+00:02:51,412 --> 00:02:54,057
+Each pair of hex digits
+represents one byte.
+
+55
+00:02:54,247 --> 00:02:56,124
+Ten pairs give us eighty key bits.
+
+56
+00:02:56,468 --> 00:02:59,817
+The other ten bytes are the
+initialization vector, or I V.
+
+57
+00:03:00,007 --> 00:03:01,799
+The receiver can know this value.
+
+58
+00:03:01,989 --> 00:03:04,958
+Changing it lets the same
+key start a different
+
+59
+00:03:04,958 --> 00:03:06,938
+message with a different
+internal arrangement.
+
+60
+00:03:07,282 --> 00:03:09,372
+The key fills the first eighty blue cells.
+
+61
+00:03:09,562 --> 00:03:11,813
+The vector fills positions
+ninety-four through
+
+62
+00:03:11,813 --> 00:03:14,063
+one hundred and seventy-three in teal.
+
+63
+00:03:14,253 --> 00:03:15,960
+Notice which end enters first.
+
+64
+00:03:16,149 --> 00:03:18,613
+In the reference byte
+convention, the high bit of
+
+65
+00:03:18,613 --> 00:03:21,077
+the last printed byte
+goes into the first cell.
+
+66
+00:03:21,421 --> 00:03:25,666
+Fill the thirteen spare blue places and
+the four spare teal places with zero.
+
+67
+00:03:25,856 --> 00:03:28,224
+Orange starts with one
+hundred and eight zeros.
+
+68
+00:03:28,414 --> 00:03:31,201
+Its last three positions,
+two hundred and eighty-six
+
+69
+00:03:31,201 --> 00:03:33,640
+through two hundred and
+eighty-eight, hold ones.
+
+70
+00:03:33,984 --> 00:03:35,776
+Every position now has a value.
+
+71
+00:03:35,966 --> 00:03:39,656
+Before we let this arrangement evolve,
+let's meet the rule that changes it.
+
+72
+00:03:40,230 --> 00:03:42,118
+For a clock with interesting inputs,
+
+73
+00:03:42,118 --> 00:03:45,265
+jump ahead to the first
+output clock of our example.
+
+74
+00:03:45,509 --> 00:03:47,813
+Freeze the state just
+before the clock ticks.
+
+75
+00:03:48,057 --> 00:03:50,873
+Every wire we follow reads
+this same photograph.
+
+76
+00:03:51,315 --> 00:03:52,360
+Begin in blue.
+
+77
+00:03:52,604 --> 00:03:55,612
+A tap is simply a wire that
+reads a particular cell.
+
+78
+00:03:55,856 --> 00:03:57,755
+Read sixty-six and ninety-three.
+
+79
+00:03:57,999 --> 00:03:59,513
+They contain one and zero.
+
+80
+00:03:59,757 --> 00:04:03,149
+Their exclusive or gives the
+first intermediate signal, one.
+
+81
+00:04:03,592 --> 00:04:08,008
+In teal, read one hundred and sixty-two
+and one hundred and seventy-seven.
+
+82
+00:04:08,251 --> 00:04:10,278
+Zero and one give us one again.
+
+83
+00:04:10,522 --> 00:04:13,160
+In orange, positions two
+hundred and forty-three
+
+84
+00:04:13,160 --> 00:04:16,175
+and two hundred and
+eighty-eight both hold zero.
+
+85
+00:04:16,419 --> 00:04:17,763
+Their signal is zero.
+
+86
+00:04:18,206 --> 00:04:20,040
+Bring those three signals together.
+
+87
+00:04:20,284 --> 00:04:22,140
+One exclusive or one is zero.
+
+88
+00:04:22,384 --> 00:04:25,542
+Combining that zero with
+the last zero leaves zero.
+
+89
+00:04:25,786 --> 00:04:27,450
+That is our first keystream bit.
+
+90
+00:04:27,693 --> 00:04:30,595
+The register entrances
+still need their own inputs.
+
+91
+00:04:31,037 --> 00:04:34,152
+Look at the neighboring blue
+taps, ninety-one and ninety-two.
+
+92
+00:04:34,396 --> 00:04:35,889
+This time the gate is AND.
+
+93
+00:04:36,133 --> 00:04:38,714
+Both cells contain one, so the gate opens.
+
+94
+00:04:38,958 --> 00:04:42,265
+If either input were zero,
+its contribution would vanish.
+
+95
+00:04:42,509 --> 00:04:44,728
+This product makes the feedback nonlinear.
+
+96
+00:04:45,170 --> 00:04:49,628
+Combine that product with the blue signal
+and the bit at one hundred and seventy-one.
+
+97
+00:04:49,872 --> 00:04:51,622
+The first feedback value is one.
+
+98
+00:04:51,866 --> 00:04:53,359
+Follow the other two paths.
+
+99
+00:04:53,603 --> 00:04:57,294
+Each takes its own pair of neighbors
+and one tap from a different row.
+
+100
+00:04:57,736 --> 00:05:01,298
+All three feedback values happen
+to be one in this photograph.
+
+101
+00:05:01,542 --> 00:05:03,100
+Their destinations matter.
+
+102
+00:05:03,344 --> 00:05:07,120
+The third goes to blue, the first
+to teal, and the second to orange.
+
+103
+00:05:07,562 --> 00:05:08,821
+Now release the clock.
+
+104
+00:05:09,065 --> 00:05:12,414
+Three new bits enter together
+as the old bits shift one place.
+
+105
+00:05:12,658 --> 00:05:17,116
+Reading even one tap after moving
+its row could change the calculation.
+
+106
+00:05:17,360 --> 00:05:19,558
+The snapshot keeps that boundary precise.
+
+107
+00:05:20,230 --> 00:05:22,363
+Rewind to the moment we loaded the key.
+
+108
+00:05:22,777 --> 00:05:25,103
+Use exactly the clock rule we just traced.
+
+109
+00:05:25,517 --> 00:05:28,311
+Here is the first tick, and
+then the second and third.
+
+110
+00:05:28,725 --> 00:05:32,245
+Red marks a position whose value
+differs from the previous tick.
+
+111
+00:05:32,996 --> 00:05:35,322
+Let the counter run to two
+hundred and eighty-eight,
+
+112
+00:05:35,322 --> 00:05:37,391
+the number of bits in the whole state.
+
+113
+00:05:37,805 --> 00:05:40,459
+The rows have different
+lengths, so this is a
+
+114
+00:05:40,459 --> 00:05:42,818
+counting landmark, not a
+return to the beginning.
+
+115
+00:05:43,568 --> 00:05:46,742
+At five hundred and
+seventy-six ticks, the key bits
+
+116
+00:05:46,742 --> 00:05:49,563
+have repeatedly met bits
+arriving from other rows.
+
+117
+00:05:49,977 --> 00:05:52,281
+Every image here comes
+from stepping the machine.
+
+118
+00:05:52,695 --> 00:05:55,980
+As the counter accelerates we
+sample its states for the screen.
+
+119
+00:05:56,731 --> 00:06:00,550
+The standard warm-up ends after
+eleven hundred and fifty-two clocks.
+
+120
+00:06:00,964 --> 00:06:03,929
+Every candidate output so
+far has been discarded.
+
+121
+00:06:04,343 --> 00:06:06,941
+The very next clock
+produces the first bit that
+
+122
+00:06:06,941 --> 00:06:09,250
+may actually be used to encrypt a message.
+
+123
+00:06:10,230 --> 00:06:11,361
+Return to hello.
+
+124
+00:06:11,468 --> 00:06:14,945
+Both endpoints have the same
+key and initialization vector.
+
+125
+00:06:15,053 --> 00:06:17,911
+Independently, they arrive
+at the same warmed state.
+
+126
+00:06:18,018 --> 00:06:19,576
+One will send five bytes.
+
+127
+00:06:19,683 --> 00:06:22,094
+The other needs forty
+matching keystream bits.
+
+128
+00:06:22,288 --> 00:06:26,896
+In ordinary hexadecimal notation the
+first plaintext byte is forty-eight.
+
+129
+00:06:27,004 --> 00:06:29,585
+The two L's have exactly
+the same byte value.
+
+130
+00:06:29,692 --> 00:06:32,611
+On this page, each binary
+byte is written in the
+
+131
+00:06:32,611 --> 00:06:35,239
+familiar way, with its
+highest place on the left.
+
+132
+00:06:35,433 --> 00:06:37,545
+The cipher fills the lowest place first.
+
+133
+00:06:37,653 --> 00:06:41,578
+Follow the early clock bits into the
+right-hand end of the first byte.
+
+134
+00:06:41,685 --> 00:06:45,248
+After eight clocks the completed
+mask byte reads F four.
+
+135
+00:06:45,355 --> 00:06:47,126
+Four more bytes fill in beside it.
+
+136
+00:06:47,320 --> 00:06:49,603
+Apply exclusive or down each column.
+
+137
+00:06:49,710 --> 00:06:51,481
+The first byte becomes B C.
+
+138
+00:06:51,588 --> 00:06:53,231
+Look at the two identical L's.
+
+139
+00:06:53,338 --> 00:06:57,349
+They land under different keystream bytes
+and give different ciphertext bytes.
+
+140
+00:06:57,543 --> 00:07:01,319
+At the receiver, pair each ciphertext
+byte with its original mask.
+
+141
+00:07:01,426 --> 00:07:04,925
+The same gate brings back the
+five letters, including both L's.
+
+142
+00:07:05,120 --> 00:07:07,732
+With a fixed key, use
+a fresh initialization
+
+143
+00:07:07,732 --> 00:07:09,365
+vector for each separate message.
+
+144
+00:07:09,472 --> 00:07:12,583
+Repeating the pair repeats the entire mask,
+
+145
+00:07:12,583 --> 00:07:14,806
+exposing relationships
+between the messages.
+
+146
+00:07:15,230 --> 00:07:17,193
+Make a second copy of the experiment.
+
+147
+00:07:17,395 --> 00:07:21,214
+Keep the key fixed, and flip just
+the high bit of the last vector byte.
+
+148
+00:07:21,416 --> 00:07:25,469
+In the loaded state that changes
+exactly one cell, the first one in teal.
+
+149
+00:07:25,671 --> 00:07:27,037
+Everything else agrees.
+
+150
+00:07:27,403 --> 00:07:28,961
+Clock both machines together.
+
+151
+00:07:29,163 --> 00:07:32,597
+A discrepancy can move along
+a row before it reaches a tap.
+
+152
+00:07:32,800 --> 00:07:36,853
+When it enters a feedback calculation,
+it can influence another row as well.
+
+153
+00:07:37,055 --> 00:07:39,061
+Watch the locations marked in red.
+
+154
+00:07:39,427 --> 00:07:41,432
+How do we count the effect on the output?
+
+155
+00:07:41,635 --> 00:07:43,619
+Write the two streams one above the other.
+
+156
+00:07:43,821 --> 00:07:46,893
+Add one when their next bits
+differ and zero when they agree.
+
+157
+00:07:47,095 --> 00:07:49,399
+The running total is
+called Hamming distance.
+
+158
+00:07:49,766 --> 00:07:53,520
+Here the horizontal distance is
+the number of output bits compared.
+
+159
+00:07:53,722 --> 00:07:55,962
+Each upward step is one disagreement.
+
+160
+00:07:56,165 --> 00:07:59,237
+After the full warm-up,
+sixty-six of the first hundred
+
+161
+00:07:59,237 --> 00:08:01,967
+and twenty-eight bits differ
+for this particular pair.
+
+162
+00:08:02,334 --> 00:08:05,065
+Restart both copies and
+try shorter warm-ups.
+
+163
+00:08:05,267 --> 00:08:08,595
+At two hundred and eighty-eight
+clocks, fifty-one outputs differ.
+
+164
+00:08:08,797 --> 00:08:11,720
+At five hundred and
+seventy-six, sixty-three differ.
+
+165
+00:08:11,922 --> 00:08:14,183
+These shorter runs are
+teaching experiments.
+
+166
+00:08:14,385 --> 00:08:17,725
+The specified cipher
+uses all eleven hundred
+
+167
+00:08:17,725 --> 00:08:19,633
+and fifty-two initialization clocks.
+
+168
+00:08:20,230 --> 00:08:22,861
+Take four thousand and
+ninety-six successive bits
+
+169
+00:08:22,861 --> 00:08:25,115
+from the original, fully
+initialized machine.
+
+170
+00:08:25,352 --> 00:08:27,016
+What can we measure about this one sample?
+
+171
+00:08:27,252 --> 00:08:29,577
+Start by sorting the
+bits into zeros and ones.
+
+172
+00:08:30,006 --> 00:08:33,867
+There are two thousand and forty-four
+zeros and two thousand and fifty-two ones.
+
+173
+00:08:34,103 --> 00:08:36,122
+The frequency test measures that imbalance
+
+174
+00:08:36,122 --> 00:08:38,477
+against what independent
+fair bits would produce.
+
+175
+00:08:38,905 --> 00:08:40,292
+Now keep the original order.
+
+176
+00:08:40,528 --> 00:08:42,981
+A run is a maximal
+stretch of identical bits.
+
+177
+00:08:43,218 --> 00:08:44,839
+Every change starts a new run.
+
+178
+00:08:45,076 --> 00:08:47,230
+Our sample has two
+thousand and fourteen runs.
+
+179
+00:08:47,466 --> 00:08:51,498
+A perfectly alternating sequence could be
+balanced and still have far too many runs.
+
+180
+00:08:51,927 --> 00:08:54,256
+Each p-value measures
+how unusual the statistic
+
+181
+00:08:54,256 --> 00:08:56,919
+is under a model of independent fair bits.
+
+182
+00:08:57,155 --> 00:08:58,521
+Both exceed one percent.
+
+183
+00:08:58,757 --> 00:09:00,848
+This describes two
+properties of one sample.
+
+184
+00:09:01,084 --> 00:09:03,793
+Establishing security is
+a much larger question.
+
+185
+00:09:04,222 --> 00:09:06,227
+For correctness, use a published answer.
+
+186
+00:09:06,463 --> 00:09:09,307
+Load the key and vector
+from the eSTREAM record,
+
+187
+00:09:09,307 --> 00:09:11,519
+generate sixty-four bytes,
+and compare every byte.
+
+188
+00:09:11,756 --> 00:09:14,572
+Expected and calculated
+match all the way to the end.
+
+189
+00:09:15,230 --> 00:09:17,427
+Now we can follow the entire journey.
+
+190
+00:09:17,614 --> 00:09:20,890
+The secret key and public
+initialization vector supply
+
+191
+00:09:20,890 --> 00:09:23,758
+the starting bits for
+three connected registers.
+
+192
+00:09:23,944 --> 00:09:26,802
+The three ones at the end
+complete the starting pattern.
+
+193
+00:09:27,140 --> 00:09:28,143
+Turn the clock.
+
+194
+00:09:28,329 --> 00:09:31,371
+Exclusive or combines taps,
+AND introduces a product,
+
+195
+00:09:31,371 --> 00:09:34,793
+and three feedback bits
+cross into their next rows.
+
+196
+00:09:34,979 --> 00:09:39,865
+Repeat the same rule eleven hundred and
+fifty-two times before keeping any output.
+
+197
+00:09:40,202 --> 00:09:42,506
+One more tick gives one keystream bit.
+
+198
+00:09:42,692 --> 00:09:44,954
+A fresh message bit meets it at the switch.
+
+199
+00:09:45,140 --> 00:09:48,383
+The receiver recreates that
+switch and recovers the letter.
+
+200
+00:09:48,569 --> 00:09:51,129
+We have followed the wire
+all the way back to hello.
+
+201
+00:09:51,466 --> 00:09:55,050
+Three registers, one clock,
+and a small set of operations.
+
+202
+00:09:55,237 --> 00:09:56,687
+That's the beauty of Trivium.
+
+203
+00:09:56,874 --> 00:09:58,239
+Simple operations.
+
+204
+00:09:58,425 --> 00:09:59,662
+Complex behavior.

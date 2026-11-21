@@ -83,3 +83,9 @@ def evidence():
         'expected': expected.hex().upper(),
         'actual': actual.hex().upper(),
     }
+
+
+if __name__ == '__main__':
+    (ROOT / 'data/measurements.json').write_text(
+        json.dumps(evidence(), indent=2) + '\n', encoding='utf8'
+    )

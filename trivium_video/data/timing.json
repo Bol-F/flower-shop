@@ -1,0 +1,1234 @@
+[
+  {
+    "title": "The wire",
+    "seconds": 55,
+    "beats": {
+      "letters": 0,
+      "alphabet": 9.729083333333334,
+      "veil": 20.849458333333335,
+      "engine": 35.51620833333333,
+      "title": 46.977916666666665
+    },
+    "captions": [
+      {
+        "start": 0.23,
+        "end": 3.771333333333333,
+        "text": "Imagine that the only thing crossing a wire is the word hello.",
+        "shot": "letters"
+      },
+      {
+        "start": 4.416333333333333,
+        "end": 5.995,
+        "text": "You can read it in an instant.",
+        "shot": "letters"
+      },
+      {
+        "start": 6.64,
+        "end": 8.56,
+        "text": "So can someone listening to the wire.",
+        "shot": "letters"
+      },
+      {
+        "start": 9.729083333333334,
+        "end": 13.41975,
+        "text": "Inside the computer, each letter is already a pattern of eight bits.",
+        "shot": "alphabet"
+      },
+      {
+        "start": 14.06475,
+        "end": 15.494083333333334,
+        "text": "Here is H in binary.",
+        "shot": "alphabet"
+      },
+      {
+        "start": 16.139083333333332,
+        "end": 19.680416666666666,
+        "text": "We have changed the alphabet, but the message is still plain to see.",
+        "shot": "alphabet"
+      },
+      {
+        "start": 20.849458333333335,
+        "end": 22.662791666666667,
+        "text": "It gives us no secrecy at all.",
+        "shot": "veil"
+      },
+      {
+        "start": 23.307791666666667,
+        "end": 26.870458333333332,
+        "text": "To hide the message, we need something the listener cannot reproduce.",
+        "shot": "veil"
+      },
+      {
+        "start": 27.515458333333335,
+        "end": 30.438125,
+        "text": "Watch what happens when a second stream meets the first.",
+        "shot": "veil"
+      },
+      {
+        "start": 31.083125,
+        "end": 34.347125,
+        "text": "Five readable letters turn into five quite different bytes.",
+        "shot": "veil"
+      },
+      {
+        "start": 35.51620833333333,
+        "end": 37.37220833333333,
+        "text": "Where does that second stream come from?",
+        "shot": "engine"
+      },
+      {
+        "start": 38.017208333333336,
+        "end": 40.19320833333333,
+        "text": "Follow one of its bits back along the wire.",
+        "shot": "engine"
+      },
+      {
+        "start": 40.838208333333334,
+        "end": 45.808875,
+        "text": "Inside the generator are three rows of memory, a handful of connections, and a clock.",
+        "shot": "engine"
+      },
+      {
+        "start": 46.977916666666665,
+        "end": 48.044583333333335,
+        "text": "This is Trivium.",
+        "shot": "title"
+      },
+      {
+        "start": 48.68958333333333,
+        "end": 53.83091666666667,
+        "text": "We'll trace one bit from its birth inside the machine, all the way to the person reading the message.",
+        "shot": "title"
+      }
+    ],
+    "voice_speed": 1.04,
+    "start": 0
+  },
+  {
+    "title": "A reversible switch",
+    "seconds": 55,
+    "beats": {
+      "pair": 0,
+      "truth": 10.205625,
+      "walk": 23.558416666666666,
+      "undo": 35.13404166666667,
+      "source": 46.38225
+    },
+    "captions": [
+      {
+        "start": 0.23,
+        "end": 3.9206666666666665,
+        "text": "Think of each bit of the secret stream as an instruction for a switch.",
+        "shot": "pair"
+      },
+      {
+        "start": 4.489208333333333,
+        "end": 6.963875,
+        "text": "A zero says, leave the message bit alone.",
+        "shot": "pair"
+      },
+      {
+        "start": 7.5324583333333335,
+        "end": 9.175125,
+        "text": "A one says, turn it over.",
+        "shot": "pair"
+      },
+      {
+        "start": 10.205625,
+        "end": 12.104291666666667,
+        "text": "The switch is called exclusive or.",
+        "shot": "truth"
+      },
+      {
+        "start": 12.672875,
+        "end": 13.782208333333333,
+        "text": "We'll write XOR.",
+        "shot": "truth"
+      },
+      {
+        "start": 14.35075,
+        "end": 16.057416666666665,
+        "text": "Zero with zero gives zero.",
+        "shot": "truth"
+      },
+      {
+        "start": 16.626,
+        "end": 18.844666666666665,
+        "text": "With one input on, the result is one.",
+        "shot": "truth"
+      },
+      {
+        "start": 19.413208333333333,
+        "end": 22.527875,
+        "text": "With both inputs on, the result drops back to zero.",
+        "shot": "truth"
+      },
+      {
+        "start": 23.558416666666666,
+        "end": 27.078416666666666,
+        "text": "Now read a pair of streams from left to right, one clock at a time.",
+        "shot": "walk"
+      },
+      {
+        "start": 27.646958333333334,
+        "end": 31.188291666666668,
+        "text": "The third position is the first place where our keystream says flip.",
+        "shot": "walk"
+      },
+      {
+        "start": 31.756875,
+        "end": 34.103541666666665,
+        "text": "Watch the output separate from the message there.",
+        "shot": "walk"
+      },
+      {
+        "start": 35.13404166666667,
+        "end": 37.331375,
+        "text": "Send the result through the same switch again.",
+        "shot": "undo"
+      },
+      {
+        "start": 37.89995833333333,
+        "end": 39.69195833333333,
+        "text": "A bit that flipped once flips back.",
+        "shot": "undo"
+      },
+      {
+        "start": 40.2605,
+        "end": 42.0525,
+        "text": "A bit that stayed still stays still.",
+        "shot": "undo"
+      },
+      {
+        "start": 42.62108333333333,
+        "end": 45.35175,
+        "text": "The receiver can now read the original eight bits.",
+        "shot": "undo"
+      },
+      {
+        "start": 46.38225,
+        "end": 50.67025,
+        "text": "Getting that identical sequence of switches at both ends is the real trick.",
+        "shot": "source"
+      },
+      {
+        "start": 51.23883333333333,
+        "end": 53.9695,
+        "text": "Let's open the generator and see what it remembers.",
+        "shot": "source"
+      }
+    ],
+    "voice_speed": 1.03,
+    "start": 55
+  },
+  {
+    "title": "Inside the machine",
+    "seconds": 55,
+    "beats": {
+      "lengths": 0,
+      "address": 14.011125,
+      "lens": 25.432625,
+      "shift": 34.60575,
+      "ring": 44.97354166666667
+    },
+    "captions": [
+      {
+        "start": 0.23,
+        "end": 3.75,
+        "text": "A register is a row of places where the machine can hold bits.",
+        "shot": "lengths"
+      },
+      {
+        "start": 4.270333333333333,
+        "end": 6.702333333333334,
+        "text": "Here are the three rows drawn to the same scale.",
+        "shot": "lengths"
+      },
+      {
+        "start": 7.222666666666667,
+        "end": 13.068,
+        "text": "The blue row has ninety-three places, the teal row eighty-four, and the orange row one hundred and eleven.",
+        "shot": "lengths"
+      },
+      {
+        "start": 14.011125,
+        "end": 16.528458333333333,
+        "text": "Together they hold two hundred and eighty-eight bits.",
+        "shot": "address"
+      },
+      {
+        "start": 17.048791666666666,
+        "end": 19.267458333333334,
+        "text": "Number the cells straight through all three rows.",
+        "shot": "address"
+      },
+      {
+        "start": 19.78783333333333,
+        "end": 21.3665,
+        "text": "Teal begins at ninety-four.",
+        "shot": "address"
+      },
+      {
+        "start": 21.886833333333332,
+        "end": 24.4895,
+        "text": "Orange begins at one hundred and seventy-eight.",
+        "shot": "address"
+      },
+      {
+        "start": 25.432625,
+        "end": 26.669958333333334,
+        "text": "Look through this window.",
+        "shot": "lens"
+      },
+      {
+        "start": 27.190291666666667,
+        "end": 29.920958333333335,
+        "text": "Filled cells hold one, open cells hold zero.",
+        "shot": "lens"
+      },
+      {
+        "start": 30.441291666666668,
+        "end": 33.662625,
+        "text": "Enlarging a cell leaves its address exactly where it was.",
+        "shot": "lens"
+      },
+      {
+        "start": 34.60575,
+        "end": 38.296416666666666,
+        "text": "When the clock ticks, a stored bit moves one place along its own row.",
+        "shot": "shift"
+      },
+      {
+        "start": 38.81675,
+        "end": 40.37408333333333,
+        "text": "The bit at the far end leaves.",
+        "shot": "shift"
+      },
+      {
+        "start": 40.894416666666665,
+        "end": 44.03041666666667,
+        "text": "That makes room at the entrance for a freshly calculated bit.",
+        "shot": "shift"
+      },
+      {
+        "start": 44.97354166666667,
+        "end": 46.210875,
+        "text": "Trace the connections.",
+        "shot": "ring"
+      },
+      {
+        "start": 46.731208333333335,
+        "end": 50.95520833333333,
+        "text": "Blue helps feed teal, teal helps feed orange, and orange helps feed blue.",
+        "shot": "ring"
+      },
+      {
+        "start": 51.475541666666665,
+        "end": 54.056875,
+        "text": "To start this circuit we need an initial pattern.",
+        "shot": "ring"
+      }
+    ],
+    "voice_speed": 1.07,
+    "start": 110
+  },
+  {
+    "title": "Loading the state",
+    "seconds": 55,
+    "beats": {
+      "key": 0,
+      "iv": 11.468,
+      "load": 22.281666666666666,
+      "padding": 36.42095833333333,
+      "seed": 48.983958333333334
+    },
+    "captions": [
+      {
+        "start": 0.23,
+        "end": 2.918,
+        "text": "Here is a public practice key in hexadecimal.",
+        "shot": "key"
+      },
+      {
+        "start": 3.107625,
+        "end": 6.222291666666667,
+        "text": "A real secret key stays with the sender and receiver.",
+        "shot": "key"
+      },
+      {
+        "start": 6.411958333333334,
+        "end": 9.057291666666666,
+        "text": "Each pair of hex digits represents one byte.",
+        "shot": "key"
+      },
+      {
+        "start": 9.246916666666667,
+        "end": 11.12425,
+        "text": "Ten pairs give us eighty key bits.",
+        "shot": "key"
+      },
+      {
+        "start": 11.468,
+        "end": 14.817333333333334,
+        "text": "The other ten bytes are the initialization vector, or I V.",
+        "shot": "iv"
+      },
+      {
+        "start": 15.006958333333333,
+        "end": 16.798958333333335,
+        "text": "The receiver can know this value.",
+        "shot": "iv"
+      },
+      {
+        "start": 16.988583333333334,
+        "end": 21.937916666666666,
+        "text": "Changing it lets the same key start a different message with a different internal arrangement.",
+        "shot": "iv"
+      },
+      {
+        "start": 22.281666666666666,
+        "end": 24.372333333333334,
+        "text": "The key fills the first eighty blue cells.",
+        "shot": "load"
+      },
+      {
+        "start": 24.561958333333333,
+        "end": 29.063291666666668,
+        "text": "The vector fills positions ninety-four through one hundred and seventy-three in teal.",
+        "shot": "load"
+      },
+      {
+        "start": 29.252916666666668,
+        "end": 30.959583333333335,
+        "text": "Notice which end enters first.",
+        "shot": "load"
+      },
+      {
+        "start": 31.14925,
+        "end": 36.07725,
+        "text": "In the reference byte convention, the high bit of the last printed byte goes into the first cell.",
+        "shot": "load"
+      },
+      {
+        "start": 36.42095833333333,
+        "end": 40.666291666666666,
+        "text": "Fill the thirteen spare blue places and the four spare teal places with zero.",
+        "shot": "padding"
+      },
+      {
+        "start": 40.855958333333334,
+        "end": 43.223958333333336,
+        "text": "Orange starts with one hundred and eight zeros.",
+        "shot": "padding"
+      },
+      {
+        "start": 43.413583333333335,
+        "end": 48.64025,
+        "text": "Its last three positions, two hundred and eighty-six through two hundred and eighty-eight, hold ones.",
+        "shot": "padding"
+      },
+      {
+        "start": 48.983958333333334,
+        "end": 50.775958333333335,
+        "text": "Every position now has a value.",
+        "shot": "seed"
+      },
+      {
+        "start": 50.965625,
+        "end": 54.65629166666667,
+        "text": "Before we let this arrangement evolve, let's meet the rule that changes it.",
+        "shot": "seed"
+      }
+    ],
+    "voice_speed": 1.08,
+    "start": 165
+  },
+  {
+    "title": "One clock under a lens",
+    "seconds": 100,
+    "beats": {
+      "freeze": 0,
+      "pairA": 11.314791666666666,
+      "pairBC": 23.5915,
+      "output": 38.20558333333334,
+      "product": 51.037,
+      "feedback": 65.16970833333333,
+      "route": 77.73579166666667,
+      "commit": 87.56191666666666
+    },
+    "captions": [
+      {
+        "start": 0.23,
+        "end": 5.264666666666667,
+        "text": "For a clock with interesting inputs, jump ahead to the first output clock of our example.",
+        "shot": "freeze"
+      },
+      {
+        "start": 5.508625,
+        "end": 7.812625,
+        "text": "Freeze the state just before the clock ticks.",
+        "shot": "freeze"
+      },
+      {
+        "start": 8.056583333333334,
+        "end": 10.872583333333333,
+        "text": "Every wire we follow reads this same photograph.",
+        "shot": "freeze"
+      },
+      {
+        "start": 11.314791666666666,
+        "end": 12.360125,
+        "text": "Begin in blue.",
+        "shot": "pairA"
+      },
+      {
+        "start": 12.604083333333334,
+        "end": 15.612083333333333,
+        "text": "A tap is simply a wire that reads a particular cell.",
+        "shot": "pairA"
+      },
+      {
+        "start": 15.856041666666666,
+        "end": 17.754708333333333,
+        "text": "Read sixty-six and ninety-three.",
+        "shot": "pairA"
+      },
+      {
+        "start": 17.998666666666665,
+        "end": 19.513333333333332,
+        "text": "They contain one and zero.",
+        "shot": "pairA"
+      },
+      {
+        "start": 19.75733333333333,
+        "end": 23.149333333333335,
+        "text": "Their exclusive or gives the first intermediate signal, one.",
+        "shot": "pairA"
+      },
+      {
+        "start": 23.5915,
+        "end": 28.0075,
+        "text": "In teal, read one hundred and sixty-two and one hundred and seventy-seven.",
+        "shot": "pairBC"
+      },
+      {
+        "start": 28.251458333333332,
+        "end": 30.278125,
+        "text": "Zero and one give us one again.",
+        "shot": "pairBC"
+      },
+      {
+        "start": 30.522125,
+        "end": 36.17545833333333,
+        "text": "In orange, positions two hundred and forty-three and two hundred and eighty-eight both hold zero.",
+        "shot": "pairBC"
+      },
+      {
+        "start": 36.41941666666666,
+        "end": 37.763416666666664,
+        "text": "Their signal is zero.",
+        "shot": "pairBC"
+      },
+      {
+        "start": 38.20558333333334,
+        "end": 40.04025,
+        "text": "Bring those three signals together.",
+        "shot": "output"
+      },
+      {
+        "start": 40.28420833333333,
+        "end": 42.140208333333334,
+        "text": "One exclusive or one is zero.",
+        "shot": "output"
+      },
+      {
+        "start": 42.38420833333333,
+        "end": 45.54154166666667,
+        "text": "Combining that zero with the last zero leaves zero.",
+        "shot": "output"
+      },
+      {
+        "start": 45.7855,
+        "end": 47.4495,
+        "text": "That is our first keystream bit.",
+        "shot": "output"
+      },
+      {
+        "start": 47.69345833333333,
+        "end": 50.594791666666666,
+        "text": "The register entrances still need their own inputs.",
+        "shot": "output"
+      },
+      {
+        "start": 51.037,
+        "end": 54.151666666666664,
+        "text": "Look at the neighboring blue taps, ninety-one and ninety-two.",
+        "shot": "product"
+      },
+      {
+        "start": 54.395625,
+        "end": 55.888958333333335,
+        "text": "This time the gate is AND.",
+        "shot": "product"
+      },
+      {
+        "start": 56.13291666666667,
+        "end": 58.71425,
+        "text": "Both cells contain one, so the gate opens.",
+        "shot": "product"
+      },
+      {
+        "start": 58.95820833333333,
+        "end": 62.264875,
+        "text": "If either input were zero, its contribution would vanish.",
+        "shot": "product"
+      },
+      {
+        "start": 62.508833333333335,
+        "end": 64.7275,
+        "text": "This product makes the feedback nonlinear.",
+        "shot": "product"
+      },
+      {
+        "start": 65.16970833333333,
+        "end": 69.628375,
+        "text": "Combine that product with the blue signal and the bit at one hundred and seventy-one.",
+        "shot": "feedback"
+      },
+      {
+        "start": 69.87233333333333,
+        "end": 71.62166666666667,
+        "text": "The first feedback value is one.",
+        "shot": "feedback"
+      },
+      {
+        "start": 71.865625,
+        "end": 73.35895833333333,
+        "text": "Follow the other two paths.",
+        "shot": "feedback"
+      },
+      {
+        "start": 73.60291666666667,
+        "end": 77.29358333333333,
+        "text": "Each takes its own pair of neighbors and one tap from a different row.",
+        "shot": "feedback"
+      },
+      {
+        "start": 77.73579166666667,
+        "end": 81.29845833333333,
+        "text": "All three feedback values happen to be one in this photograph.",
+        "shot": "route"
+      },
+      {
+        "start": 81.54241666666667,
+        "end": 83.09975,
+        "text": "Their destinations matter.",
+        "shot": "route"
+      },
+      {
+        "start": 83.34370833333334,
+        "end": 87.11970833333334,
+        "text": "The third goes to blue, the first to teal, and the second to orange.",
+        "shot": "route"
+      },
+      {
+        "start": 87.56191666666666,
+        "end": 88.82058333333333,
+        "text": "Now release the clock.",
+        "shot": "commit"
+      },
+      {
+        "start": 89.06454166666667,
+        "end": 92.413875,
+        "text": "Three new bits enter together as the old bits shift one place.",
+        "shot": "commit"
+      },
+      {
+        "start": 92.65783333333333,
+        "end": 97.1165,
+        "text": "Reading even one tap after moving its row could change the calculation.",
+        "shot": "commit"
+      },
+      {
+        "start": 97.36045833333333,
+        "end": 99.55779166666666,
+        "text": "The snapshot keeps that boundary precise.",
+        "shot": "commit"
+      }
+    ],
+    "voice_speed": 1.04,
+    "start": 220
+  },
+  {
+    "title": "Before the first output",
+    "seconds": 50,
+    "beats": {
+      "first": 0,
+      "quarter": 12.995875,
+      "half": 23.56833333333333,
+      "ready": 36.73083333333334
+    },
+    "captions": [
+      {
+        "start": 0.23,
+        "end": 2.3633333333333333,
+        "text": "Rewind to the moment we loaded the key.",
+        "shot": "first"
+      },
+      {
+        "start": 2.777375,
+        "end": 5.102708333333333,
+        "text": "Use exactly the clock rule we just traced.",
+        "shot": "first"
+      },
+      {
+        "start": 5.51675,
+        "end": 8.311416666666666,
+        "text": "Here is the first tick, and then the second and third.",
+        "shot": "first"
+      },
+      {
+        "start": 8.725416666666666,
+        "end": 12.245416666666667,
+        "text": "Red marks a position whose value differs from the previous tick.",
+        "shot": "first"
+      },
+      {
+        "start": 12.995875,
+        "end": 17.390541666666667,
+        "text": "Let the counter run to two hundred and eighty-eight, the number of bits in the whole state.",
+        "shot": "quarter"
+      },
+      {
+        "start": 17.804583333333333,
+        "end": 22.817916666666665,
+        "text": "The rows have different lengths, so this is a counting landmark, not a return to the beginning.",
+        "shot": "quarter"
+      },
+      {
+        "start": 23.56833333333333,
+        "end": 29.563,
+        "text": "At five hundred and seventy-six ticks, the key bits have repeatedly met bits arriving from other rows.",
+        "shot": "half"
+      },
+      {
+        "start": 29.97704166666667,
+        "end": 32.28104166666667,
+        "text": "Every image here comes from stepping the machine.",
+        "shot": "half"
+      },
+      {
+        "start": 32.695083333333336,
+        "end": 35.98041666666666,
+        "text": "As the counter accelerates we sample its states for the screen.",
+        "shot": "half"
+      },
+      {
+        "start": 36.73083333333334,
+        "end": 40.5495,
+        "text": "The standard warm-up ends after eleven hundred and fifty-two clocks.",
+        "shot": "ready"
+      },
+      {
+        "start": 40.963541666666664,
+        "end": 43.928875,
+        "text": "Every candidate output so far has been discarded.",
+        "shot": "ready"
+      },
+      {
+        "start": 44.34291666666667,
+        "end": 49.249583333333334,
+        "text": "The very next clock produces the first bit that may actually be used to encrypt a message.",
+        "shot": "ready"
+      }
+    ],
+    "voice_speed": 1.06,
+    "start": 320
+  },
+  {
+    "title": "Sending and receiving",
+    "seconds": 65,
+    "beats": {
+      "inputs": 0,
+      "bytes": 12.28825,
+      "mask": 25.43325,
+      "cipher": 37.32025,
+      "recover": 47.54320833333333,
+      "reuse": 55.11958333333333
+    },
+    "captions": [
+      {
+        "start": 0.23,
+        "end": 1.3606666666666667,
+        "text": "Return to hello.",
+        "shot": "inputs"
+      },
+      {
+        "start": 1.4679583333333333,
+        "end": 4.945291666666667,
+        "text": "Both endpoints have the same key and initialization vector.",
+        "shot": "inputs"
+      },
+      {
+        "start": 5.052583333333334,
+        "end": 7.91125,
+        "text": "Independently, they arrive at the same warmed state.",
+        "shot": "inputs"
+      },
+      {
+        "start": 8.0185,
+        "end": 9.575833333333334,
+        "text": "One will send five bytes.",
+        "shot": "inputs"
+      },
+      {
+        "start": 9.683125,
+        "end": 12.093791666666666,
+        "text": "The other needs forty matching keystream bits.",
+        "shot": "inputs"
+      },
+      {
+        "start": 12.28825,
+        "end": 16.89625,
+        "text": "In ordinary hexadecimal notation the first plaintext byte is forty-eight.",
+        "shot": "bytes"
+      },
+      {
+        "start": 17.003541666666667,
+        "end": 19.584875,
+        "text": "The two L's have exactly the same byte value.",
+        "shot": "bytes"
+      },
+      {
+        "start": 19.692166666666665,
+        "end": 25.238833333333332,
+        "text": "On this page, each binary byte is written in the familiar way, with its highest place on the left.",
+        "shot": "bytes"
+      },
+      {
+        "start": 25.43325,
+        "end": 27.54525,
+        "text": "The cipher fills the lowest place first.",
+        "shot": "mask"
+      },
+      {
+        "start": 27.652541666666668,
+        "end": 31.577875,
+        "text": "Follow the early clock bits into the right-hand end of the first byte.",
+        "shot": "mask"
+      },
+      {
+        "start": 31.685166666666667,
+        "end": 35.24783333333333,
+        "text": "After eight clocks the completed mask byte reads F four.",
+        "shot": "mask"
+      },
+      {
+        "start": 35.355125,
+        "end": 37.125791666666665,
+        "text": "Four more bytes fill in beside it.",
+        "shot": "mask"
+      },
+      {
+        "start": 37.32025,
+        "end": 39.602916666666665,
+        "text": "Apply exclusive or down each column.",
+        "shot": "cipher"
+      },
+      {
+        "start": 39.710166666666666,
+        "end": 41.48083333333334,
+        "text": "The first byte becomes B C.",
+        "shot": "cipher"
+      },
+      {
+        "start": 41.588125,
+        "end": 43.23079166666667,
+        "text": "Look at the two identical L's.",
+        "shot": "cipher"
+      },
+      {
+        "start": 43.33808333333333,
+        "end": 47.34875,
+        "text": "They land under different keystream bytes and give different ciphertext bytes.",
+        "shot": "cipher"
+      },
+      {
+        "start": 47.54320833333333,
+        "end": 51.319208333333336,
+        "text": "At the receiver, pair each ciphertext byte with its original mask.",
+        "shot": "recover"
+      },
+      {
+        "start": 51.4265,
+        "end": 54.92516666666667,
+        "text": "The same gate brings back the five letters, including both L's.",
+        "shot": "recover"
+      },
+      {
+        "start": 55.11958333333333,
+        "end": 59.364916666666666,
+        "text": "With a fixed key, use a fresh initialization vector for each separate message.",
+        "shot": "reuse"
+      },
+      {
+        "start": 59.472208333333334,
+        "end": 64.80554166666667,
+        "text": "Repeating the pair repeats the entire mask, exposing relationships between the messages.",
+        "shot": "reuse"
+      }
+    ],
+    "voice_speed": 1.04,
+    "start": 370
+  },
+  {
+    "title": "A difference of one bit",
+    "seconds": 65,
+    "beats": {
+      "flip": 0,
+      "evolve": 12.403208333333334,
+      "metric": 24.427083333333332,
+      "curve": 34.76558333333333,
+      "checkpoints": 47.33391666666667
+    },
+    "captions": [
+      {
+        "start": 0.23,
+        "end": 2.1926666666666668,
+        "text": "Make a second copy of the experiment.",
+        "shot": "flip"
+      },
+      {
+        "start": 2.394875,
+        "end": 6.213541666666667,
+        "text": "Keep the key fixed, and flip just the high bit of the last vector byte.",
+        "shot": "flip"
+      },
+      {
+        "start": 6.415791666666666,
+        "end": 10.469125,
+        "text": "In the loaded state that changes exactly one cell, the first one in teal.",
+        "shot": "flip"
+      },
+      {
+        "start": 10.671333333333333,
+        "end": 12.036666666666667,
+        "text": "Everything else agrees.",
+        "shot": "flip"
+      },
+      {
+        "start": 12.403208333333334,
+        "end": 13.960541666666666,
+        "text": "Clock both machines together.",
+        "shot": "evolve"
+      },
+      {
+        "start": 14.16275,
+        "end": 17.597416666666668,
+        "text": "A discrepancy can move along a row before it reaches a tap.",
+        "shot": "evolve"
+      },
+      {
+        "start": 17.799666666666667,
+        "end": 21.853,
+        "text": "When it enters a feedback calculation, it can influence another row as well.",
+        "shot": "evolve"
+      },
+      {
+        "start": 22.055208333333333,
+        "end": 24.060541666666666,
+        "text": "Watch the locations marked in red.",
+        "shot": "evolve"
+      },
+      {
+        "start": 24.427083333333332,
+        "end": 26.432416666666665,
+        "text": "How do we count the effect on the output?",
+        "shot": "metric"
+      },
+      {
+        "start": 26.634625,
+        "end": 28.618625,
+        "text": "Write the two streams one above the other.",
+        "shot": "metric"
+      },
+      {
+        "start": 28.820833333333333,
+        "end": 31.892833333333332,
+        "text": "Add one when their next bits differ and zero when they agree.",
+        "shot": "metric"
+      },
+      {
+        "start": 32.095083333333335,
+        "end": 34.39908333333333,
+        "text": "The running total is called Hamming distance.",
+        "shot": "metric"
+      },
+      {
+        "start": 34.76558333333333,
+        "end": 38.52025,
+        "text": "Here the horizontal distance is the number of output bits compared.",
+        "shot": "curve"
+      },
+      {
+        "start": 38.7225,
+        "end": 40.9625,
+        "text": "Each upward step is one disagreement.",
+        "shot": "curve"
+      },
+      {
+        "start": 41.16470833333333,
+        "end": 46.967375,
+        "text": "After the full warm-up, sixty-six of the first hundred and twenty-eight bits differ for this particular pair.",
+        "shot": "curve"
+      },
+      {
+        "start": 47.33391666666667,
+        "end": 50.06458333333333,
+        "text": "Restart both copies and try shorter warm-ups.",
+        "shot": "checkpoints"
+      },
+      {
+        "start": 50.26679166666667,
+        "end": 53.594791666666666,
+        "text": "At two hundred and eighty-eight clocks, fifty-one outputs differ.",
+        "shot": "checkpoints"
+      },
+      {
+        "start": 53.797041666666665,
+        "end": 56.71970833333334,
+        "text": "At five hundred and seventy-six, sixty-three differ.",
+        "shot": "checkpoints"
+      },
+      {
+        "start": 56.92191666666667,
+        "end": 59.18325,
+        "text": "These shorter runs are teaching experiments.",
+        "shot": "checkpoints"
+      },
+      {
+        "start": 59.38545833333333,
+        "end": 64.63345833333334,
+        "text": "The specified cipher uses all eleven hundred and fifty-two initialization clocks.",
+        "shot": "checkpoints"
+      }
+    ],
+    "voice_speed": 1.06,
+    "start": 435
+  },
+  {
+    "title": "Counting and checking",
+    "seconds": 55,
+    "beats": {
+      "sample": 0,
+      "balance": 10.005708333333333,
+      "runs": 18.905125,
+      "limits": 31.926875,
+      "vector": 44.221625
+    },
+    "captions": [
+      {
+        "start": 0.23,
+        "end": 5.115333333333333,
+        "text": "Take four thousand and ninety-six successive bits from the original, fully initialized machine.",
+        "shot": "sample"
+      },
+      {
+        "start": 5.351666666666667,
+        "end": 7.015666666666666,
+        "text": "What can we measure about this one sample?",
+        "shot": "sample"
+      },
+      {
+        "start": 7.252041666666667,
+        "end": 9.577375,
+        "text": "Start by sorting the bits into zeros and ones.",
+        "shot": "sample"
+      },
+      {
+        "start": 10.005708333333333,
+        "end": 13.867041666666667,
+        "text": "There are two thousand and forty-four zeros and two thousand and fifty-two ones.",
+        "shot": "balance"
+      },
+      {
+        "start": 14.103416666666666,
+        "end": 18.47675,
+        "text": "The frequency test measures that imbalance against what independent fair bits would produce.",
+        "shot": "balance"
+      },
+      {
+        "start": 18.905125,
+        "end": 20.291791666666665,
+        "text": "Now keep the original order.",
+        "shot": "runs"
+      },
+      {
+        "start": 20.528125,
+        "end": 22.981458333333332,
+        "text": "A run is a maximal stretch of identical bits.",
+        "shot": "runs"
+      },
+      {
+        "start": 23.217791666666667,
+        "end": 24.839125,
+        "text": "Every change starts a new run.",
+        "shot": "runs"
+      },
+      {
+        "start": 25.0755,
+        "end": 27.230166666666666,
+        "text": "Our sample has two thousand and fourteen runs.",
+        "shot": "runs"
+      },
+      {
+        "start": 27.4665,
+        "end": 31.4985,
+        "text": "A perfectly alternating sequence could be balanced and still have far too many runs.",
+        "shot": "runs"
+      },
+      {
+        "start": 31.926875,
+        "end": 36.918875,
+        "text": "Each p-value measures how unusual the statistic is under a model of independent fair bits.",
+        "shot": "limits"
+      },
+      {
+        "start": 37.155208333333334,
+        "end": 38.52054166666667,
+        "text": "Both exceed one percent.",
+        "shot": "limits"
+      },
+      {
+        "start": 38.756875,
+        "end": 40.847541666666665,
+        "text": "This describes two properties of one sample.",
+        "shot": "limits"
+      },
+      {
+        "start": 41.08391666666667,
+        "end": 43.79325,
+        "text": "Establishing security is a much larger question.",
+        "shot": "limits"
+      },
+      {
+        "start": 44.221625,
+        "end": 46.226958333333336,
+        "text": "For correctness, use a published answer.",
+        "shot": "vector"
+      },
+      {
+        "start": 46.46329166666667,
+        "end": 51.51929166666667,
+        "text": "Load the key and vector from the eSTREAM record, generate sixty-four bytes, and compare every byte.",
+        "shot": "vector"
+      },
+      {
+        "start": 51.755625,
+        "end": 54.571625,
+        "text": "Expected and calculated match all the way to the end.",
+        "shot": "vector"
+      }
+    ],
+    "voice_speed": 1.255,
+    "start": 500
+  },
+  {
+    "title": "Put the machine together",
+    "seconds": 45,
+    "beats": {
+      "assemble": 0,
+      "loop": 12.140041666666667,
+      "wire": 25.202083333333334,
+      "end": 36.466375
+    },
+    "captions": [
+      {
+        "start": 0.23,
+        "end": 2.4273333333333333,
+        "text": "Now we can follow the entire journey.",
+        "shot": "assemble"
+      },
+      {
+        "start": 2.613583333333333,
+        "end": 8.757583333333333,
+        "text": "The secret key and public initialization vector supply the starting bits for three connected registers.",
+        "shot": "assemble"
+      },
+      {
+        "start": 8.943833333333334,
+        "end": 11.8025,
+        "text": "The three ones at the end complete the starting pattern.",
+        "shot": "assemble"
+      },
+      {
+        "start": 12.140041666666667,
+        "end": 13.142708333333333,
+        "text": "Turn the clock.",
+        "shot": "loop"
+      },
+      {
+        "start": 13.328958333333333,
+        "end": 19.792958333333335,
+        "text": "Exclusive or combines taps, AND introduces a product, and three feedback bits cross into their next rows.",
+        "shot": "loop"
+      },
+      {
+        "start": 19.979208333333332,
+        "end": 24.864541666666668,
+        "text": "Repeat the same rule eleven hundred and fifty-two times before keeping any output.",
+        "shot": "loop"
+      },
+      {
+        "start": 25.202083333333334,
+        "end": 27.506083333333333,
+        "text": "One more tick gives one keystream bit.",
+        "shot": "wire"
+      },
+      {
+        "start": 27.692333333333334,
+        "end": 29.953666666666667,
+        "text": "A fresh message bit meets it at the switch.",
+        "shot": "wire"
+      },
+      {
+        "start": 30.139916666666668,
+        "end": 33.382583333333336,
+        "text": "The receiver recreates that switch and recovers the letter.",
+        "shot": "wire"
+      },
+      {
+        "start": 33.56883333333333,
+        "end": 36.12883333333333,
+        "text": "We have followed the wire all the way back to hello.",
+        "shot": "wire"
+      },
+      {
+        "start": 36.466375,
+        "end": 40.050375,
+        "text": "Three registers, one clock, and a small set of operations.",
+        "shot": "end"
+      },
+      {
+        "start": 40.236625,
+        "end": 41.68729166666667,
+        "text": "That's the beauty of Trivium.",
+        "shot": "end"
+      },
+      {
+        "start": 41.87354166666667,
+        "end": 43.238875,
+        "text": "Simple operations.",
+        "shot": "end"
+      },
+      {
+        "start": 43.42508333333333,
+        "end": 44.662416666666665,
+        "text": "Complex behavior.",
+        "shot": "end"
+      }
+    ],
+    "voice_speed": 1.0,
+    "start": 555
+  }
+]
